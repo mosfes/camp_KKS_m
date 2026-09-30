@@ -27,6 +27,10 @@ import {
 import CampBreadcrumb from "./CampBreadcrumb";
 
 import CampLocationTracker from "@/components/camp-location/CampLocationTracker";
+import {
+  getCleanTrackingStudentPath,
+  rememberActiveTrackingStudentId,
+} from "@/lib/client-active-camp";
 
 interface StudentProgress {
   studentId: number;
@@ -441,8 +445,8 @@ export default function TrackingModal({
                           },
                           {
                             key: "mission_complete_certificate_pending" as const,
-                            label: "ภารกิจครบแล้ว",
-                            helper: "แต่ยังไม่ได้เกียรติบัตร",
+                            label: "ภารกิจครบแล้วแต่ยังไม่ได้เกียรติบัตร",
+                            helper: "ยังไม่มีประวัติออกเกียรติบัตร",
                             value:
                               progressCounts.missionCompleteCertificatePending,
                             activeClass: "border-blue-500 bg-blue-50",
@@ -489,9 +493,11 @@ export default function TrackingModal({
                               <span className="block text-xs font-semibold leading-tight text-gray-800">
                                 {item.label}
                               </span>
-                              <span className="mt-0.5 block text-[10px] leading-tight text-gray-500">
-                                {item.helper}
-                              </span>
+                              {item.helper && (
+                                <span className="mt-0.5 block text-[10px] leading-tight text-gray-500">
+                                  {item.helper}
+                                </span>
+                              )}
                             </span>
                             <span className="text-lg font-bold text-gray-900">
                               {item.value}
@@ -502,10 +508,6 @@ export default function TrackingModal({
                           </button>
                         ))}
                       </div>
-
-                      <p className="mt-1.5 text-center text-[10px] text-gray-400">
-                        “ภารกิจครบแล้ว” หมายถึงทำครบทุกภารกิจที่เปิดใช้งานในค่าย
-                      </p>
                     </div>
                   )}
                 </section>
@@ -572,7 +574,11 @@ export default function TrackingModal({
                     key={student.studentId}
                     aria-label={`ดูรายละเอียดภารกิจของ ${student.name}`}
                     className="grid cursor-pointer gap-3 px-4 py-2.5 transition hover:bg-[#f7faf8] focus-visible:bg-[#f7faf8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5d7c6f]/40 sm:grid-cols-[minmax(0,1.2fr)_minmax(240px,1fr)_auto] sm:items-center"
-                    href={`/headteacher/dashboard/camp/${campId}/tracking/${student.studentId}`}
+                    href={getCleanTrackingStudentPath()}
+                    prefetch={false}
+                    onClick={() =>
+                      rememberActiveTrackingStudentId(student.studentId)
+                    }
                   >
                     <div className="flex min-w-0 items-center gap-2.5">
                       <span className="w-5 shrink-0 text-center text-xs font-semibold text-gray-400">

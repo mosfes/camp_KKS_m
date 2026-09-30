@@ -1,15 +1,26 @@
 "use client";
 
+import { Select, SelectItem } from "@heroui/react";
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Download, LayoutTemplate, Plus, Save, Trash2 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { LayoutTemplate, Plus, RefreshCw, Trash2 } from "lucide-react";
 
 import CampBreadcrumb from "../../CampBreadcrumb";
 
+import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
+import DocumentTemplatePanel from "@/components/documents/DocumentTemplatePanel";
 import { useStatusModal } from "@/components/StatusModalProvider";
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#6b857a] focus:ring-2 focus:ring-[#6b857a]/15";
+  "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#6b857a] focus:ring-2 focus:ring-[#6b857a]/15 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500";
+const selectClassNames = {
+  trigger:
+    "h-11 min-h-11 rounded-xl border border-gray-200 bg-white px-3 shadow-none transition-colors data-[focus=true]:border-[#6b857a] data-[focus=true]:ring-2 data-[focus=true]:ring-[#6b857a]/15 data-[hover=true]:border-[#9eb5ab] data-[hover=true]:bg-white",
+  value: "text-sm text-gray-800 group-data-[has-value=false]:text-gray-400",
+  selectorIcon: "text-[#6b857a]",
+  popoverContent: "rounded-xl border border-gray-200 bg-white shadow-lg",
+  listboxWrapper: "max-h-64",
+};
 const labelClass = "mb-1.5 block text-sm font-medium text-gray-700";
 const BUDGET_SOURCE_INCOME = "เงินรายได้สถานศึกษา";
 const BUDGET_SOURCE_SUBSIDY = "เงินอุดหนุน";
@@ -226,45 +237,45 @@ function ResponsibleSelect({
   ]);
   const currentVal = value || "";
   const isUnknown = currentVal && !allKnownNames.has(currentVal);
+  const options = new Map<string, string>();
+
+  if (defaultCreator) {
+    options.set(defaultCreator, `★ ${defaultCreator} (ผู้สร้างค่าย)`);
+  }
+  if (isUnknown) options.set(currentVal, currentVal);
+  teacherOptions.forEach((name) => {
+    if (!options.has(name)) options.set(name, `${name} (ครู)`);
+  });
+  peopleOptions.forEach((person) => {
+    if (!options.has(person.name)) {
+      options.set(
+        person.name,
+        `${person.name}${person.position ? ` (${person.position})` : ""}`,
+      );
+    }
+  });
 
   return (
-    <select
-      className={inputClass}
-      value={currentVal}
+    <Select
+      aria-label="ผู้รับผิดชอบโครงการ"
+      className="w-full"
+      classNames={selectClassNames}
+      placeholder="เลือกผู้รับผิดชอบ"
+      selectedKeys={currentVal ? [currentVal] : []}
+      variant="bordered"
       onChange={(event) => onChange(event.target.value)}
     >
-      <option value="">เลือกผู้รับผิดชอบ</option>
-      {defaultCreator && (
-        <option className="font-semibold text-[#5d7c6f]" value={defaultCreator}>
-          ★ {defaultCreator} (ผู้สร้างค่าย)
-        </option>
-      )}
-      {isUnknown && <option value={currentVal}>{currentVal}</option>}
-      {teacherOptions.length > 0 && (
-        <optgroup label="—— ครู ——">
-          {teacherOptions.map((name, index) => (
-            <option key={`teacher-${index}`} value={name}>
-              {name} (ครู)
-            </option>
-          ))}
-        </optgroup>
-      )}
-      {peopleOptions.length > 0 && (
-        <optgroup label="—— บุคลากรในเอกสาร ——">
-          {peopleOptions.map((person, index) => (
-            <option key={`person-${index}`} value={person.name}>
-              {person.name} {person.position ? `(${person.position})` : ""}
-            </option>
-          ))}
-        </optgroup>
-      )}
-    </select>
+      {Array.from(options.entries()).map(([optionValue, label]) => (
+        <SelectItem key={optionValue} textValue={label}>
+          {label}
+        </SelectItem>
+      ))}
+    </Select>
   );
 }
 
 export default function ProjectDocumentPage() {
   const params = useParams();
-  const router = useRouter();
   const campId = String(params.id);
   const { showError, showSuccess, showConfirm, setIsLoading } =
     useStatusModal();
@@ -275,6 +286,7 @@ export default function ProjectDocumentPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(true);
+  const readOnly = document?.status === "FINALIZED";
 
   const loadTemplates = async () => {
     const response = await fetch("/api/project-document-templates");
@@ -307,45 +319,77 @@ export default function ProjectDocumentPage() {
         response.ok ? response.json() : [],
       ),
     ])
-      .then(
-        ([
-          documentData,
-          personnelData,
-          templateData,
-          teachersData,
-        ]) => {
-          setDocument(documentData);
-          setPeople(Array.isArray(personnelData) ? personnelData : []);
-          setTemplates(Array.isArray(templateData) ? templateData : []);
-          setTeachers(
-            Array.isArray(teachersData)
-              ? teachersData
-              : Array.isArray(teachersData?.data)
-                ? teachersData.data
-                : [],
-          );
-        },
-      )
+      .then(([documentData, personnelData, templateData, teachersData]) => {
+        setDocument(documentData);
+        setPeople(Array.isArray(personnelData) ? personnelData : []);
+        setTemplates(Array.isArray(templateData) ? templateData : []);
+        setTeachers(
+          Array.isArray(teachersData)
+            ? teachersData
+            : Array.isArray(teachersData?.data)
+              ? teachersData.data
+              : [],
+        );
+      })
       .catch((error) => showError("ข้อผิดพลาด", error.message))
       .finally(() => setLoading(false));
   }, [campId]);
 
-  const update = (key: string, value: any) =>
+  const update = (key: string, value: any) => {
+    if (readOnly && !(key === "status" && value === "DRAFT")) return;
     setDocument((current: any) => ({ ...current, [key]: value }));
+  };
 
-  const save = async () => {
+  const refreshFromCamp = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/camps/${campId}/project-document`);
+      const data = await response.json();
+
+      if (!response.ok || !data.camp_source) {
+        throw new Error(data.error || "ไม่สามารถดึงข้อมูลล่าสุดจากค่ายได้");
+      }
+
+      const source = data.camp_source;
+
+      setDocument((current: any) => ({
+        ...current,
+        fiscal_year: source.fiscal_year,
+        project_name: source.project_name,
+        activity_name: source.activity_name,
+        responsible_people: source.responsible_people,
+        rationale: source.rationale,
+        duration_text: source.duration_text,
+        location_text: source.location_text,
+        camp_source: source,
+      }));
+      showSuccess(
+        "ดึงข้อมูลค่ายแล้ว",
+        "อัปเดตชื่อโครงการ ผู้รับผิดชอบ รายละเอียด ระยะเวลา และสถานที่แล้ว",
+      );
+    } catch (error: any) {
+      showError("ดึงข้อมูลไม่สำเร็จ", error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const save = async (nextStatus = document?.status || "DRAFT") => {
     setIsLoading(true);
     try {
       const response = await fetch(`/api/camps/${campId}/project-document`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(document),
+        body: JSON.stringify({ ...document, status: nextStatus }),
       });
       const data = await response.json();
 
       if (!response.ok) throw new Error(data.error || "บันทึกเอกสารไม่สำเร็จ");
       setDocument(data);
-      showSuccess("บันทึกแล้ว", "บันทึกข้อมูลเอกสารโครงการเรียบร้อยแล้ว");
+      showSuccess(
+        nextStatus === "FINALIZED" ? "ยืนยันเอกสารแล้ว" : "บันทึกแล้ว",
+        "บันทึกข้อมูลเอกสารโครงการเรียบร้อยแล้ว",
+      );
 
       return true;
     } catch (error: any) {
@@ -357,9 +401,9 @@ export default function ProjectDocumentPage() {
     }
   };
 
-  const download = async () => {
-    if (!(await save())) return;
-    window.location.href = `/api/camps/${campId}/project-document/pdf`;
+  const download = async (format: "pdf" | "docx") => {
+    if (!readOnly && !(await save(document.status || "DRAFT"))) return;
+    window.location.href = `/api/camps/${campId}/project-document/${format}`;
   };
 
   const applyTemplate = () => {
@@ -387,6 +431,7 @@ export default function ProjectDocumentPage() {
       responsible_people: current.responsible_people,
       duration_text: current.duration_text,
       location_text: current.location_text,
+      camp_source: current.camp_source,
     }));
     showSuccess(
       "ใช้เทมเพลตแล้ว",
@@ -416,6 +461,7 @@ export default function ProjectDocumentPage() {
       if (!response.ok) throw new Error(data.error || "บันทึกเทมเพลตไม่สำเร็จ");
       await loadTemplates();
       setSelectedTemplateId(String(data.project_document_template_id));
+      setTemplateName("");
       showSuccess(
         "บันทึกเทมเพลตแล้ว",
         "ครั้งต่อไปสามารถเลือกเทมเพลตนี้ได้ทันที",
@@ -452,7 +498,6 @@ export default function ProjectDocumentPage() {
 
           if (!response.ok) throw new Error();
           setSelectedTemplateId("");
-          setTemplateName("");
           await loadTemplates();
           showSuccess("ลบแล้ว", "ลบเทมเพลตเรียบร้อยแล้ว");
         } catch {
@@ -475,116 +520,60 @@ export default function ProjectDocumentPage() {
         <div className="space-y-6">
           <CampBreadcrumb campId={campId} currentPage="เอกสารข้อเสนอโครงการ" />
 
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex items-center gap-2">
-              <LayoutTemplate className="shrink-0 text-[#6b857a]" size={20} />
-              <div>
-                <h1 className="text-lg font-bold leading-tight text-gray-900">
-                  เอกสารโครงการตามแผนปฏิบัติการ
-                </h1>
-                <p className="mt-1 text-sm text-gray-500">
-                  กรอกข้อมูลและเลือกบุคลากรให้แต่ละช่องลงนามได้อย่างอิสระ
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 lg:justify-end">
-              <button
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                type="button"
-                onClick={save}
-              >
-                <Save size={17} /> บันทึกแบบร่าง
-              </button>
-              <button
-                className="inline-flex items-center gap-2 rounded-xl bg-[#5d7c6f] px-4 py-2 text-sm font-medium text-white hover:bg-[#4b685c]"
-                type="button"
-                onClick={download}
-              >
-                <Download size={17} /> บันทึกและดาวน์โหลด PDF
-              </button>
-            </div>
-          </div>
+          <DocumentEditorHeader
+            description="กรอกข้อมูลโครงการและกำหนดผู้ลงนามในเอกสารให้ครบถ้วน"
+            icon={<LayoutTemplate size={21} />}
+            isFinalized={readOnly}
+            title="เอกสารข้อเสนอโครงการ"
+            onDownload={download}
+            onFinalize={() => save("FINALIZED")}
+            onSaveDraft={() => save("DRAFT")}
+            onUnlock={() => update("status", "DRAFT")}
+          />
         </div>
 
-        <section className="rounded-2xl border border-[#cad8d2] bg-[#f2f7f5] p-5 shadow-sm">
-          <div className="mb-4 flex items-start gap-3">
-            <div className="rounded-xl bg-white p-2 text-[#5d7c6f] shadow-sm">
-              <LayoutTemplate size={22} />
-            </div>
-            <div>
-              <h2 className="font-semibold text-gray-900">
-                เทมเพลตเอกสารส่วนตัว
-              </h2>
-              <p className="mt-1 text-sm text-gray-600">
-                ใช้เนื้อหาเดิมกับค่ายใหม่ โดยระบบจะไม่เปลี่ยนชื่อค่าย
-                รหัสกิจกรรม วันที่ สถานที่ และผู้รับผิดชอบ
-              </p>
-            </div>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-[2fr_auto_2fr_auto]">
-            <select
-              className={inputClass}
-              value={selectedTemplateId}
-              onChange={(event) => {
-                setSelectedTemplateId(event.target.value);
-                const selected = templates.find(
-                  (item) =>
-                    item.project_document_template_id ===
-                    Number(event.target.value),
-                );
-
-                if (selected) setTemplateName(selected.name);
-              }}
-            >
-              <option value="">เลือกเทมเพลตที่บันทึกไว้</option>
-              {templates.map((template) => (
-                <option
-                  key={template.project_document_template_id}
-                  value={template.project_document_template_id}
-                >
-                  {template.name}
-                </option>
-              ))}
-            </select>
-            <div className="flex gap-2">
-              <button
-                className="rounded-xl bg-[#5d7c6f] px-4 py-2 text-sm font-medium text-white hover:bg-[#4b685c]"
-                type="button"
-                onClick={applyTemplate}
-              >
-                ใช้เทมเพลต
-              </button>
-              <button
-                aria-label="ลบเทมเพลต"
-                className="rounded-xl border border-red-200 px-3 text-red-500 hover:bg-red-50"
-                type="button"
-                onClick={deleteTemplate}
-              >
-                <Trash2 size={17} />
-              </button>
-            </div>
-            <input
-              className={inputClass}
-              placeholder="ตั้งชื่อเพื่อบันทึก เช่น โครงการวิทยาศาสตร์"
-              value={templateName}
-              onChange={(event) => setTemplateName(event.target.value)}
-            />
-            <button
-              className="rounded-xl border border-[#5d7c6f] bg-white px-4 py-2 text-sm font-medium text-[#5d7c6f] hover:bg-[#edf4f1]"
-              type="button"
-              onClick={saveTemplate}
-            >
-              บันทึกข้อมูลปัจจุบันเป็นเทมเพลต
-            </button>
-          </div>
-          {templates.length === 0 && (
-            <p className="mt-3 text-xs text-gray-500">
-              ยังไม่มีเทมเพลต
-              กรอกเอกสารชุดแรกแล้วตั้งชื่อเพื่อบันทึกไว้ใช้ครั้งต่อไป
+        {/* prettier-ignore */}
+        <fieldset
+          className={
+            readOnly
+              ? "min-w-0 space-y-5 [&_button]:cursor-not-allowed [&_button]:opacity-40"
+              : "min-w-0 space-y-5"
+          }
+          disabled={readOnly}
+        >
+        <section className="flex flex-col gap-4 rounded-2xl border border-[#cad8d2] bg-[#f2f7f5] p-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="font-semibold text-gray-900">เติมข้อมูลจากค่าย</p>
+            <p className="mt-1 text-sm text-gray-600">
+              ดึงชื่อโครงการ ผู้สร้างค่าย คำอธิบาย วันจัดค่าย
+              และสถานที่มาใส่ในเอกสารข้อเสนอ
             </p>
-          )}
+          </div>
+          <button
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#5d7c6f] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#4b685c]"
+            type="button"
+            onClick={refreshFromCamp}
+          >
+            <RefreshCw size={16} /> ดึงข้อมูลล่าสุดจากค่าย
+          </button>
         </section>
+
+        <DocumentTemplatePanel
+          description="นำเนื้อหาเดิมมาใช้กับค่ายใหม่ โดยระบบจะคงชื่อค่าย รหัสกิจกรรม วันที่ สถานที่ และผู้รับผิดชอบของค่ายปัจจุบันไว้"
+          disabled={readOnly}
+          newTemplateName={templateName}
+          selectedTemplateId={selectedTemplateId}
+          templates={templates.map((template) => ({
+            id: String(template.project_document_template_id),
+            name: template.name,
+          }))}
+          title="เท็มเพลตเอกสารเสนอโครงการ"
+          onApply={applyTemplate}
+          onDelete={deleteTemplate}
+          onNewTemplateNameChange={setTemplateName}
+          onSave={saveTemplate}
+          onSelectedTemplateChange={setSelectedTemplateId}
+        />
 
         <Section title="ข้อมูลส่วนหัว">
           <div className="grid gap-4 md:grid-cols-2">
@@ -632,14 +621,17 @@ export default function ProjectDocumentPage() {
               />
             </Field>
             <Field label="ลักษณะโครงการ">
-              <select
-                className={inputClass}
-                value={document.project_type}
+              <Select
+                aria-label="ลักษณะโครงการ"
+                className="w-full"
+                classNames={selectClassNames}
+                selectedKeys={[document.project_type]}
+                variant="bordered"
                 onChange={(event) => update("project_type", event.target.value)}
               >
-                <option value="NEW">โครงการใหม่</option>
-                <option value="CONTINUING">โครงการต่อเนื่อง</option>
-              </select>
+                <SelectItem key="NEW">โครงการใหม่</SelectItem>
+                <SelectItem key="CONTINUING">โครงการต่อเนื่อง</SelectItem>
+              </Select>
             </Field>
             <Field label="ผู้รับผิดชอบโครงการ">
               <ResponsibleSelect
@@ -860,26 +852,32 @@ export default function ProjectDocumentPage() {
           </div>
         </Section>
 
-        <Section number="5-7" title="ระยะเวลา สถานที่ และงบประมาณ">
+        <Section number="5" title="ระยะเวลาในการดำเนินการ">
+          <Field label="ระยะเวลาดำเนินการ">
+            <input
+              className={inputClass}
+              value={document.duration_text || ""}
+              onChange={(event) =>
+                update("duration_text", event.target.value)
+              }
+            />
+          </Field>
+        </Section>
+
+        <Section number="6" title="สถานที่ดำเนินงาน">
+          <Field label="สถานที่ดำเนินงาน">
+            <input
+              className={inputClass}
+              value={document.location_text || ""}
+              onChange={(event) =>
+                update("location_text", event.target.value)
+              }
+            />
+          </Field>
+        </Section>
+
+        <Section number="7" title="งบประมาณ">
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="ระยะเวลาดำเนินการ">
-              <input
-                className={inputClass}
-                value={document.duration_text || ""}
-                onChange={(event) =>
-                  update("duration_text", event.target.value)
-                }
-              />
-            </Field>
-            <Field label="สถานที่ดำเนินงาน">
-              <input
-                className={inputClass}
-                value={document.location_text || ""}
-                onChange={(event) =>
-                  update("location_text", event.target.value)
-                }
-              />
-            </Field>
             <Field label="งบประมาณรวม">
               <input
                 className={inputClass}
@@ -892,28 +890,32 @@ export default function ProjectDocumentPage() {
               />
             </Field>
             <div>
-              <label className={labelClass} htmlFor="budget-source">
-                แหล่งงบประมาณ
-              </label>
-              <select
-                className={inputClass}
-                id="budget-source"
-                value={getBudgetSourceOption(document.budget_source)}
+              <span className={labelClass}>แหล่งงบประมาณ</span>
+              <Select
+                aria-label="แหล่งงบประมาณ"
+                className="w-full"
+                classNames={selectClassNames}
+                placeholder="เลือกแหล่งงบประมาณ"
+                selectedKeys={
+                  getBudgetSourceOption(document.budget_source)
+                    ? [getBudgetSourceOption(document.budget_source)]
+                    : []
+                }
+                variant="bordered"
                 onChange={(event) =>
                   update("budget_source", event.target.value)
                 }
               >
-                <option value="">เลือกแหล่งงบประมาณ</option>
-                <option value={BUDGET_SOURCE_INCOME}>
+                <SelectItem key={BUDGET_SOURCE_INCOME}>
                   {BUDGET_SOURCE_INCOME}
-                </option>
-                <option value={BUDGET_SOURCE_SUBSIDY}>
+                </SelectItem>
+                <SelectItem key={BUDGET_SOURCE_SUBSIDY}>
                   {BUDGET_SOURCE_SUBSIDY}
-                </option>
-                <option value={BUDGET_SOURCE_OTHER}>
+                </SelectItem>
+                <SelectItem key={BUDGET_SOURCE_OTHER}>
                   {BUDGET_SOURCE_OTHER}
-                </option>
-              </select>
+                </SelectItem>
+              </Select>
               {getBudgetSourceOption(document.budget_source) ===
                 BUDGET_SOURCE_OTHER && (
                 <input
@@ -1257,9 +1259,15 @@ export default function ProjectDocumentPage() {
                       />
                     </Field>
                     <Field label="เลือกบุคลากร">
-                      <select
-                        className={inputClass}
-                        value={row.personnelId || ""}
+                      <Select
+                        aria-label={`เลือกบุคลากรช่องลงนามลำดับที่ ${index + 1}`}
+                        className="w-full"
+                        classNames={selectClassNames}
+                        placeholder="เลือกบุคลากร"
+                        selectedKeys={
+                          row.personnelId ? [String(row.personnelId)] : []
+                        }
+                        variant="bordered"
                         onChange={(event) =>
                           update(
                             "signatories",
@@ -1275,24 +1283,26 @@ export default function ProjectDocumentPage() {
                           )
                         }
                       >
-                        <option value="">เลือกบุคลากร</option>
                         {!currentExists && row.personnelId && (
-                          <option value={row.personnelId}>
+                          <SelectItem
+                            key={String(row.personnelId)}
+                            textValue={`${row.prefixName || ""}${row.firstname} ${row.lastname} - ${row.position}`}
+                          >
                             {row.prefixName || ""}
                             {row.firstname} {row.lastname} - {row.position}
-                          </option>
+                          </SelectItem>
                         )}
                         {people.map((person) => (
-                          <option
-                            key={person.document_personnel_id}
-                            value={person.document_personnel_id}
+                          <SelectItem
+                            key={String(person.document_personnel_id)}
+                            textValue={`${person.prefix_name || ""}${person.firstname} ${person.lastname} - ${person.position}`}
                           >
                             {person.prefix_name || ""}
                             {person.firstname} {person.lastname} -{" "}
                             {person.position}
-                          </option>
+                          </SelectItem>
                         ))}
-                      </select>
+                      </Select>
                     </Field>
                   </div>
                 </div>
@@ -1318,6 +1328,7 @@ export default function ProjectDocumentPage() {
             </p>
           )}
         </Section>
+        </fieldset>
       </main>
     </div>
   );

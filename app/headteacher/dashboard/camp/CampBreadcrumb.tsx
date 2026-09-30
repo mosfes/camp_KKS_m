@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { getCleanCampPath } from "@/lib/client-active-camp";
+
 export interface BreadcrumbItem {
   label: string;
   href?: string;
@@ -109,7 +111,7 @@ export default function CampBreadcrumb({
             className="font-normal text-gray-600 transition-colors hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b857a] rounded-sm truncate max-w-[120px] sm:max-w-[200px] md:max-w-[320px] lg:max-w-md text-left"
             title={campName ? `ค่าย: ${campName}` : "รายละเอียดค่าย"}
             type="button"
-            onClick={() => router.push(`/headteacher/dashboard/camp/${campId}`)}
+            onClick={() => router.push(getCleanCampPath())}
           >
             {campName ? `ค่าย: ${campName}` : "รายละเอียดค่าย"}
           </button>

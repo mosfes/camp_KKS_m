@@ -2,7 +2,7 @@
 
 import type { CertificateRenderManifest } from "@/lib/certificate-renderer";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Award, Download, Save, X } from "lucide-react";
 import { Button } from "@heroui/button";
 import { Select, SelectItem } from "@heroui/react";
@@ -116,6 +116,7 @@ export default function EditCertificateModal({
   const [certRequireSurvey, setCertRequireSurvey] = useState<boolean>(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
@@ -374,6 +375,7 @@ export default function EditCertificateModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitInFlightRef.current) return;
     setHasAttemptedSubmit(true);
     if (!campData) return;
 
@@ -402,6 +404,7 @@ export default function EditCertificateModal({
       }
     }
 
+    submitInFlightRef.current = true;
     try {
       setIsSubmitting(true);
       let finalCertUrl =
@@ -498,6 +501,7 @@ export default function EditCertificateModal({
       console.error("Error updating certificate:", error);
       showError("ข้อผิดพลาด", "ไม่สามารถบันทึกการตั้งค่าเกียรติบัตรได้");
     } finally {
+      submitInFlightRef.current = false;
       setIsSubmitting(false);
       setUploadProgress(null);
     }
@@ -703,6 +707,7 @@ export default function EditCertificateModal({
                 className="w-full font-medium bg-[#1a3a32] text-white shadow-md shadow-[#1a3a32]/20 sm:w-auto"
                 form="certForm"
                 isLoading={isSubmitting}
+                isDisabled={isSubmitting}
                 startContent={<Save size={18} />}
                 type="submit"
               >

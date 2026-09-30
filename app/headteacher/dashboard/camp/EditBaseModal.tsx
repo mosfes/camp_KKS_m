@@ -8,7 +8,7 @@ import {
   ModalFooter,
   Button,
 } from "@heroui/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Save } from "lucide-react";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
@@ -34,6 +34,7 @@ export default function EditBaseModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const submitInFlightRef = useRef(false);
 
   useEffect(() => {
     if (baseData) {
@@ -43,12 +44,14 @@ export default function EditBaseModal({
   }, [baseData]);
 
   const handleSubmit = async () => {
+    if (submitInFlightRef.current) return;
     if (!name.trim()) {
       showError("ข้อผิดพลาด", "กรุณากรอกชื่อฐานกิจกรรม");
 
       return;
     }
 
+    submitInFlightRef.current = true;
     try {
       setLoading(true);
       const response = await fetch(`/api/stations/${baseData?.station_id}`, {
@@ -69,6 +72,7 @@ export default function EditBaseModal({
       console.error("Error updating base:", error);
       showError("ข้อผิดพลาด", "แก้ไขฐานกิจกรรมไม่สำเร็จ");
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -139,6 +143,7 @@ export default function EditBaseModal({
               <Button
                 fullWidth
                 className="font-medium text-gray-600"
+                isDisabled={loading}
                 size="lg"
                 variant="light"
                 onPress={onClose}
@@ -149,6 +154,7 @@ export default function EditBaseModal({
                 fullWidth
                 className="bg-[#6b857a] text-white rounded-xl font-bold shadow-lg hover:bg-[#5a7268]"
                 isLoading={loading}
+                isDisabled={loading}
                 size="lg"
                 startContent={!loading && <Save size={18} />}
                 onPress={handleSubmit}

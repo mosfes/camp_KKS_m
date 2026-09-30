@@ -81,6 +81,7 @@ export async function GET(request, { params }) {
         enrolled_at: { not: null },
       },
       include: {
+        classroom: { include: { classroom_types: true } },
         student: {
           include: {
             classroom_students: {
@@ -121,17 +122,20 @@ export async function GET(request, { params }) {
 
       // Find which of the student's classrooms is the one participating in this camp
       let classroomStr = "-";
-      const matchedCs =
-        enr.student.classroom_students.find((cs) =>
-          campClassroomIds.includes(cs.classroom_classroom_id),
-        ) || enr.student.classroom_students[0];
+      const matchedCs = enr.student.classroom_students.find((cs) =>
+        campClassroomIds.includes(cs.classroom_classroom_id),
+      );
 
-      if (matchedCs && matchedCs.classroom) {
-        const gradeStr = String(matchedCs.classroom.grade).replace(
-          "Level_",
-          "",
-        );
-        const typeStr = matchedCs.classroom.classroom_types?.name || "";
+      const historicalClassroom = enr.classroom || matchedCs?.classroom;
+
+      if (historicalClassroom || enr.grade_snapshot) {
+        const gradeStr = String(
+          enr.grade_snapshot || historicalClassroom.grade,
+        ).replace("Level_", "");
+        const typeStr =
+          enr.classroom_name_snapshot ||
+          historicalClassroom?.classroom_types?.name ||
+          "";
 
         classroomStr = `ม.${gradeStr} ห้อง ${typeStr}`.trim();
       }
@@ -139,7 +143,9 @@ export async function GET(request, { params }) {
       students.push({
         enrollmentId: enr.student_enrollment_id,
         studentId: enr.student.students_id,
-        name: `${enr.student.prefix_name || ""}${enr.student.firstname} ${enr.student.lastname}`,
+        name:
+          enr.student_name_snapshot ||
+          `${enr.student.prefix_name || ""}${enr.student.firstname} ${enr.student.lastname}`,
         nickname: enr.student.nickname,
         profileImageUrl: enr.student.profile_image_url,
         initials: `${enr.student.firstname.charAt(0)}${enr.student.lastname.charAt(0)}`,

@@ -32,6 +32,10 @@ import EditBaseModal from "../../EditBaseModal";
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
+import {
+  getCleanBasePath,
+  rememberActiveBaseId,
+} from "@/lib/client-active-camp";
 
 interface MissionSummary {
   mission_id: number;
@@ -345,9 +349,8 @@ export default function BasesPage() {
   };
 
   const openStationMissions = (stationId: number) => {
-    router.push(
-      `/headteacher/dashboard/camp/${campId}/base/${stationId}`,
-    );
+    rememberActiveBaseId(stationId);
+    router.push(getCleanBasePath());
   };
 
   const handleStationCardKeyDown = (
@@ -829,9 +832,7 @@ export default function BasesPage() {
                                 radius="lg"
                                 size="sm"
                                 onPress={() =>
-                                  router.push(
-                                    `/headteacher/dashboard/camp/${campId}/base/${station.station_id}`,
-                                  )
+                                  openStationMissions(station.station_id)
                                 }
                               >
                                 จัดการ

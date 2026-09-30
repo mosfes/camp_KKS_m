@@ -2,7 +2,7 @@
 
 import type { DateValue } from "@internationalized/date";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ChevronRight,
   ChevronLeft,
@@ -56,7 +56,7 @@ interface FormData {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: any) => Promise<void>;
   projectType: string | null;
   templateData?: any;
   isLoading?: boolean;
@@ -99,6 +99,7 @@ export default function CreateCampModal({
   isLoading,
 }: Props) {
   const { showWarning } = useStatusModal();
+  const submitInFlightRef = useRef(false);
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [filteredClassrooms, setFilteredClassrooms] = useState<any[]>([]);
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
@@ -645,10 +646,10 @@ export default function CreateCampModal({
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isLoading) return;
+    if (isLoading || submitInFlightRef.current) return;
 
     if (!validateStep1()) {
       setCurrentStep(1);
@@ -706,7 +707,12 @@ export default function CreateCampModal({
       hasTransport: formData.hasTransport || locationTrackingEnabled,
     };
 
-    onSubmit(payload);
+    submitInFlightRef.current = true;
+    try {
+      await onSubmit(payload);
+    } finally {
+      submitInFlightRef.current = false;
+    }
   };
 
   const steps = [
@@ -1540,4 +1546,3 @@ export default function CreateCampModal({
     </div>
   );
 }
-

@@ -2,7 +2,7 @@
 
 import type { DateValue } from "@internationalized/date";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ChevronRight,
   ChevronLeft,
@@ -57,7 +57,7 @@ interface FormData {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: any) => Promise<void>;
   campData: any;
   isLoading?: boolean;
   initialStep?: number;
@@ -96,6 +96,7 @@ export default function EditCampModal({
   targetSection = "all",
 }: Props) {
   const { showWarning } = useStatusModal();
+  const submitInFlightRef = useRef(false);
   const isSingleSection =
     targetSection === "info" ||
     targetSection === "schedule" ||
@@ -636,10 +637,10 @@ export default function EditCampModal({
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isLoading) return;
+    if (isLoading || submitInFlightRef.current) return;
 
     if (targetSection === "info" || !targetSection || targetSection === "all") {
       if (!validateStep1()) {
@@ -701,7 +702,12 @@ export default function EditCampModal({
       has_transport: formData.hasTransport || locationTrackingEnabled,
     };
 
-    onSubmit(payload);
+    submitInFlightRef.current = true;
+    try {
+      await onSubmit(payload);
+    } finally {
+      submitInFlightRef.current = false;
+    }
   };
 
   const steps = [
@@ -1569,4 +1575,3 @@ export default function EditCampModal({
     </div>
   );
 }
-

@@ -3,6 +3,16 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
 
+async function getClassroomYear(db, classroomId) {
+  const classroom = await db.classrooms.findUnique({
+    where: { classroom_id: parseInt(classroomId) },
+    select: { academic_years_years_id: true },
+  });
+
+  if (!classroom) throw new Error("ไม่พบห้องเรียนที่เลือก");
+  return classroom.academic_years_years_id;
+}
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -165,12 +175,40 @@ export async function POST(req) {
                 skipDuplicates: true,
               });
 
+              const classroomIds = Array.from(
+                new Set(
+                  studentsToCreate
+                    .filter((item) => item.classroom_id)
+                    .map((item) => parseInt(item.classroom_id)),
+                ),
+              );
+              const selectedClassrooms = await prisma.classrooms.findMany({
+                where: { classroom_id: { in: classroomIds } },
+                select: {
+                  classroom_id: true,
+                  academic_years_years_id: true,
+                },
+              });
+              const classroomYearById = new Map(
+                selectedClassrooms.map((room) => [
+                  room.classroom_id,
+                  room.academic_years_years_id,
+                ]),
+              );
+
               const classroomStudentsData = studentsToCreate
                 .filter((item) => item.classroom_id)
-                .map((item) => ({
-                  student_students_id: parseInt(item.students_id),
-                  classroom_classroom_id: parseInt(item.classroom_id),
-                }));
+                .map((item) => {
+                  const classroomId = parseInt(item.classroom_id);
+                  const academicYear = classroomYearById.get(classroomId);
+
+                  if (!academicYear) throw new Error("ไม่พบห้องเรียนที่เลือก");
+                  return {
+                    student_students_id: parseInt(item.students_id),
+                    classroom_classroom_id: classroomId,
+                    academic_year: academicYear,
+                  };
+                });
 
               if (classroomStudentsData.length > 0) {
                 await prisma.classroom_students.createMany({
@@ -254,10 +292,15 @@ export async function POST(req) {
             });
 
             if (!alreadyInRoom) {
+              const academicYear = await getClassroomYear(
+                prisma,
+                body.classroom_id,
+              );
               await prisma.classroom_students.create({
                 data: {
                   student_students_id: id,
                   classroom_classroom_id: parseInt(body.classroom_id),
+                  academic_year: academicYear,
                 },
               });
             }
@@ -289,10 +332,12 @@ export async function POST(req) {
       });
 
       if (body.classroom_id) {
+        const academicYear = await getClassroomYear(prisma, body.classroom_id);
         await prisma.classroom_students.create({
           data: {
             student_students_id: id,
             classroom_classroom_id: parseInt(body.classroom_id),
+            academic_year: academicYear,
           },
         });
       }
@@ -438,6 +483,7 @@ export async function PUT(req) {
               data: {
                 student_students_id: id,
                 classroom_classroom_id: newClassroomId,
+                academic_year: newClassroom.academic_years_years_id,
               },
             });
           }

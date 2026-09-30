@@ -8,11 +8,15 @@ import {
   ModalFooter,
   Button,
 } from "@heroui/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
+import {
+  getCleanBasePath,
+  rememberActiveBaseId,
+} from "@/lib/client-active-camp";
 
 interface CreateBaseModalProps {
   isOpen: boolean;
@@ -30,14 +34,17 @@ export default function CreateBaseModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
+  const submitInFlightRef = useRef(false);
 
   const handleSubmit = async () => {
+    if (submitInFlightRef.current) return;
     if (!name.trim()) {
       showError("ข้อผิดพลาด", "กรุณากรอกชื่อฐานกิจกรรม");
 
       return;
     }
 
+    submitInFlightRef.current = true;
     try {
       setLoading(true);
       const response = await fetch("/api/stations", {
@@ -61,13 +68,13 @@ export default function CreateBaseModal({
 
       showSuccess("สำเร็จ", "สร้างฐานกิจกรรมสำเร็จ");
       onClose();
-      router.push(
-        `/headteacher/dashboard/camp/${campId}/base/${newBase.station_id}`,
-      );
+      rememberActiveBaseId(newBase.station_id);
+      router.push(getCleanBasePath());
     } catch (error: any) {
       console.error("Error creating base:", error);
       showError("ข้อผิดพลาด", error.message || "สร้างฐานกิจกรรมไม่สำเร็จ");
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -138,6 +145,7 @@ export default function CreateBaseModal({
               <Button
                 fullWidth
                 className="font-medium text-gray-600"
+                isDisabled={loading}
                 size="lg"
                 variant="light"
                 onPress={onClose}
@@ -148,6 +156,7 @@ export default function CreateBaseModal({
                 fullWidth
                 className="bg-[#6b857a] text-white rounded-xl font-bold shadow-lg hover:bg-[#5a7268]"
                 isLoading={loading}
+                isDisabled={loading}
                 size="lg"
                 startContent={!loading && <Save size={18} />}
                 onPress={handleSubmit}

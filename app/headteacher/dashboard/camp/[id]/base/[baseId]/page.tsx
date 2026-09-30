@@ -13,10 +13,11 @@ import MonitorMissionModal from "./MonitorMissionModal";
 import BaseDetailSkeleton from "./BaseDetailSkeleton";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
+import { getCleanCampPath } from "@/lib/client-active-camp";
 
 export default function BaseDetailPage() {
   const params = useParams();
-  const { id: campId, baseId } = params;
+  const { baseId } = params;
 
   const [base, setBase] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -130,11 +131,11 @@ export default function BaseDetailPage() {
               label: base.camp?.name
                 ? `ค่าย: ${base.camp.name}`
                 : "รายละเอียดค่าย",
-              href: `/headteacher/dashboard/camp/${campId}`,
+              href: getCleanCampPath(),
             },
             {
               label: "ฐานกิจกรรม",
-              href: `/headteacher/dashboard/camp/${campId}/bases`,
+              href: getCleanCampPath("bases"),
             },
             {
               label: base.name || "รายละเอียดฐาน",

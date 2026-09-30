@@ -42,6 +42,7 @@ const evaluationRow = z.object({
   average: z.coerce.number().min(0).max(5).nullable().optional(),
   sd: z.coerce.number().min(0).max(5).nullable().optional(),
   interpretation: z.string().trim().max(500),
+  locked: z.boolean().optional().default(false),
 });
 
 const assessmentSchema = z
@@ -345,6 +346,7 @@ async function getSourceData(camp: any) {
       average: questionStats.average,
       sd: questionStats.sd,
       interpretation: interpretation(questionStats.average || 0),
+      locked: true,
     });
   }
 
@@ -411,6 +413,7 @@ function defaultDocument(camp: any, source: any) {
     average: null,
     sd: null,
     interpretation: "ยังไม่ประเมิน",
+    locked: false,
   }));
 
   return {
@@ -497,6 +500,10 @@ export async function GET(
   }
 
   const sourceData = await getSourceData(result.camp);
+  const surveyEvaluations = sourceData.survey?.evaluationResults || [];
+  const surveyEvaluationTopics = new Set(
+    surveyEvaluations.map((row: any) => clean(row.topic)),
+  );
   const document = result.camp.project_summary_document
     ? {
         ...result.camp.project_summary_document,
@@ -516,6 +523,23 @@ export async function GET(
           result.camp.project_summary_document.success_indicators,
           sourceData,
         ),
+        evaluation_results: surveyEvaluations.length
+          ? [
+              ...surveyEvaluations,
+              ...asArray(
+                result.camp.project_summary_document.evaluation_results,
+              ).filter(
+                (row) =>
+                  !row.locked && !surveyEvaluationTopics.has(clean(row.topic)),
+              ),
+            ]
+          : result.camp.project_summary_document.evaluation_results,
+        overall_average: surveyEvaluations.length
+          ? sourceData.survey?.overallAverage
+          : result.camp.project_summary_document.overall_average,
+        overall_sd: surveyEvaluations.length
+          ? sourceData.survey?.overallSd
+          : result.camp.project_summary_document.overall_sd,
         suggestions: asArray(result.camp.project_summary_document.suggestions)
           .map(clean)
           .filter(isMeaningfulText),
@@ -611,8 +635,29 @@ export async function PUT(
 
   const status = parsed.data.status;
   const documentData: any = { ...parsed.data };
+
   delete documentData.signatories;
   delete documentData.status;
+
+  const sourceData = await getSourceData(result.camp);
+  const surveyEvaluations = sourceData.survey?.evaluationResults || [];
+
+  if (surveyEvaluations.length) {
+    const surveyEvaluationTopics = new Set(
+      surveyEvaluations.map((row: any) => clean(row.topic)),
+    );
+    const manualEvaluations = parsed.data.evaluation_results.filter(
+      (row) => !row.locked && !surveyEvaluationTopics.has(clean(row.topic)),
+    );
+
+    documentData.evaluation_results = [
+      ...surveyEvaluations,
+      ...manualEvaluations,
+    ];
+    documentData.overall_average = sourceData.survey?.overallAverage ?? null;
+    documentData.overall_sd = sourceData.survey?.overallSd ?? null;
+  }
+
   documentData.project_type =
     documentData.project_nature === "NEW" ? "NEW" : "CONTINUING";
   documentData.plan_alignment =
@@ -626,7 +671,6 @@ export async function PUT(
   documentData.standards = projectSummaryStandardsText(
     documentData.standard_alignments,
   );
-  const sourceData = await getSourceData(result.camp);
   documentData.success_indicators = successIndicators(
     documentData.success_indicators,
     sourceData,

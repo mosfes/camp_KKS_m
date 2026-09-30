@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardBody } from "@heroui/card";
 import { Tabs, Tab } from "@heroui/tabs";
 import {
@@ -1112,6 +1112,7 @@ function StudentProfileSetupModal({
   const [fieldError, setFieldError] = useState<Record<string, string>>({});
   const [apiError, setApiError] = useState("");
   const [success, setSuccess] = useState(false);
+  const submitInFlightRef = useRef(false);
 
   const validate = () => {
     const errors: Record<string, string> = {};
@@ -1126,12 +1127,14 @@ function StudentProfileSetupModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitInFlightRef.current) return;
     setApiError("");
     const errors = validate();
 
     setFieldError(errors);
     if (Object.keys(errors).length > 0) return;
 
+    submitInFlightRef.current = true;
     setSaving(true);
     try {
       const res = await fetch("/api/student/profile", {
@@ -1156,6 +1159,7 @@ function StudentProfileSetupModal({
     } catch {
       setApiError("เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
+      submitInFlightRef.current = false;
       setSaving(false);
     }
   };

@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { buildEnrollmentSnapshot } from "@/lib/student-enrollment-snapshot";
 import { requireStudent } from "@/lib/auth";
 import { isBangkokDateInRange } from "@/lib/bangkok-date";
 import { positiveIntSchema } from "@/lib/api-validation";
@@ -119,10 +120,11 @@ export async function POST(req) {
 
       if (existing) {
         if (!existing.enrolled_at) {
+          const snapshot = await buildEnrollmentSnapshot(tx, campId, studentId);
           return {
             enrollment: await tx.student_enrollment.update({
               where: { student_enrollment_id: existing.student_enrollment_id },
-              data: { enrolled_at: new Date() },
+              data: { enrolled_at: new Date(), ...snapshot },
             }),
             status: 200,
           };
@@ -130,6 +132,8 @@ export async function POST(req) {
 
         return { enrollment: existing, status: 200 };
       }
+
+      const snapshot = await buildEnrollmentSnapshot(tx, campId, studentId);
 
       const totalEnrolled = await tx.student_enrollment.count({
         where: {
@@ -152,6 +156,7 @@ export async function POST(req) {
             camp: { connect: { camp_id: campId } },
             enrolled_at: new Date(),
             shirt_size: null,
+            ...snapshot,
           },
         }),
         status: 201,

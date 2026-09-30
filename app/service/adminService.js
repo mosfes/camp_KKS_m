@@ -205,12 +205,12 @@ const getAcademicYears = async () => {
     }
   };
 
-  const addAcademicYear = async (year) => {
+  const addAcademicYear = async (year, status) => {
   try {
     const res = await fetch(API_URL_YEARS, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ year }),
+      body: JSON.stringify({ year, status }),
     });
     
     if (!res.ok) {

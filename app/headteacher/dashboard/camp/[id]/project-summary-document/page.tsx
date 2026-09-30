@@ -2,27 +2,40 @@
 
 import type { ChangeEvent, ReactNode } from "react";
 
+import { Select, SelectItem } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import {
-  Download,
-  FileCheck2,
+  Check,
+  ChevronDown,
   FileText,
   ImagePlus,
+  Images,
+  LockKeyhole,
   Plus,
   RefreshCw,
-  Save,
   Trash2,
-  UnlockKeyhole,
 } from "lucide-react";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 
 import CampBreadcrumb from "../../CampBreadcrumb";
 
+import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
+import DocumentTemplatePanel from "@/components/documents/DocumentTemplatePanel";
 import { useStatusModal } from "@/components/StatusModalProvider";
 import { normalizeProjectSummaryStandards } from "@/lib/project-summary-standards";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#6b857a] focus:ring-2 focus:ring-[#6b857a]/15 disabled:bg-gray-100 disabled:text-gray-500";
+
+const selectClassNames = {
+  trigger:
+    "h-11 min-h-11 rounded-xl border border-gray-200 bg-white px-3 shadow-none transition-colors data-[focus=true]:border-[#6b857a] data-[focus=true]:ring-2 data-[focus=true]:ring-[#6b857a]/15 data-[hover=true]:border-[#9eb5ab] data-[hover=true]:bg-white",
+  value: "text-sm text-gray-800 group-data-[has-value=false]:text-gray-400",
+  selectorIcon: "text-[#6b857a]",
+  popoverContent: "rounded-xl border border-gray-200 bg-white shadow-lg",
+  listboxWrapper: "max-h-64",
+};
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -472,12 +485,27 @@ export default function ProjectSummaryDocumentPage() {
   const [document, setDocument] = useState<any>(null);
   const [sourceData, setSourceData] = useState<any>(null);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [selectedAppendixPhotoIds, setSelectedAppendixPhotoIds] = useState<
+    number[]
+  >([]);
   const [people, setPeople] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(true);
   const [photoCaption, setPhotoCaption] = useState("");
+  const [missionPhotoPickerOpen, setMissionPhotoPickerOpen] = useState(false);
+  const [missionPhotoSources, setMissionPhotoSources] = useState<any[]>([]);
+  const [selectedMissionPhotoIds, setSelectedMissionPhotoIds] = useState<
+    number[]
+  >([]);
+  const [expandedMissionPhotoIds, setExpandedMissionPhotoIds] = useState<
+    number[]
+  >([]);
+  const [expandedStationPhotoIds, setExpandedStationPhotoIds] = useState<
+    number[]
+  >([]);
+  const [loadingMissionPhotos, setLoadingMissionPhotos] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadTemplates = async () => {
@@ -559,6 +587,7 @@ export default function ProjectSummaryDocumentPage() {
     setDocument(nextDocument);
     setSourceData(summaryData.sourceData);
     setPhotos(Array.isArray(summaryData.photos) ? summaryData.photos : []);
+    setSelectedAppendixPhotoIds([]);
     setPeople(peopleResponse.ok ? await peopleResponse.json() : []);
     setTemplates(templateResponse.ok ? await templateResponse.json() : []);
   };
@@ -614,6 +643,7 @@ export default function ProjectSummaryDocumentPage() {
               average: current.average,
               sd: current.sd,
               interpretation: current.interpretation,
+              locked: Boolean(current.locked),
             }
           : row;
       });
@@ -669,6 +699,7 @@ export default function ProjectSummaryDocumentPage() {
 
       await loadTemplates();
       setSelectedTemplateId(String(data.project_summary_document_template_id));
+      setTemplateName("");
       showSuccess(
         "บันทึกเท็มเพลตแล้ว",
         "ครั้งต่อไปสามารถเลือกเท็มเพลตนี้จากหน้าเอกสารสรุปได้ทันที",
@@ -709,7 +740,6 @@ export default function ProjectSummaryDocumentPage() {
           }
 
           setSelectedTemplateId("");
-          setTemplateName("");
           await loadTemplates();
           showSuccess("ลบแล้ว", "ลบเท็มเพลตเรียบร้อยแล้ว");
         } catch (error: any) {
@@ -774,7 +804,10 @@ export default function ProjectSummaryDocumentPage() {
 
   const readOnly = document?.status === "FINALIZED";
 
-  const save = async (nextStatus = document?.status || "DRAFT") => {
+  const save = async (
+    nextStatus = document?.status || "DRAFT",
+    options: { silent?: boolean } = {},
+  ) => {
     setIsLoading(true);
     try {
       const response = await fetch(
@@ -790,10 +823,12 @@ export default function ProjectSummaryDocumentPage() {
         throw new Error(data.error || "บันทึกเอกสารไม่สำเร็จ");
       }
       setDocument(data.document);
-      showSuccess(
-        nextStatus === "FINALIZED" ? "ยืนยันเอกสารแล้ว" : "บันทึกแล้ว",
-        "บันทึกข้อมูลรายงานการดำเนินโครงการเรียบร้อยแล้ว",
-      );
+      if (!options.silent) {
+        showSuccess(
+          nextStatus === "FINALIZED" ? "ยืนยันเอกสารแล้ว" : "บันทึกแล้ว",
+          "บันทึกข้อมูลรายงานการดำเนินโครงการเรียบร้อยแล้ว",
+        );
+      }
 
       return true;
     } catch (error: any) {
@@ -895,10 +930,135 @@ export default function ProjectSummaryDocumentPage() {
     }
   };
 
-  const download = async () => {
+  const download = async (format: "pdf" | "docx") => {
     if (!readOnly && !(await save(document.status || "DRAFT"))) return;
     window.location.href =
-      "/api/camps/" + campId + "/project-summary-document/pdf";
+      "/api/camps/" + campId + "/project-summary-document/" + format;
+  };
+
+  const openMissionPhotoPicker = async () => {
+    setMissionPhotoPickerOpen(true);
+    setLoadingMissionPhotos(true);
+    try {
+      const response = await fetch(
+        "/api/camps/" +
+          campId +
+          "/project-summary-document/photos/from-missions",
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "โหลดรูปจากภารกิจไม่สำเร็จ");
+      }
+      const missions = Array.isArray(data.missions) ? data.missions : [];
+      setMissionPhotoSources(missions);
+      setSelectedMissionPhotoIds([]);
+      setExpandedStationPhotoIds([]);
+      setExpandedMissionPhotoIds([]);
+    } catch (error: any) {
+      setMissionPhotoPickerOpen(false);
+      showError("โหลดรูปไม่สำเร็จ", error.message);
+    } finally {
+      setLoadingMissionPhotos(false);
+    }
+  };
+
+  const toggleMissionPhotoSelection = (photoId: number) => {
+    setSelectedMissionPhotoIds((current) =>
+      current.includes(photoId)
+        ? current.filter((id) => id !== photoId)
+        : [...current, photoId],
+    );
+  };
+
+  const toggleMissionPhotoGroup = (mission: any) => {
+    const missionPhotoIds = mission.photos.map((photo: any) => photo.id);
+    const allSelected = missionPhotoIds.every((id: number) =>
+      selectedMissionPhotoIds.includes(id),
+    );
+
+    setSelectedMissionPhotoIds((current) =>
+      allSelected
+        ? current.filter((id) => !missionPhotoIds.includes(id))
+        : Array.from(new Set([...current, ...missionPhotoIds])),
+    );
+  };
+
+  const toggleStationPhotoGroup = (missions: any[]) => {
+    const stationPhotoIds = missions.flatMap((mission) =>
+      mission.photos.map((photo: any) => photo.id),
+    );
+    const allSelected = stationPhotoIds.every((id: number) =>
+      selectedMissionPhotoIds.includes(id),
+    );
+
+    setSelectedMissionPhotoIds((current) =>
+      allSelected
+        ? current.filter((id) => !stationPhotoIds.includes(id))
+        : Array.from(new Set([...current, ...stationPhotoIds])),
+    );
+  };
+
+  const toggleStationPhotoExpanded = (stationId: number) => {
+    setExpandedStationPhotoIds((current) =>
+      current.includes(stationId)
+        ? current.filter((id) => id !== stationId)
+        : [...current, stationId],
+    );
+  };
+
+  const toggleMissionPhotoExpanded = (missionId: number) => {
+    setExpandedMissionPhotoIds((current) =>
+      current.includes(missionId)
+        ? current.filter((id) => id !== missionId)
+        : [...current, missionId],
+    );
+  };
+
+  const importMissionPhotos = async () => {
+    if (!selectedMissionPhotoIds.length) {
+      showError("ยังไม่ได้เลือกรูป", "กรุณาเลือกอย่างน้อย 1 รูป");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (
+        !document.camp_project_summary_document_id &&
+        !(await save(document.status || "DRAFT", { silent: true }))
+      ) {
+        return;
+      }
+
+      const response = await fetch(
+        "/api/camps/" +
+          campId +
+          "/project-summary-document/photos/from-missions",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ photoIds: selectedMissionPhotoIds }),
+        },
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "เพิ่มรูปจากภารกิจไม่สำเร็จ");
+      }
+
+      setPhotos(Array.isArray(data.photos) ? data.photos : []);
+      setSelectedAppendixPhotoIds([]);
+      setSelectedMissionPhotoIds([]);
+      setMissionPhotoPickerOpen(false);
+      showSuccess(
+        "เพิ่มรูปแล้ว",
+        data.addedCount
+          ? `เพิ่มรูปจากภารกิจ ${data.addedCount} รูป${data.duplicateCount ? ` และข้ามรูปซ้ำ ${data.duplicateCount} รูป` : ""}`
+          : "รูปจากภารกิจที่เลือกมีอยู่ในภาคผนวกแล้ว",
+      );
+    } catch (error: any) {
+      showError("เพิ่มรูปไม่สำเร็จ", error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const uploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -908,6 +1068,13 @@ export default function ProjectSummaryDocumentPage() {
 
     setIsLoading(true);
     try {
+      if (
+        !document.camp_project_summary_document_id &&
+        !(await save(document.status || "DRAFT", { silent: true }))
+      ) {
+        return;
+      }
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("caption", photoCaption);
@@ -920,6 +1087,7 @@ export default function ProjectSummaryDocumentPage() {
         throw new Error(photo.error || "อัปโหลดรูปไม่สำเร็จ");
       }
       setPhotos((current) => [...current, photo]);
+      setSelectedAppendixPhotoIds([]);
       setPhotoCaption("");
     } catch (error: any) {
       showError("อัปโหลดไม่สำเร็จ", error.message);
@@ -944,6 +1112,55 @@ export default function ProjectSummaryDocumentPage() {
         (photo) => photo.camp_project_summary_photo_id !== photoId,
       ),
     );
+    setSelectedAppendixPhotoIds((current) =>
+      current.filter((id) => id !== photoId),
+    );
+  };
+
+  const toggleAppendixPhotoSelection = (photoId: number) => {
+    setSelectedAppendixPhotoIds((current) =>
+      current.includes(photoId)
+        ? current.filter((id) => id !== photoId)
+        : [...current, photoId],
+    );
+  };
+
+  const deleteSelectedPhotos = () => {
+    if (!selectedAppendixPhotoIds.length) return;
+
+    showConfirm(
+      "ลบรูปภาพที่เลือก",
+      `ต้องการลบรูปภาพที่เลือก ${selectedAppendixPhotoIds.length} รูปออกจากภาคผนวกใช่หรือไม่`,
+      async () => {
+        setIsLoading(true);
+        try {
+          const response = await fetch(
+            "/api/camps/" + campId + "/project-summary-document/photos",
+            {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ photoIds: selectedAppendixPhotoIds }),
+            },
+          );
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "ลบรูปภาพไม่สำเร็จ");
+          }
+
+          setPhotos(Array.isArray(data.photos) ? data.photos : []);
+          setSelectedAppendixPhotoIds([]);
+          showSuccess(
+            "ลบรูปแล้ว",
+            `ลบรูปภาพออกจากภาคผนวก ${data.deletedCount || 0} รูปแล้ว`,
+          );
+        } catch (error: any) {
+          showError("ลบไม่สำเร็จ", error.message);
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      `ลบ ${selectedAppendixPhotoIds.length} รูป`,
+    );
   };
 
   if (loading || !document) {
@@ -955,59 +1172,67 @@ export default function ProjectSummaryDocumentPage() {
   }
 
   const assessment = document.operation_assessment || {};
+  const allMissionPhotoIds = missionPhotoSources.flatMap((mission) =>
+    mission.photos.map((photo: any) => photo.id),
+  );
+  const missionPhotoStations = missionPhotoSources.reduce(
+    (stations: any[], mission: any) => {
+      const existing = stations.find(
+        (station) => station.stationId === mission.stationId,
+      );
+
+      if (existing) {
+        existing.missions.push(mission);
+        existing.photoCount += mission.photoCount;
+      } else {
+        stations.push({
+          stationId: mission.stationId,
+          stationName: mission.stationName,
+          photoCount: mission.photoCount,
+          missions: [mission],
+        });
+      }
+
+      return stations;
+    },
+    [],
+  );
+  const allMissionPhotosSelected =
+    allMissionPhotoIds.length > 0 &&
+    allMissionPhotoIds.every((photoId) =>
+      selectedMissionPhotoIds.includes(photoId),
+    );
+  const selectedMissionPhotoCount = selectedMissionPhotoIds.length;
+  const allAppendixPhotosSelected =
+    photos.length > 0 &&
+    photos.every((photo) =>
+      selectedAppendixPhotoIds.includes(photo.camp_project_summary_photo_id),
+    );
+  const surveyEvaluationLocked = Boolean(
+    sourceData?.survey?.evaluationResults?.length,
+  );
+  const lockedSurveyEvaluationTopics = new Set(
+    (sourceData?.survey?.evaluationResults || []).map((row: any) =>
+      String(row.topic || "").trim(),
+    ),
+  );
 
   return (
     <div className="min-h-screen bg-[#f5f5f2] pb-24">
       <main className="mx-auto max-w-5xl space-y-5 px-4 pb-24 pt-8">
-        <CampBreadcrumb campId={campId} currentPage="เอกสารสรุปโครงการ" />
+        <div className="space-y-6">
+          <CampBreadcrumb campId={campId} currentPage="เอกสารสรุปโครงการ" />
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="flex items-start gap-3">
-            <FileText className="mt-1 text-[#6b857a]" size={23} />
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                แบบกรอกรายงานการดำเนินโครงการ
-              </h1>
-              <p className="mt-1 text-sm text-gray-500">
-                กรอกตามหัวข้อ 1-12 ของเอกสารสรุปโครงการ
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {readOnly ? (
-              <button
-                className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700"
-                type="button"
-                onClick={() => update("status", "DRAFT")}
-              >
-                <UnlockKeyhole size={16} /> แก้ไขฉบับสมบูรณ์
-              </button>
-            ) : (
-              <>
-                <button
-                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700"
-                  type="button"
-                  onClick={() => save("DRAFT")}
-                >
-                  <Save size={16} /> บันทึกแบบร่าง
-                </button>
-                <button
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#5d7c6f] bg-white px-4 py-2 text-sm font-medium text-[#5d7c6f]"
-                  type="button"
-                  onClick={() => save("FINALIZED")}
-                >
-                  <FileCheck2 size={16} /> ยืนยันฉบับสมบูรณ์
-                </button>
-              </>
-            )}
-            <button
-              className="inline-flex items-center gap-2 rounded-xl bg-[#5d7c6f] px-4 py-2 text-sm font-medium text-white"
-              type="button"
-              onClick={download}
-            >
-              <Download size={16} /> บันทึกและดาวน์โหลด PDF
-            </button>
-          </div>
+          <DocumentEditorHeader
+            description="สรุปผลการดำเนินงานตามหัวข้อรายงาน พร้อมข้อมูลประเมินและภาคผนวก"
+            icon={<FileText size={21} />}
+            isFinalized={readOnly}
+            title="เอกสารสรุปโครงการ"
+            onDownload={download}
+            onFinalize={() => save("FINALIZED")}
+            onSaveDraft={() => save("DRAFT")}
+            onUnlock={() => update("status", "DRAFT")}
+          />
         </div>
 
         <section className="flex flex-col gap-4 rounded-2xl border border-[#cad8d2] bg-[#f2f7f5] p-5 md:flex-row md:items-center md:justify-between">
@@ -1028,81 +1253,22 @@ export default function ProjectSummaryDocumentPage() {
           </button>
         </section>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <div className="mb-4">
-            <p className="font-semibold text-gray-900">เท็มเพลตเอกสารสรุป</p>
-            <p className="mt-1 text-sm text-gray-500">
-              บันทึกโครงสร้างที่ใช้ซ้ำ เช่น มาตรฐาน วัตถุประสงค์ ตัวชี้วัด
-              แบบประเมิน และผู้ลงนาม โดยไม่คัดลอกผลจริงของค่ายเดิม
-            </p>
-          </div>
-          <div className="grid gap-3 lg:grid-cols-[2fr_auto_2fr_auto]">
-            <select
-              className={inputClass}
-              disabled={readOnly}
-              value={selectedTemplateId}
-              onChange={(event) => {
-                setSelectedTemplateId(event.target.value);
-                const selected = templates.find(
-                  (item) =>
-                    item.project_summary_document_template_id ===
-                    Number(event.target.value),
-                );
-
-                if (selected) setTemplateName(selected.name);
-              }}
-            >
-              <option value="">เลือกเท็มเพลตที่บันทึกไว้</option>
-              {templates.map((template) => (
-                <option
-                  key={template.project_summary_document_template_id}
-                  value={template.project_summary_document_template_id}
-                >
-                  {template.name}
-                </option>
-              ))}
-            </select>
-            <div className="flex gap-2">
-              <button
-                className="rounded-xl bg-[#5d7c6f] px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-                disabled={readOnly}
-                type="button"
-                onClick={applyTemplate}
-              >
-                ใช้เท็มเพลต
-              </button>
-              <button
-                aria-label="ลบเท็มเพลต"
-                className="rounded-xl border border-red-200 px-3 text-red-500 hover:bg-red-50 disabled:opacity-40"
-                disabled={readOnly}
-                type="button"
-                onClick={deleteTemplate}
-              >
-                <Trash2 size={17} />
-              </button>
-            </div>
-            <input
-              className={inputClass}
-              disabled={readOnly}
-              placeholder="ตั้งชื่อเท็มเพลต เช่น สรุปโครงการวิทยาศาสตร์"
-              value={templateName}
-              onChange={(event) => setTemplateName(event.target.value)}
-            />
-            <button
-              className="rounded-xl border border-[#5d7c6f] bg-white px-4 py-2 text-sm font-medium text-[#5d7c6f] hover:bg-[#edf4f1] disabled:opacity-40"
-              disabled={readOnly}
-              type="button"
-              onClick={saveTemplate}
-            >
-              บันทึกข้อมูลปัจจุบันเป็นเท็มเพลต
-            </button>
-          </div>
-          {templates.length === 0 ? (
-            <p className="mt-3 text-xs text-gray-500">
-              ยังไม่มีเท็มเพลต กรอกข้อมูลที่ต้องการใช้ซ้ำแล้วตั้งชื่อเพื่อบันทึก
-            </p>
-          ) : null}
-        </section>
+        <DocumentTemplatePanel
+          description="บันทึกโครงสร้างที่ใช้ซ้ำ เช่น มาตรฐาน วัตถุประสงค์ ตัวชี้วัด แบบประเมิน และผู้รายงาน โดยไม่คัดลอกผลจริงของค่ายเดิม"
+          disabled={readOnly}
+          newTemplateName={templateName}
+          selectedTemplateId={selectedTemplateId}
+          templates={templates.map((template) => ({
+            id: String(template.project_summary_document_template_id),
+            name: template.name,
+          }))}
+          title="เท็มเพลตเอกสารสรุปโครงการ"
+          onApply={applyTemplate}
+          onDelete={deleteTemplate}
+          onNewTemplateNameChange={setTemplateName}
+          onSave={saveTemplate}
+          onSelectedTemplateChange={setSelectedTemplateId}
+        />
 
         <Section number="1" title="ชื่อโครงการ">
           <div className="grid gap-4 md:grid-cols-2">
@@ -1407,10 +1573,13 @@ export default function ProjectSummaryDocumentPage() {
                       />
                     </Field>
                     <Field label="รูปแบบค่าเป้าหมายและผล">
-                      <select
-                        className={inputClass}
-                        disabled={readOnly || row.locked}
-                        value={row.valueType || "TEXT"}
+                      <Select
+                        aria-label="รูปแบบค่าเป้าหมายและผล"
+                        className="w-full"
+                        classNames={selectClassNames}
+                        isDisabled={readOnly || row.locked}
+                        selectedKeys={[row.valueType || "TEXT"]}
+                        variant="bordered"
                         onChange={(event) =>
                           updateRow("success_indicators", index, {
                             valueType: event.target.value,
@@ -1419,9 +1588,9 @@ export default function ProjectSummaryDocumentPage() {
                           })
                         }
                       >
-                        <option value="TEXT">ข้อความ</option>
-                        <option value="PERCENT">ร้อยละ</option>
-                      </select>
+                        <SelectItem key="TEXT">ข้อความ</SelectItem>
+                        <SelectItem key="PERCENT">ร้อยละ</SelectItem>
+                      </Select>
                     </Field>
                     {[
                       ["target", "เป้าหมาย"],
@@ -1471,22 +1640,35 @@ export default function ProjectSummaryDocumentPage() {
                       </Field>
                     ))}
                     <Field label="บรรลุเป้าหมาย">
-                      <select
-                        className={inputClass}
-                        disabled={readOnly || row.locked}
-                        value={row.status || "ยังไม่ประเมิน"}
+                      <Select
+                        aria-label="สถานะการบรรลุเป้าหมาย"
+                        className="w-full"
+                        classNames={selectClassNames}
+                        isDisabled={readOnly || row.locked}
+                        selectedKeys={[row.status || "ยังไม่ประเมิน"]}
+                        variant="bordered"
                         onChange={(event) =>
                           updateRow("success_indicators", index, {
                             status: event.target.value,
                           })
                         }
                       >
-                        <option>บรรลุเป้าหมาย</option>
-                        <option>สูงกว่าเป้าหมาย</option>
-                        <option>เท่ากับเป้าหมาย</option>
-                        <option>ต่ำกว่าเป้าหมาย</option>
-                        <option>ยังไม่ประเมิน</option>
-                      </select>
+                        <SelectItem key="บรรลุเป้าหมาย">
+                          บรรลุเป้าหมาย
+                        </SelectItem>
+                        <SelectItem key="สูงกว่าเป้าหมาย">
+                          สูงกว่าเป้าหมาย
+                        </SelectItem>
+                        <SelectItem key="เท่ากับเป้าหมาย">
+                          เท่ากับเป้าหมาย
+                        </SelectItem>
+                        <SelectItem key="ต่ำกว่าเป้าหมาย">
+                          ต่ำกว่าเป้าหมาย
+                        </SelectItem>
+                        <SelectItem key="ยังไม่ประเมิน">
+                          ยังไม่ประเมิน
+                        </SelectItem>
+                      </Select>
                     </Field>
                   </div>
                 </div>
@@ -1526,92 +1708,134 @@ export default function ProjectSummaryDocumentPage() {
               }
             />
           </Field>
+          {surveyEvaluationLocked ? (
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-[#d7e3de] bg-[#f2f7f5] px-3 py-2.5 text-sm text-[#526c61]">
+              <LockKeyhole
+                aria-hidden="true"
+                className="mt-0.5 shrink-0"
+                size={16}
+              />
+              <span>
+                รายการประเมิน ค่าเฉลี่ย และ S.D. ที่คำนวณจากแบบสอบถามถูกล็อกไว้
+                และจะอัปเดตจากคำตอบล่าสุดของผู้เข้าร่วมเท่านั้น
+              </span>
+            </div>
+          ) : null}
           <div className="mt-5 space-y-3">
             {(document.evaluation_results || []).map(
-              (row: any, index: number) => (
-                <div
-                  className="grid gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_110px_110px_140px_auto]"
-                  key={index}
-                >
-                  <Field label="รายการประเมิน">
-                    <textarea
-                      className={inputClass + " min-h-16 resize-y"}
-                      disabled={readOnly}
-                      value={row.topic || ""}
-                      onChange={(event) =>
-                        updateRow("evaluation_results", index, {
-                          topic: event.target.value,
-                        })
-                      }
-                    />
-                  </Field>
-                  <Field label="ค่าเฉลี่ย">
-                    <input
-                      className={inputClass}
-                      disabled={readOnly}
-                      max="5"
-                      min="0"
-                      step="0.01"
-                      type="number"
-                      value={row.average ?? ""}
-                      onChange={(event) =>
-                        updateRow("evaluation_results", index, {
-                          average:
-                            event.target.value === ""
-                              ? null
-                              : Number(event.target.value),
-                        })
-                      }
-                    />
-                  </Field>
-                  <Field label="S.D.">
-                    <input
-                      className={inputClass}
-                      disabled={readOnly}
-                      max="5"
-                      min="0"
-                      step="0.001"
-                      type="number"
-                      value={row.sd ?? ""}
-                      onChange={(event) =>
-                        updateRow("evaluation_results", index, {
-                          sd:
-                            event.target.value === ""
-                              ? null
-                              : Number(event.target.value),
-                        })
-                      }
-                    />
-                  </Field>
-                  <Field label="แปลผล">
-                    <input
-                      className={inputClass}
-                      disabled={readOnly}
-                      value={row.interpretation || ""}
-                      onChange={(event) =>
-                        updateRow("evaluation_results", index, {
-                          interpretation: event.target.value,
-                        })
-                      }
-                    />
-                  </Field>
-                  <button
-                    className="mt-7 text-gray-400 hover:text-red-500"
-                    disabled={readOnly}
-                    type="button"
-                    onClick={() =>
-                      update(
-                        "evaluation_results",
-                        document.evaluation_results.filter(
-                          (_: any, itemIndex: number) => itemIndex !== index,
-                        ),
-                      )
-                    }
+              (row: any, index: number) => {
+                const isSurveyEvaluation =
+                  Boolean(row.locked) ||
+                  lockedSurveyEvaluationTopics.has(
+                    String(row.topic || "").trim(),
+                  );
+
+                return (
+                  <div
+                    className={`grid gap-3 rounded-xl border p-4 md:grid-cols-[1fr_110px_110px_140px_auto] ${
+                      isSurveyEvaluation
+                        ? "border-[#d7e3de] bg-[#f4f8f6]"
+                        : "border-gray-200 bg-gray-50"
+                    }`}
+                    key={index}
                   >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              ),
+                    <Field
+                      label={
+                        isSurveyEvaluation
+                          ? "รายการประเมิน (จากแบบสอบถาม)"
+                          : "รายการประเมิน"
+                      }
+                    >
+                      <textarea
+                        className={inputClass + " min-h-16 resize-y"}
+                        disabled={readOnly || isSurveyEvaluation}
+                        value={row.topic || ""}
+                        onChange={(event) =>
+                          updateRow("evaluation_results", index, {
+                            topic: event.target.value,
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field label="ค่าเฉลี่ย">
+                      <input
+                        className={inputClass}
+                        disabled={readOnly || isSurveyEvaluation}
+                        max="5"
+                        min="0"
+                        step="0.01"
+                        type="number"
+                        value={row.average ?? ""}
+                        onChange={(event) =>
+                          updateRow("evaluation_results", index, {
+                            average:
+                              event.target.value === ""
+                                ? null
+                                : Number(event.target.value),
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field label="S.D.">
+                      <input
+                        className={inputClass}
+                        disabled={readOnly || isSurveyEvaluation}
+                        max="5"
+                        min="0"
+                        step="0.001"
+                        type="number"
+                        value={row.sd ?? ""}
+                        onChange={(event) =>
+                          updateRow("evaluation_results", index, {
+                            sd:
+                              event.target.value === ""
+                                ? null
+                                : Number(event.target.value),
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field label="แปลผล">
+                      <input
+                        className={inputClass}
+                        disabled={readOnly || isSurveyEvaluation}
+                        value={row.interpretation || ""}
+                        onChange={(event) =>
+                          updateRow("evaluation_results", index, {
+                            interpretation: event.target.value,
+                          })
+                        }
+                      />
+                    </Field>
+                    {isSurveyEvaluation ? (
+                      <div
+                        className="mt-7 flex size-9 items-center justify-center rounded-lg bg-[#e8f0ec] text-[#5d7c6f]"
+                        title="ข้อมูลจากแบบสอบถาม แก้ไขไม่ได้"
+                      >
+                        <LockKeyhole aria-hidden="true" size={16} />
+                      </div>
+                    ) : (
+                      <button
+                        aria-label="ลบรายการประเมิน"
+                        className="mt-7 text-gray-400 hover:text-red-500"
+                        disabled={readOnly}
+                        type="button"
+                        onClick={() =>
+                          update(
+                            "evaluation_results",
+                            document.evaluation_results.filter(
+                              (_: any, itemIndex: number) =>
+                                itemIndex !== index,
+                            ),
+                          )
+                        }
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                );
+              },
             )}
           </div>
           <button
@@ -1621,7 +1845,13 @@ export default function ProjectSummaryDocumentPage() {
             onClick={() =>
               update("evaluation_results", [
                 ...(document.evaluation_results || []),
-                { topic: "", average: null, sd: null, interpretation: "" },
+                {
+                  topic: "",
+                  average: null,
+                  sd: null,
+                  interpretation: "",
+                  locked: false,
+                },
               ])
             }
           >
@@ -1631,7 +1861,7 @@ export default function ProjectSummaryDocumentPage() {
             <Field label="ค่าเฉลี่ยรวม">
               <input
                 className={inputClass}
-                disabled={readOnly}
+                disabled={readOnly || surveyEvaluationLocked}
                 max="5"
                 min="0"
                 step="0.01"
@@ -1650,7 +1880,7 @@ export default function ProjectSummaryDocumentPage() {
             <Field label="S.D. รวม">
               <input
                 className={inputClass}
-                disabled={readOnly}
+                disabled={readOnly || surveyEvaluationLocked}
                 max="5"
                 min="0"
                 step="0.001"
@@ -1680,7 +1910,7 @@ export default function ProjectSummaryDocumentPage() {
               />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-800">
+              <h3 className="mb-3 font-semibold text-gray-800">
                 ข้อเสนอแนะ / สิ่งที่อยากให้มีเพิ่มเติม
               </h3>
               <ListEditor
@@ -1699,18 +1929,21 @@ export default function ProjectSummaryDocumentPage() {
         >
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="1. การดำเนินงาน">
-              <select
-                className={inputClass}
-                disabled={readOnly}
-                value={document.execution_status}
+              <Select
+                aria-label="สถานะการดำเนินงาน"
+                className="w-full"
+                classNames={selectClassNames}
+                isDisabled={readOnly}
+                selectedKeys={[document.execution_status]}
+                variant="bordered"
                 onChange={(event) =>
                   update("execution_status", event.target.value)
                 }
               >
-                <option value="COMPLETED">ดำเนินการเสร็จสิ้น</option>
-                <option value="IN_PROGRESS">อยู่ระหว่างดำเนินการ</option>
-                <option value="NOT_STARTED">ยังไม่ดำเนินการ</option>
-              </select>
+                <SelectItem key="COMPLETED">ดำเนินการเสร็จสิ้น</SelectItem>
+                <SelectItem key="IN_PROGRESS">อยู่ระหว่างดำเนินการ</SelectItem>
+                <SelectItem key="NOT_STARTED">ยังไม่ดำเนินการ</SelectItem>
+              </Select>
             </Field>
             {[
               [
@@ -1774,10 +2007,14 @@ export default function ProjectSummaryDocumentPage() {
                       : ""
                   }
                 >
-                  <select
-                    className={inputClass}
-                    disabled={readOnly}
-                    value={assessment[key] || ""}
+                  <Select
+                    aria-label={label}
+                    className="w-full"
+                    classNames={selectClassNames}
+                    isDisabled={readOnly}
+                    placeholder="เลือกผลการประเมิน"
+                    selectedKeys={assessment[key] ? [assessment[key]] : []}
+                    variant="bordered"
                     onChange={(event) =>
                       update("operation_assessment", {
                         ...assessment,
@@ -1786,9 +2023,11 @@ export default function ProjectSummaryDocumentPage() {
                     }
                   >
                     {options.map((option: string) => (
-                      <option key={option}>{option}</option>
+                      <SelectItem key={option} textValue={option}>
+                        {option}
+                      </SelectItem>
                     ))}
-                  </select>
+                  </Select>
                   {key === "quantitativeStatus" ||
                   key === "qualitativeStatus" ? (
                     <input
@@ -1818,21 +2057,18 @@ export default function ProjectSummaryDocumentPage() {
               </Field>
             ))}
           </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="mt-5 grid items-stretch gap-4 md:grid-cols-2">
             <Field label="10. ปัญหาและอุปสรรคระหว่างดำเนินการ">
               <textarea
-                className={inputClass + " min-h-28 resize-y"}
+                className={inputClass + " min-h-32 resize-y leading-6"}
                 disabled={readOnly}
                 value={document.problems || ""}
                 onChange={(event) => update("problems", event.target.value)}
               />
             </Field>
             <Field label="11. ข้อเสนอแนะและแนวทางปรับปรุง">
-              <p className="mb-2 text-xs text-gray-500">
-                AI สรุปจากคำตอบปลายเปิดของผู้เข้าร่วม และยังแก้ไขเองได้
-              </p>
               <textarea
-                className={inputClass + " min-h-28 resize-y"}
+                className={inputClass + " min-h-32 resize-y leading-6"}
                 disabled={readOnly}
                 value={document.recommendations || ""}
                 onChange={(event) =>
@@ -1843,12 +2079,8 @@ export default function ProjectSummaryDocumentPage() {
           </div>
           <div className="mt-4">
             <Field label="12. ความสอดคล้องกับบริบทโรงเรียนและเหตุผลที่ควรจัดต่อ">
-              <p className="mb-2 text-xs text-gray-500">
-                AI วิเคราะห์ประโยชน์ต่อผู้เรียนและเงื่อนไขที่ควรปรับปรุง
-                และยังแก้ไขเองได้
-              </p>
               <textarea
-                className={inputClass + " min-h-36 resize-y"}
+                className={inputClass + " min-h-36 resize-y leading-6"}
                 disabled={readOnly}
                 value={document.continuation_reason || ""}
                 onChange={(event) =>
@@ -1870,10 +2102,16 @@ export default function ProjectSummaryDocumentPage() {
                 key={index}
               >
                 <Field label={"ผู้รายงานคนที่ " + (index + 1)}>
-                  <select
-                    className={inputClass}
-                    disabled={readOnly}
-                    value={row.personnelId || ""}
+                  <Select
+                    aria-label={"ผู้รายงานคนที่ " + (index + 1)}
+                    className="w-full"
+                    classNames={selectClassNames}
+                    isDisabled={readOnly}
+                    placeholder="เลือกบุคลากร"
+                    selectedKeys={
+                      row.personnelId ? [String(row.personnelId)] : []
+                    }
+                    variant="bordered"
                     onChange={(event) => {
                       const person = people.find(
                         (item) =>
@@ -1892,17 +2130,16 @@ export default function ProjectSummaryDocumentPage() {
                       });
                     }}
                   >
-                    <option value="">เลือกบุคลากร</option>
                     {people.map((person) => (
-                      <option
-                        key={person.document_personnel_id}
-                        value={person.document_personnel_id}
+                      <SelectItem
+                        key={String(person.document_personnel_id)}
+                        textValue={`${person.prefix_name || ""}${person.firstname} ${person.lastname} (${person.position})`}
                       >
                         {person.prefix_name || ""}
                         {person.firstname} {person.lastname} ({person.position})
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
+                  </Select>
                 </Field>
                 <button
                   className="mt-7 text-gray-400 hover:text-red-500"
@@ -1938,6 +2175,262 @@ export default function ProjectSummaryDocumentPage() {
         </Section>
 
         <Section title="ภาคผนวกประมวลภาพกิจกรรม">
+          <div className="mb-4 rounded-xl border border-[#dce7e2] bg-[#f7faf9] p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-gray-800">
+                  รูปจากภารกิจนักเรียน
+                </p>
+                <p className="mt-0.5 text-sm text-gray-500">
+                  เลือกทุกรูป เลือกทั้งภารกิจ หรือเลือกรูปที่ต้องการทีละรูป
+                </p>
+              </div>
+              <button
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-[#6b857a] bg-white px-4 py-2.5 text-sm font-medium text-[#526c61] hover:bg-[#edf4f1] disabled:opacity-50"
+                disabled={readOnly || loadingMissionPhotos}
+                type="button"
+                onClick={openMissionPhotoPicker}
+              >
+                <Images size={17} />
+                {loadingMissionPhotos ? "กำลังโหลดรูป..." : "เลือกรูปจากภารกิจ"}
+              </button>
+            </div>
+
+            {missionPhotoPickerOpen ? (
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                {loadingMissionPhotos ? (
+                  <p className="py-6 text-center text-sm text-gray-500">
+                    กำลังค้นหารูปจากภารกิจนักเรียน...
+                  </p>
+                ) : missionPhotoSources.length ? (
+                  <>
+                    <label className="mb-3 flex cursor-pointer items-center gap-3 rounded-lg bg-white px-3 py-2.5 font-medium text-gray-800">
+                      <input
+                        checked={allMissionPhotosSelected}
+                        className="h-4 w-4 accent-[#5d7c6f]"
+                        type="checkbox"
+                        onChange={() =>
+                          setSelectedMissionPhotoIds(
+                            allMissionPhotosSelected ? [] : allMissionPhotoIds,
+                          )
+                        }
+                      />
+                      เลือกทุกรูปจากทุกภารกิจ
+                      <span className="ml-auto text-sm font-normal text-gray-500">
+                        {missionPhotoSources.reduce(
+                          (total, mission) => total + mission.photoCount,
+                          0,
+                        )}{" "}
+                        รูป
+                      </span>
+                    </label>
+                    <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+                      {missionPhotoStations.map((station) => {
+                        const stationExpanded =
+                          expandedStationPhotoIds.includes(station.stationId);
+                        const stationPhotoIds = station.missions.flatMap(
+                          (mission: any) =>
+                            mission.photos.map((photo: any) => photo.id),
+                        );
+                        const stationSelectedCount = stationPhotoIds.filter(
+                          (photoId: number) =>
+                            selectedMissionPhotoIds.includes(photoId),
+                        ).length;
+
+                        return (
+                          <div
+                            className="overflow-hidden rounded-xl border border-gray-200 bg-white"
+                            key={station.stationId}
+                          >
+                            <div className="flex items-start gap-3 bg-[#f7faf9] p-3">
+                              <input
+                                aria-label={`เลือกรูปทั้งหมดจากฐาน ${station.stationName}`}
+                                checked={
+                                  stationSelectedCount ===
+                                  stationPhotoIds.length
+                                }
+                                className="mt-1 h-4 w-4 shrink-0 accent-[#5d7c6f]"
+                                type="checkbox"
+                                onChange={() =>
+                                  toggleStationPhotoGroup(station.missions)
+                                }
+                              />
+                              <button
+                                aria-expanded={stationExpanded}
+                                className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left"
+                                type="button"
+                                onClick={() =>
+                                  toggleStationPhotoExpanded(station.stationId)
+                                }
+                              >
+                                <span className="min-w-0">
+                                  <span className="block font-semibold text-gray-800">
+                                    ฐาน {station.stationName}
+                                  </span>
+                                  <span className="block text-xs text-gray-500">
+                                    {station.missions.length} ภารกิจ ·{" "}
+                                    {station.photoCount} รูป · เลือกแล้ว{" "}
+                                    {stationSelectedCount} รูป
+                                  </span>
+                                </span>
+                                <ChevronDown
+                                  className={`mt-0.5 shrink-0 text-gray-400 transition-transform ${stationExpanded ? "rotate-180" : ""}`}
+                                  size={18}
+                                />
+                              </button>
+                            </div>
+
+                            {stationExpanded ? (
+                              <div className="space-y-2 border-t border-gray-200 p-3">
+                                {station.missions.map((mission: any) => {
+                                  const missionExpanded =
+                                    expandedMissionPhotoIds.includes(
+                                      mission.missionId,
+                                    );
+                                  const selectedCount = mission.photos.filter(
+                                    (photo: any) =>
+                                      selectedMissionPhotoIds.includes(
+                                        photo.id,
+                                      ),
+                                  ).length;
+
+                                  return (
+                                    <div
+                                      className="rounded-lg border border-gray-200 bg-white p-3 hover:border-[#9eb5ab]"
+                                      key={mission.missionId}
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <input
+                                          aria-label={`เลือกรูปทั้งหมดจากภารกิจ ${mission.missionTitle}`}
+                                          checked={
+                                            selectedCount ===
+                                            mission.photos.length
+                                          }
+                                          className="mt-1 h-4 w-4 shrink-0 accent-[#5d7c6f]"
+                                          type="checkbox"
+                                          onChange={() =>
+                                            toggleMissionPhotoGroup(mission)
+                                          }
+                                        />
+                                        <button
+                                          aria-expanded={missionExpanded}
+                                          className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left"
+                                          type="button"
+                                          onClick={() =>
+                                            toggleMissionPhotoExpanded(
+                                              mission.missionId,
+                                            )
+                                          }
+                                        >
+                                          <span className="min-w-0">
+                                            <span className="block font-medium text-gray-800">
+                                              {mission.missionTitle}
+                                            </span>
+                                            <span className="block text-xs text-gray-500">
+                                              {mission.photoCount} รูป ·{" "}
+                                              เลือกแล้ว {selectedCount} รูป
+                                            </span>
+                                          </span>
+                                          <ChevronDown
+                                            className={`mt-0.5 shrink-0 text-gray-400 transition-transform ${missionExpanded ? "rotate-180" : ""}`}
+                                            size={18}
+                                          />
+                                        </button>
+                                      </div>
+
+                                      {missionExpanded ? (
+                                        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3 sm:grid-cols-3 md:grid-cols-4">
+                                          {mission.photos.map((photo: any) => {
+                                            const selected =
+                                              selectedMissionPhotoIds.includes(
+                                                photo.id,
+                                              );
+
+                                            return (
+                                              <button
+                                                aria-label={`${selected ? "ยกเลิกการเลือก" : "เลือก"}รูปของ ${photo.studentName}`}
+                                                aria-pressed={selected}
+                                                className={`group relative overflow-hidden rounded-lg border-2 transition ${
+                                                  selected
+                                                    ? "border-[#5d7c6f] ring-2 ring-[#5d7c6f]/20"
+                                                    : "border-transparent hover:border-[#9eb5ab]"
+                                                }`}
+                                                key={photo.id}
+                                                type="button"
+                                                onClick={() =>
+                                                  toggleMissionPhotoSelection(
+                                                    photo.id,
+                                                  )
+                                                }
+                                              >
+                                                <Image
+                                                  alt={`รูปของ ${photo.studentName}`}
+                                                  className="aspect-[4/3] w-full object-cover"
+                                                  height={300}
+                                                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 220px"
+                                                  src={photo.imageUrl}
+                                                  width={400}
+                                                />
+                                                <span className="block truncate bg-white px-2 py-1.5 text-left text-xs text-gray-600">
+                                                  {photo.studentName}
+                                                </span>
+                                                <span
+                                                  aria-hidden="true"
+                                                  className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white shadow-sm ${
+                                                    selected
+                                                      ? "bg-[#5d7c6f] text-white"
+                                                      : "bg-white/90 text-transparent hover:text-gray-400"
+                                                  }`}
+                                                >
+                                                  <Check
+                                                    size={15}
+                                                    strokeWidth={3}
+                                                  />
+                                                </span>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                      <button
+                        className="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                        type="button"
+                        onClick={() => {
+                          setMissionPhotoPickerOpen(false);
+                          setSelectedMissionPhotoIds([]);
+                        }}
+                      >
+                        ยกเลิก
+                      </button>
+                      <button
+                        className="rounded-xl bg-[#5d7c6f] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                        disabled={!selectedMissionPhotoIds.length}
+                        type="button"
+                        onClick={importMissionPhotos}
+                      >
+                        เพิ่มรูปที่เลือก {selectedMissionPhotoCount} รูป
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-500">
+                    ยังไม่มีรูปที่นักเรียนส่งในภารกิจของค่ายนี้
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+
           <div className="mb-4 flex flex-col gap-3 rounded-xl bg-[#f2f7f5] p-4 md:flex-row md:items-end">
             <Field label="คำบรรยายภาพ (ถ้ามี)">
               <input
@@ -1965,35 +2458,105 @@ export default function ProjectSummaryDocumentPage() {
             </button>
           </div>
           {photos.length ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {photos.map((photo, index) => (
-                <div
-                  className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50"
-                  key={photo.camp_project_summary_photo_id}
-                >
-                  <img
-                    alt={photo.caption || "ภาพกิจกรรม " + (index + 1)}
-                    className="aspect-[4/3] w-full object-cover"
-                    src={photo.image_url}
+            <>
+              <div className="mb-3 flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    checked={allAppendixPhotosSelected}
+                    className="h-4 w-4 accent-[#5d7c6f]"
+                    disabled={readOnly}
+                    type="checkbox"
+                    onChange={() =>
+                      setSelectedAppendixPhotoIds(
+                        allAppendixPhotosSelected
+                          ? []
+                          : photos.map(
+                              (photo) => photo.camp_project_summary_photo_id,
+                            ),
+                      )
+                    }
                   />
-                  <div className="flex items-center justify-between gap-2 p-3">
-                    <span className="text-sm text-gray-600">
-                      {photo.caption || "ไม่มีคำบรรยาย"}
-                    </span>
-                    <button
-                      className="text-xs text-red-500"
-                      disabled={readOnly}
-                      type="button"
-                      onClick={() =>
-                        deletePhoto(photo.camp_project_summary_photo_id)
-                      }
+                  เลือกทั้งหมด
+                  <span className="font-normal text-gray-400">
+                    ({selectedAppendixPhotoIds.length}/{photos.length} รูป)
+                  </span>
+                </label>
+                <button
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={readOnly || !selectedAppendixPhotoIds.length}
+                  type="button"
+                  onClick={deleteSelectedPhotos}
+                >
+                  <Trash2 size={16} /> ลบรูปที่เลือก{" "}
+                  {selectedAppendixPhotoIds.length
+                    ? `${selectedAppendixPhotoIds.length} รูป`
+                    : ""}
+                </button>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {photos.map((photo, index) => {
+                  const photoId = photo.camp_project_summary_photo_id;
+                  const selected = selectedAppendixPhotoIds.includes(photoId);
+
+                  return (
+                    <div
+                      className={`relative overflow-hidden rounded-xl border-2 bg-gray-50 transition ${
+                        selected
+                          ? "border-[#5d7c6f] ring-2 ring-[#5d7c6f]/20"
+                          : "border-gray-200"
+                      }`}
+                      key={photoId}
                     >
-                      ลบ
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                      <button
+                        aria-label={`${selected ? "ยกเลิกการเลือก" : "เลือก"}รูป ${index + 1}`}
+                        aria-pressed={selected}
+                        className="block w-full"
+                        disabled={readOnly}
+                        type="button"
+                        onClick={() => toggleAppendixPhotoSelection(photoId)}
+                      >
+                        <Image
+                          alt={photo.caption || "ภาพกิจกรรม " + (index + 1)}
+                          className="aspect-[4/3] w-full object-cover"
+                          height={600}
+                          sizes="(max-width: 640px) 100vw, 50vw"
+                          src={photo.image_url}
+                          width={800}
+                        />
+                      </button>
+                      <button
+                        aria-label={`${selected ? "ยกเลิกการเลือก" : "เลือก"}รูป ${index + 1}`}
+                        aria-pressed={selected}
+                        className={`absolute left-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white shadow ${
+                          selected
+                            ? "bg-[#5d7c6f] text-white"
+                            : "bg-white/90 text-transparent hover:text-gray-400"
+                        }`}
+                        disabled={readOnly}
+                        type="button"
+                        onClick={() => toggleAppendixPhotoSelection(photoId)}
+                      >
+                        <Check size={17} strokeWidth={3} />
+                      </button>
+                      <div className="flex items-center justify-between gap-2 p-3">
+                        <span className="text-sm text-gray-600">
+                          {photo.caption || "ไม่มีคำบรรยาย"}
+                        </span>
+                        <button
+                          className="text-xs text-red-500"
+                          disabled={readOnly}
+                          type="button"
+                          onClick={() => deletePhoto(photoId)}
+                        >
+                          ลบ
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           ) : (
             <p className="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">
               ยังไม่มีรูปภาพในภาคผนวก

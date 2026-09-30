@@ -65,6 +65,7 @@ const documentSchema = z.object({
       }),
     )
     .max(12),
+  status: z.enum(["DRAFT", "FINALIZED"]),
   creator_name: z.string().optional().nullable(),
 });
 
@@ -75,6 +76,18 @@ function formatThaiDate(value: Date) {
     year: "numeric",
     timeZone: "Asia/Bangkok",
   }).format(value);
+}
+
+function campSourceData(camp: any, ownerName: string) {
+  return {
+    fiscal_year: new Date(camp.start_date).getFullYear() + 543,
+    project_name: camp.name,
+    activity_name: camp.name,
+    responsible_people: ownerName,
+    rationale: camp.description || "",
+    duration_text: `ระหว่างวันที่ ${formatThaiDate(camp.start_date)} ถึง ${formatThaiDate(camp.end_date)}`,
+    location_text: camp.location || "",
+  };
 }
 
 async function getAuthorizedCamp(campId: number, teacher: any) {
@@ -128,28 +141,44 @@ export async function GET(
   const camp = result.camp;
   const ownerName =
     `${camp.created_by.prefix_name || ""}${camp.created_by.firstname} ${camp.created_by.lastname}`.trim();
+  const campSource = campSourceData(camp, ownerName);
 
   if (camp.project_document) {
     return NextResponse.json({
       ...camp.project_document,
+      fiscal_year: camp.project_document.fiscal_year || campSource.fiscal_year,
+      project_name:
+        camp.project_document.project_name || campSource.project_name,
+      activity_name:
+        camp.project_document.activity_name || campSource.activity_name,
+      responsible_people:
+        camp.project_document.responsible_people ||
+        campSource.responsible_people,
+      rationale: camp.project_document.rationale || campSource.rationale,
+      duration_text:
+        camp.project_document.duration_text || campSource.duration_text,
+      location_text:
+        camp.project_document.location_text || campSource.location_text,
       creator_name: ownerName,
+      camp_source: campSource,
     });
   }
 
   return NextResponse.json({
     camp_project_document_id: null,
     creator_name: ownerName,
-    fiscal_year: new Date(camp.start_date).getFullYear() + 543,
-    project_name: camp.name,
+    camp_source: campSource,
+    fiscal_year: campSource.fiscal_year,
+    project_name: campSource.project_name,
     project_code: "",
-    activity_name: camp.name,
+    activity_name: campSource.activity_name,
     activity_order: "",
     project_type: "CONTINUING",
     standards: "",
     strategy: "",
-    responsible_people: ownerName,
+    responsible_people: campSource.responsible_people,
     department: "",
-    rationale: camp.description || "",
+    rationale: campSource.rationale,
     objectives: [""],
     quantitative_targets: [""],
     qualitative_targets: [""],
@@ -183,8 +212,8 @@ export async function GET(
         responsible: ownerName,
       },
     ],
-    duration_text: `ระหว่างวันที่ ${formatThaiDate(camp.start_date)} ถึง ${formatThaiDate(camp.end_date)}`,
-    location_text: camp.location,
+    duration_text: campSource.duration_text,
+    location_text: campSource.location_text,
     budget_total: 0,
     budget_source: "เงินอุดหนุน",
     budget_items: [
@@ -199,6 +228,8 @@ export async function GET(
     evaluations: [{ indicator: "", method: "แบบสอบถาม", tool: "แบบสอบถาม" }],
     expected_results: [""],
     signatories: [],
+    status: "DRAFT",
+    finalized_at: null,
   });
 }
 
@@ -226,6 +257,18 @@ export async function PUT(
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message || "ข้อมูลเอกสารไม่ถูกต้อง" },
       { status: 400 },
+    );
+  }
+
+  const existing = result.camp.project_document;
+
+  if (existing?.status === "FINALIZED" && parsed.data.status === "FINALIZED") {
+    return NextResponse.json(
+      {
+        error:
+          "เอกสารฉบับสมบูรณ์ถูกยืนยันแล้ว กรุณาเปลี่ยนสถานะเป็นฉบับร่างก่อนแก้ไข",
+      },
+      { status: 409 },
     );
   }
 
@@ -258,19 +301,39 @@ export async function PUT(
     };
   });
 
-  const {
-    signatories: _inputSignatories,
-    creator_name: _creatorName,
-    ...documentData
-  } = parsed.data;
+  const status = parsed.data.status;
+  const documentData: any = { ...parsed.data };
+
+  delete documentData.signatories;
+  delete documentData.creator_name;
+  delete documentData.status;
+
+  const now = new Date();
   const document = await prisma.camp_project_document.upsert({
     where: { camp_camp_id: campId },
-    create: { camp_camp_id: campId, ...documentData, signatories },
-    update: { ...documentData, signatories },
+    create: {
+      camp_camp_id: campId,
+      ...documentData,
+      signatories,
+      status,
+      finalized_at: status === "FINALIZED" ? now : null,
+    },
+    update: {
+      ...documentData,
+      signatories,
+      status,
+      finalized_at:
+        status === "FINALIZED" ? existing?.finalized_at || now : null,
+    },
   });
 
   const ownerName =
     `${result.camp.created_by.prefix_name || ""}${result.camp.created_by.firstname} ${result.camp.created_by.lastname}`.trim();
+  const campSource = campSourceData(result.camp, ownerName);
 
-  return NextResponse.json({ ...document, creator_name: ownerName });
+  return NextResponse.json({
+    ...document,
+    creator_name: ownerName,
+    camp_source: campSource,
+  });
 }

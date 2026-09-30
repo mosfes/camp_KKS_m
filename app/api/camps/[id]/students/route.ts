@@ -96,6 +96,7 @@ export async function GET(
         skip: (page - 1) * limit,
         take: limit,
         include: {
+          classroom: { include: { classroom_types: true } },
           student: {
             select: {
               students_id: true,

@@ -40,23 +40,32 @@ model teachers {
   camp_bus_events                   camp_bus_event[]
   camp_bus_teacher                  camp_bus_teacher[]
   bus_layout_template               bus_layout_template[]
+  promotion_runs                    promotion_run[]
 
   @@index([deletedAt])
 }
 
+enum StudentStatus {
+  ACTIVE
+  GRADUATED
+  TRANSFERRED
+  WITHDRAWN
+}
+
 model students {
-  students_id       Int       @id
-  prefix_name       String?   @db.VarChar(255)
-  firstname         String    @db.VarChar(255)
-  lastname          String    @db.VarChar(255)
-  nickname          String?   @db.VarChar(100)
-  profile_image_url String?   @db.VarChar(500)
+  students_id       Int           @id
+  prefix_name       String?       @db.VarChar(255)
+  firstname         String        @db.VarChar(255)
+  lastname          String        @db.VarChar(255)
+  nickname          String?       @db.VarChar(100)
+  profile_image_url String?       @db.VarChar(500)
   birthday          DateTime?
-  food_allergy      String?   @db.VarChar(255)
-  chronic_disease   String?   @db.VarChar(255)
-  remark            String?   @db.VarChar(255)
-  tel               String?   @db.VarChar(10)
-  email             String    @db.VarChar(255)
+  food_allergy      String?       @db.VarChar(255)
+  chronic_disease   String?       @db.VarChar(255)
+  remark            String?       @db.VarChar(255)
+  tel               String?       @db.VarChar(10)
+  email             String        @db.VarChar(255)
+  status            StudentStatus @default(ACTIVE)
   deletedAt         DateTime?
 
   parents                   parents[]
@@ -64,8 +73,10 @@ model students {
   student_enrollment        student_enrollment[]
   attendance_record_student attendance_record_student[]
   student_location_update   student_location_update[]
+  promotion_items           promotion_item[]
 
   @@index([deletedAt])
+  @@index([status])
 }
 
 model parents {
@@ -81,9 +92,12 @@ model parents {
 
 model academic_years {
   // years_id   Int          @id @default(autoincrement())
-  status     String       @db.VarChar(255) // ลบ จัดเก็บ แอคทีฟ
-  year       Int          @id
-  classrooms classrooms[]
+  status              String               @db.VarChar(255) // ลบ จัดเก็บ แอคทีฟ
+  year                Int                  @id
+  classrooms          classrooms[]
+  classroom_students  classroom_students[]
+  promotion_runs_from promotion_run[]      @relation("PromotionFromYear")
+  promotion_runs_to   promotion_run[]      @relation("PromotionToYear")
 }
 
 model classrooms {
@@ -104,6 +118,9 @@ model classrooms {
   classroom_students classroom_students[]
   camp_classroom     camp_classroom[]
   camp_bus           camp_bus[]
+  enrollment_history student_enrollment[] @relation("EnrollmentClassroom")
+  promotion_sources  promotion_item[]     @relation("PromotionSourceClassroom")
+  promotion_targets  promotion_item[]     @relation("PromotionTargetClassroom")
 
   @@index([deletedAt])
 }
@@ -132,15 +149,73 @@ model classroom_teacher {
 
   classroom classrooms @relation(fields: [classroom_classroom_id], references: [classroom_id])
   teacher   teachers   @relation(fields: [teacher_teachers_id], references: [teachers_id])
+
+  @@unique([classroom_classroom_id, teacher_teachers_id], map: "classroom_teacher_room_teacher_key")
 }
 
 model classroom_students {
   classroom_students_id  Int @id @default(autoincrement())
   classroom_classroom_id Int
   student_students_id    Int
+  academic_year          Int
 
-  classroom classrooms @relation(fields: [classroom_classroom_id], references: [classroom_id])
-  student   students   @relation(fields: [student_students_id], references: [students_id])
+  classroom          classrooms     @relation(fields: [classroom_classroom_id], references: [classroom_id])
+  student            students       @relation(fields: [student_students_id], references: [students_id])
+  academic_year_data academic_years @relation(fields: [academic_year], references: [year])
+
+  @@unique([classroom_classroom_id, student_students_id], map: "classroom_students_room_student_key")
+  @@unique([student_students_id, academic_year], map: "classroom_students_student_year_key")
+  @@index([academic_year])
+}
+
+enum PromotionOutcome {
+  PROMOTED
+  REPEAT
+  GRADUATED
+  TRANSFERRED
+  WITHDRAWN
+}
+
+enum PromotionRunStatus {
+  COMPLETED
+}
+
+model promotion_run {
+  promotion_run_id Int                @id @default(autoincrement())
+  from_year        Int
+  to_year          Int
+  status           PromotionRunStatus @default(COMPLETED)
+  executed_by_id   Int
+  executed_at      DateTime           @default(now())
+
+  from_academic_year academic_years   @relation("PromotionFromYear", fields: [from_year], references: [year])
+  to_academic_year   academic_years   @relation("PromotionToYear", fields: [to_year], references: [year])
+  executed_by        teachers         @relation(fields: [executed_by_id], references: [teachers_id])
+  items              promotion_item[]
+
+  @@unique([from_year, to_year])
+  @@index([executed_by_id])
+}
+
+model promotion_item {
+  promotion_item_id   Int              @id @default(autoincrement())
+  promotion_run_id    Int
+  student_id          Int
+  source_classroom_id Int
+  target_classroom_id Int?
+  outcome             PromotionOutcome
+  note                String?          @db.VarChar(500)
+  created_at          DateTime         @default(now())
+
+  run              promotion_run @relation(fields: [promotion_run_id], references: [promotion_run_id], onDelete: Cascade)
+  student          students      @relation(fields: [student_id], references: [students_id])
+  source_classroom classrooms    @relation("PromotionSourceClassroom", fields: [source_classroom_id], references: [classroom_id])
+  target_classroom classrooms?   @relation("PromotionTargetClassroom", fields: [target_classroom_id], references: [classroom_id])
+
+  @@unique([promotion_run_id, student_id])
+  @@index([student_id])
+  @@index([source_classroom_id])
+  @@index([target_classroom_id])
 }
 
 model camp {
@@ -243,36 +318,39 @@ model document_personnel {
 }
 
 model camp_project_document {
-  camp_project_document_id Int      @id @default(autoincrement())
-  camp_camp_id             Int      @unique
-  camp                     camp     @relation(fields: [camp_camp_id], references: [camp_id], onDelete: Cascade)
+  camp_project_document_id Int       @id @default(autoincrement())
+  camp_camp_id             Int       @unique
+  camp                     camp      @relation(fields: [camp_camp_id], references: [camp_id], onDelete: Cascade)
   fiscal_year              Int
-  project_name             String   @db.VarChar(500)
-  project_code             String?  @db.VarChar(100)
-  activity_name            String?  @db.VarChar(500)
-  activity_order           String?  @db.VarChar(100)
-  project_type             String   @default("CONTINUING") @db.VarChar(30)
-  standards                String?  @db.Text
-  strategy                 String?  @db.Text
-  responsible_people       String?  @db.Text
-  department               String?  @db.VarChar(500)
-  rationale                String?  @db.LongText
+  project_name             String    @db.VarChar(500)
+  project_code             String?   @db.VarChar(100)
+  activity_name            String?   @db.VarChar(500)
+  activity_order           String?   @db.VarChar(100)
+  project_type             String    @default("CONTINUING") @db.VarChar(30)
+  standards                String?   @db.Text
+  strategy                 String?   @db.Text
+  responsible_people       String?   @db.Text
+  department               String?   @db.VarChar(500)
+  rationale                String?   @db.LongText
   objectives               Json
   quantitative_targets     Json
   qualitative_targets      Json
   procedures               Json
-  duration_text            String?  @db.VarChar(500)
-  location_text            String?  @db.VarChar(500)
-  budget_total             Float    @default(0)
-  budget_source            String?  @db.VarChar(100)
+  duration_text            String?   @db.VarChar(500)
+  location_text            String?   @db.VarChar(500)
+  budget_total             Float     @default(0)
+  budget_source            String?   @db.VarChar(100)
   budget_items             Json
   evaluations              Json
   expected_results         Json
   signatories              Json
-  created_at               DateTime @default(now())
-  updated_at               DateTime @updatedAt
+  status                   String    @default("DRAFT") @db.VarChar(20)
+  finalized_at             DateTime?
+  created_at               DateTime  @default(now())
+  updated_at               DateTime  @updatedAt
 
   @@index([camp_camp_id])
+  @@index([status])
 }
 
 model camp_project_summary_document {
@@ -724,17 +802,24 @@ model student_enrollment {
   location_consent_notice_version String?   @db.VarChar(20)
   // jorn DateTime @default(now()) // นักเรียนลงทะเบียน
 
-  student_students_id Int
-  student             students           @relation(fields: [student_students_id], references: [students_id])
-  camp_camp_id        Int
-  camp                camp               @relation(fields: [camp_camp_id], references: [camp_id])
-  certificate         certificate[]
-  mission_result      mission_result[]
-  survey_response     survey_response[]
-  camp_bus_student    camp_bus_student[]
+  student_students_id     Int
+  student                 students           @relation(fields: [student_students_id], references: [students_id])
+  camp_camp_id            Int
+  camp                    camp               @relation(fields: [camp_camp_id], references: [camp_id])
+  classroom_classroom_id  Int?
+  classroom               classrooms?        @relation("EnrollmentClassroom", fields: [classroom_classroom_id], references: [classroom_id])
+  academic_year_snapshot  Int?
+  grade_snapshot          GradeLevel?
+  classroom_name_snapshot String?            @db.VarChar(255)
+  student_name_snapshot   String?            @db.VarChar(500)
+  certificate             certificate[]
+  mission_result          mission_result[]
+  survey_response         survey_response[]
+  camp_bus_student        camp_bus_student[]
 
   @@unique([student_students_id, camp_camp_id])
   @@index([camp_camp_id])
+  @@index([classroom_classroom_id])
 }
 
 model attendance_session {

@@ -14,6 +14,8 @@ import {
 
 import CampBreadcrumb from "./CampBreadcrumb";
 
+import { getCleanCampPath } from "@/lib/client-active-camp";
+
 type MissionStatus = "completed" | "not_started";
 type MissionFilter = "all" | MissionStatus;
 
@@ -196,7 +198,7 @@ export default function StudentMissionDetailPage({
     : 0;
 
   const backToTracking = () => {
-    router.push(`/headteacher/dashboard/camp/${campId}/tracking`);
+    router.push(getCleanCampPath("tracking"));
   };
 
   return (

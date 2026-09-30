@@ -3,6 +3,7 @@ import type { CertificateRenderManifest } from "@/lib/certificate-renderer";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { buildEnrollmentSnapshotMap } from "@/lib/student-enrollment-snapshot";
 import { requireTeacher } from "@/lib/auth";
 import { getCertificateEligibility } from "@/lib/certificate-eligibility";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
@@ -99,11 +100,20 @@ export async function GET(request: Request, context: any) {
       });
 
       if (eligibleStudents.length > 0) {
+        const studentIds = eligibleStudents.map(
+          (student) => student.student_students_id,
+        );
+        const snapshots = await buildEnrollmentSnapshotMap(
+          prisma,
+          campId,
+          studentIds,
+        );
         await prisma.student_enrollment.createMany({
           data: eligibleStudents.map((student) => ({
             student_students_id: student.student_students_id,
             camp_camp_id: campId,
             enrolled_at: null,
+            ...(snapshots.get(student.student_students_id) || {}),
           })),
           skipDuplicates: true,
         });

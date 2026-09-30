@@ -10,7 +10,7 @@ import {
   SelectItem,
   Switch,
 } from "@heroui/react";
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import {
   Plus,
   Trash2,
@@ -122,6 +122,7 @@ export default function CreateSurveyModal({
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateTitle, setTemplateTitle] = useState("");
   const [loading, setLoading] = useState(false);
+  const submitInFlightRef = useRef(false);
   const [globalScaleMax, setGlobalScaleMax] = useState<number>(5);
 
   useEffect(() => {
@@ -329,6 +330,7 @@ export default function CreateSurveyModal({
   };
 
   const handleSubmit = async () => {
+    if (submitInFlightRef.current) return;
     const finalTitle = title.trim() || "แบบสอบถาม";
     const realQuestions = questions.filter((q) => q.type !== "header");
 
@@ -365,6 +367,7 @@ export default function CreateSurveyModal({
       options: q.options,
     }));
 
+    submitInFlightRef.current = true;
     try {
       setLoading(true);
       const url = isEditing ? `/api/surveys?campId=${campId}` : "/api/surveys";
@@ -407,6 +410,7 @@ export default function CreateSurveyModal({
         `${isEditing ? "แก้ไข" : "สร้าง"}แบบสอบถามไม่สำเร็จ`,
       );
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -456,6 +460,7 @@ export default function CreateSurveyModal({
               <div className="flex items-center gap-3">
                 <Button
                   className="rounded-md bg-gray-100 font-medium text-gray-600 hover:bg-gray-200"
+                  isDisabled={loading}
                   size="sm"
                   variant="flat"
                   onPress={handleClose}
@@ -465,6 +470,7 @@ export default function CreateSurveyModal({
                 <Button
                   className="rounded-md bg-[#6b857a] font-medium text-white shadow-sm hover:bg-[#5a7268]"
                   isLoading={loading}
+                  isDisabled={loading}
                   size="sm"
                   onPress={handleSubmit}
                 >

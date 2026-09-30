@@ -64,6 +64,7 @@
     "browser-image-compression": "^2.0.2",
     "cloudinary": "^2.9.0",
     "clsx": "2.1.1",
+    "docx": "^9.7.2",
     "dotenv": "^17.2.3",
     "framer-motion": "^12.24.8",
     "html5-qrcode": "^2.3.8",

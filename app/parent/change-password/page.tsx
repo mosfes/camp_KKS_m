@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
@@ -12,9 +12,12 @@ export default function ParentChangePasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const submitInFlightRef = useRef(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
     setError("");
     setLoading(true);
 
@@ -36,6 +39,7 @@ export default function ParentChangePasswordPage() {
     } catch {
       setError("เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -112,6 +116,7 @@ export default function ParentChangePasswordPage() {
           <Button
             className="h-12 w-full rounded-xl bg-[#5d7c6f] text-base font-bold text-white shadow-sm transition-colors hover:bg-[#4d695e]"
             isLoading={loading}
+            isDisabled={loading}
             startContent={!loading && <CheckCircle2 size={17} />}
             type="submit"
           >

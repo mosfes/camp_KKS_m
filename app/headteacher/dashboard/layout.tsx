@@ -3,7 +3,12 @@
 import type { ReactNode } from "react";
 
 import { useState, useEffect, useMemo, Suspense } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import {
+  useParams,
+  useSearchParams,
+  useRouter,
+  usePathname,
+} from "next/navigation";
 import {
   Award,
   BookOpen,
@@ -27,6 +32,12 @@ import {
 
 import { HeadteacherNavbar } from "@/components/Headteacher";
 import { StatusModalProvider } from "@/components/StatusModalProvider";
+import {
+  CLEAN_CAMP_PATH,
+  getCleanCampPath,
+  readActiveCampId,
+  rememberActiveCampId,
+} from "@/lib/client-active-camp";
 
 const teacherMenuItems = [
   { id: "homeroom", label: "นักเรียนประจำชั้น", icon: Users },
@@ -142,10 +153,38 @@ function getCampIdFromPath(pathname: string) {
   return pathname.match(/^\/headteacher\/dashboard\/camp\/(\d+)/)?.[1] ?? null;
 }
 
+function useActiveCampId(pathname: string) {
+  const params = useParams<{ id?: string | string[] }>();
+  const paramValue = Array.isArray(params.id) ? params.id[0] : params.id;
+  const paramCampId =
+    paramValue && /^\d+$/.test(paramValue) ? paramValue : null;
+  const pathCampId = getCampIdFromPath(pathname);
+  const [rememberedCampId, setRememberedCampId] = useState<string | null>(null);
+  const routeCampId = pathCampId ?? paramCampId;
+
+  useEffect(() => {
+    if (routeCampId) {
+      rememberActiveCampId(routeCampId);
+      setRememberedCampId(routeCampId);
+
+      return;
+    }
+
+    if (pathname.startsWith(`${CLEAN_CAMP_PATH}/`)) {
+      setRememberedCampId(readActiveCampId());
+    } else {
+      setRememberedCampId(null);
+    }
+  }, [pathname, routeCampId]);
+
+  return routeCampId ?? rememberedCampId;
+}
+
 function getCampMenuId(pathname: string, requestedMenu: string | null) {
   if (requestedMenu) return requestedMenu;
   if (pathname.includes("/students")) return "students";
-  if (pathname.includes("/project-summary-document")) return "summary-documents";
+  if (pathname.includes("/project-summary-document"))
+    return "summary-documents";
   if (pathname.includes("/project-document")) return "documents";
   if (pathname.includes("/location")) return "location";
   if (pathname.includes("/attendance")) return "attendance";
@@ -382,7 +421,7 @@ function TeacherSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const activeTab = searchParams.get("tab") || "camp";
-  const campId = getCampIdFromPath(pathname);
+  const campId = useActiveCampId(pathname);
   const isCampContext = Boolean(campId);
   const activeMenu = getCampMenuId(pathname, searchParams.get("menu"));
 
@@ -392,8 +431,6 @@ function TeacherSidebar({
 
       return;
     }
-
-    const campPath = `/headteacher/dashboard/camp/${campId}`;
 
     const campPageRoutes: Record<string, string> = {
       attendance: "attendance",
@@ -409,17 +446,17 @@ function TeacherSidebar({
     };
 
     if (id === "students") {
-      router.push(`${campPath}/students`);
+      router.push(getCleanCampPath("students"));
     } else if (id === "documents") {
-      router.push(`${campPath}/project-document`);
+      router.push(getCleanCampPath("project-document"));
     } else if (id === "summary-documents") {
-      router.push(`${campPath}/project-summary-document`);
+      router.push(getCleanCampPath("project-summary-document"));
     } else if (id === "overview") {
-      router.push(campPath);
+      router.push(getCleanCampPath());
     } else if (campPageRoutes[id]) {
-      router.push(`${campPath}/${campPageRoutes[id]}`);
+      router.push(getCleanCampPath(campPageRoutes[id]));
     } else {
-      router.push(`${campPath}?menu=${id}`);
+      router.push(`${getCleanCampPath()}?menu=${id}`);
     }
   };
 
@@ -495,7 +532,7 @@ function MobileSidebar({
   const router = useRouter();
   const pathname = usePathname();
   const activeTab = searchParams.get("tab") || "camp";
-  const campId = getCampIdFromPath(pathname);
+  const campId = useActiveCampId(pathname);
   const isCampContext = Boolean(campId);
   const activeMenu = getCampMenuId(pathname, searchParams.get("menu"));
 
@@ -506,8 +543,6 @@ function MobileSidebar({
 
       return;
     }
-
-    const campPath = `/headteacher/dashboard/camp/${campId}`;
 
     const campPageRoutes: Record<string, string> = {
       attendance: "attendance",
@@ -523,17 +558,17 @@ function MobileSidebar({
     };
 
     if (id === "students") {
-      router.push(`${campPath}/students`);
+      router.push(getCleanCampPath("students"));
     } else if (id === "documents") {
-      router.push(`${campPath}/project-document`);
+      router.push(getCleanCampPath("project-document"));
     } else if (id === "summary-documents") {
-      router.push(`${campPath}/project-summary-document`);
+      router.push(getCleanCampPath("project-summary-document"));
     } else if (id === "overview") {
-      router.push(campPath);
+      router.push(getCleanCampPath());
     } else if (campPageRoutes[id]) {
-      router.push(`${campPath}/${campPageRoutes[id]}`);
+      router.push(getCleanCampPath(campPageRoutes[id]));
     } else {
-      router.push(`${campPath}?menu=${id}`);
+      router.push(`${getCleanCampPath()}?menu=${id}`);
     }
 
     setIsOpen(false);
@@ -628,7 +663,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [campAccess, setCampAccess] = useState<CampAccess | null>(null);
   const pathname = usePathname();
-  const campId = getCampIdFromPath(pathname);
+  const campId = useActiveCampId(pathname);
 
   useEffect(() => {
     document.documentElement.style.setProperty(

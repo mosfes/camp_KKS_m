@@ -3,6 +3,8 @@
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+import { getCleanCampPath } from "@/lib/client-active-camp";
+
 export default function SurveyResultsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -10,9 +12,7 @@ export default function SurveyResultsPage() {
 
   useEffect(() => {
     if (campId) {
-      router.replace(
-        `/headteacher/dashboard/camp/${campId}/survey?tab=responses`,
-      );
+      router.replace(`${getCleanCampPath("survey")}?tab=responses`);
     }
   }, [campId, router]);
 

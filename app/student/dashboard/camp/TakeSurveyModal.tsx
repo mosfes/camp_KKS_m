@@ -42,6 +42,7 @@ export default function TakeSurveyModal({
 }: TakeSurveyModalProps) {
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [loading, setLoading] = useState(false);
+  const submitInFlightRef = useRef(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const errorRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +84,7 @@ export default function TakeSurveyModal({
   };
 
   const handleSubmit = async () => {
+    if (submitInFlightRef.current) return;
     const validQuestions = survey.survey_question.filter(
       (q) => q.question_type !== "header",
     );
@@ -111,6 +113,7 @@ export default function TakeSurveyModal({
         q.question_type === "scale" ? Number(answers[q.question_id]) : null,
     }));
 
+    submitInFlightRef.current = true;
     try {
       setLoading(true);
       setErrorMsg(null);
@@ -150,6 +153,7 @@ export default function TakeSurveyModal({
       setErrorMsg(error.message || "เกิดข้อผิดพลาดในการส่งแบบสอบถาม");
       toast.error(error.message || "เกิดข้อผิดพลาดในการส่งแบบสอบถาม");
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -396,6 +400,7 @@ export default function TakeSurveyModal({
               <Button
                 fullWidth
                 className="bg-gray-100 text-gray-600 font-normal sm:w-1/3"
+                isDisabled={loading}
                 size="lg"
                 onPress={onClose}
               >
@@ -405,6 +410,7 @@ export default function TakeSurveyModal({
                 fullWidth
                 className="bg-[#5d7c6f] text-white font-normal shadow-lg shadow-[#5d7c6f]/20 sm:w-2/3"
                 isLoading={loading}
+                isDisabled={loading}
                 size="lg"
                 onPress={handleSubmit}
               >

@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 
 import EditCertificateModal from "../../EditCertificateModal";
 
+import { getCleanCampPath } from "@/lib/client-active-camp";
+
 function SkeletonBlock({ className }: { className: string }) {
   return (
     <div
@@ -101,7 +103,7 @@ export default function CertificatePage() {
       isOpen
       pageMode
       campData={camp}
-      onClose={() => router.push(`/headteacher/dashboard/camp/${campId}`)}
+      onClose={() => router.push(getCleanCampPath())}
       onSuccess={() => void loadCamp()}
     />
   );

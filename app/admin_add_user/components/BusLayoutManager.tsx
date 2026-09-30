@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStatusModal } from "@/components/StatusModalProvider";
 import {
   BUS_LAYOUT_DISPLAY_VERTICAL_SCALE,
+  BUS_LAYOUT_MIN_SEAT_SIZE,
   type BusLayoutElementType,
 } from "@/lib/freeform-bus-layout";
 
@@ -172,6 +173,20 @@ export default function BusLayoutManager({
   const [undoStack, setUndoStack] = useState<LayoutTemplate[]>([]);
   const [redoStack, setRedoStack] = useState<LayoutTemplate[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const actionInFlightRef = useRef(false);
+
+  const beginAsyncAction = () => {
+    if (actionInFlightRef.current) return false;
+
+    actionInFlightRef.current = true;
+    setSaving(true);
+    return true;
+  };
+
+  const finishAsyncAction = () => {
+    actionInFlightRef.current = false;
+    setSaving(false);
+  };
 
   const fetchTemplates = useCallback(
     async (preferredId?: number) => {
@@ -421,11 +436,11 @@ export default function BusLayoutManager({
         });
       } else {
         const nextWidth = Math.max(
-          1,
+          BUS_LAYOUT_MIN_SEAT_SIZE,
           Math.min(drag.bounds.width + dx, floor.canvasColumns - drag.bounds.x),
         );
         const nextHeight = Math.max(
-          1,
+          BUS_LAYOUT_MIN_SEAT_SIZE,
           Math.min(drag.bounds.height + dy, floor.canvasRows - drag.bounds.y),
         );
         const scaleX = nextWidth / drag.bounds.width;
@@ -441,8 +456,14 @@ export default function BusLayoutManager({
           element.y = Math.round(
             drag.bounds.y + (source.y - drag.bounds.y) * scaleY,
           );
-          element.width = Math.max(1, Math.round(source.width * scaleX));
-          element.height = Math.max(1, Math.round(source.height * scaleY));
+          element.width = Math.max(
+            BUS_LAYOUT_MIN_SEAT_SIZE,
+            Math.round(source.width * scaleX),
+          );
+          element.height = Math.max(
+            BUS_LAYOUT_MIN_SEAT_SIZE,
+            Math.round(source.height * scaleY),
+          );
         });
       }
 
@@ -551,9 +572,9 @@ export default function BusLayoutManager({
       showError("ข้อมูลไม่ครบ", "กรุณาระบุชื่อผังรถ");
       return;
     }
+    if (!beginAsyncAction()) return;
 
     try {
-      setSaving(true);
       const response = await fetch("/api/bus-layout-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -591,14 +612,15 @@ export default function BusLayoutManager({
         error instanceof Error ? error.message : "กรุณาลองใหม่",
       );
     } finally {
-      setSaving(false);
+      finishAsyncAction();
     }
   };
 
   const saveTemplate = async (status = draft?.status) => {
     if (!draft || !status) return;
+    if (!beginAsyncAction()) return;
+
     try {
-      setSaving(true);
       const response = await fetch(
         `/api/bus-layout-templates/${draft.templateId}`,
         {
@@ -628,14 +650,15 @@ export default function BusLayoutManager({
         error instanceof Error ? error.message : "กรุณาลองใหม่",
       );
     } finally {
-      setSaving(false);
+      finishAsyncAction();
     }
   };
 
   const duplicateTemplate = async () => {
     if (!draft) return;
+    if (!beginAsyncAction()) return;
+
     try {
-      setSaving(true);
       const response = await fetch(
         `/api/bus-layout-templates/${draft.templateId}`,
         {
@@ -654,14 +677,15 @@ export default function BusLayoutManager({
         error instanceof Error ? error.message : "กรุณาลองใหม่",
       );
     } finally {
-      setSaving(false);
+      finishAsyncAction();
     }
   };
 
   const archiveTemplate = async () => {
     if (!draft) return;
+    if (!beginAsyncAction()) return;
+
     try {
-      setSaving(true);
       const response = await fetch(
         `/api/bus-layout-templates/${draft.templateId}`,
         {
@@ -679,7 +703,7 @@ export default function BusLayoutManager({
         error instanceof Error ? error.message : "กรุณาลองใหม่",
       );
     } finally {
-      setSaving(false);
+      finishAsyncAction();
     }
   };
 
@@ -1334,7 +1358,11 @@ export default function BusLayoutManager({
                             : "ความสูง"}
                       <input
                         className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none"
-                        min={key === "x" || key === "y" ? 0 : 1}
+                        min={
+                          key === "x" || key === "y"
+                            ? 0
+                            : BUS_LAYOUT_MIN_SEAT_SIZE
+                        }
                         type="number"
                         value={selectedElement[key]}
                         onChange={(event) =>
@@ -1348,7 +1376,9 @@ export default function BusLayoutManager({
                                 item.elementId === selectedElement.elementId,
                             )!;
                             const value = Math.max(
-                              key === "x" || key === "y" ? 0 : 1,
+                              key === "x" || key === "y"
+                                ? 0
+                                : BUS_LAYOUT_MIN_SEAT_SIZE,
                               Number(event.target.value) || 0,
                             );
                             element[key] = value;

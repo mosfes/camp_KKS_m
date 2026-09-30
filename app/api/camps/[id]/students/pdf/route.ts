@@ -83,6 +83,7 @@ export async function GET(
         ...activeCampEnrollmentWhere(campId),
       },
       include: {
+        classroom: { include: { classroom_types: true } },
         student: {
           include: {
             classroom_students: {
@@ -129,24 +130,29 @@ export async function GET(
       if (notSignificant(stu.remark)) remarksCount++;
 
       let classroomStr = "-";
-      const matchedCs =
-        stu.classroom_students?.find((cs) =>
-          campClassroomIds.includes(cs.classroom_classroom_id),
-        ) || stu.classroom_students?.[0];
+      const matchedCs = stu.classroom_students?.find((cs) =>
+        campClassroomIds.includes(cs.classroom_classroom_id),
+      );
 
-      if (matchedCs && matchedCs.classroom) {
-        const gradeStr = String(matchedCs.classroom.grade).replace(
-          "Level_",
-          "",
-        );
-        const typeStr = matchedCs.classroom.classroom_types?.name || "";
+      const historicalClassroom = enr.classroom || matchedCs?.classroom;
+
+      if (historicalClassroom || enr.grade_snapshot) {
+        const gradeStr = String(
+          enr.grade_snapshot || historicalClassroom.grade,
+        ).replace("Level_", "");
+        const typeStr =
+          enr.classroom_name_snapshot ||
+          historicalClassroom?.classroom_types?.name ||
+          "";
 
         classroomStr = `ม.${gradeStr} ห้อง ${typeStr}`.trim();
       }
 
       return {
         studentId: stu.students_id,
-        name: `${stu.prefix_name || ""}${stu.firstname} ${stu.lastname}`.trim(),
+        name:
+          enr.student_name_snapshot ||
+          `${stu.prefix_name || ""}${stu.firstname} ${stu.lastname}`.trim(),
         nickname: stu.nickname,
         classroom: classroomStr,
         tel: stu.tel,

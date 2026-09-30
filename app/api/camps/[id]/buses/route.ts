@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { prisma } from "@/lib/db";
+import { buildEnrollmentSnapshotMap } from "@/lib/student-enrollment-snapshot";
 import { requireCampBusPermission } from "@/lib/camp-bus-auth";
 import {
   detectBusLayoutTemplate,
@@ -383,10 +384,16 @@ async function getBusData(
   // Keep a nullable enrollment record for students who have not registered yet.
   // This lets the bus layout reserve a seat without making them count as enrolled.
   if (classroomStudentIds.length > 0) {
+    const snapshots = await buildEnrollmentSnapshotMap(
+      prisma,
+      campId,
+      classroomStudentIds,
+    );
     await prisma.student_enrollment.createMany({
       data: classroomStudentIds.map((studentId) => ({
         student_students_id: studentId,
         camp_camp_id: campId,
+        ...(snapshots.get(studentId) || {}),
       })),
       skipDuplicates: true,
     });
@@ -776,10 +783,16 @@ export async function POST(request: Request, context: any) {
 
   const bus = await prisma
     .$transaction(async (tx) => {
+      const snapshots = await buildEnrollmentSnapshotMap(
+        tx,
+        campId,
+        classroomStudentIds,
+      );
       await tx.student_enrollment.createMany({
         data: classroomStudentIds.map((studentId) => ({
           student_students_id: studentId,
           camp_camp_id: campId,
+          ...(snapshots.get(studentId) || {}),
         })),
         skipDuplicates: true,
       });

@@ -197,3 +197,82 @@ export async function PATCH(
   });
   return NextResponse.json(photos);
 }
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  const { teacher, error } = await requireTeacher();
+  if (error) return error;
+
+  const campId = Number((await context.params).id);
+  const access = await getSummary(campId, teacher);
+  if (access.error) return access.error;
+
+  const body = await request.json().catch(() => ({}));
+  const photoIds: number[] = Array.from(
+    new Set<number>(
+      (Array.isArray(body?.photoIds) ? body.photoIds : [])
+        .map(Number)
+        .filter((id: number) => Number.isInteger(id) && id > 0),
+    ),
+  );
+
+  if (!photoIds.length) {
+    return NextResponse.json(
+      { error: "กรุณาเลือกรูปภาพที่ต้องการลบ" },
+      { status: 400 },
+    );
+  }
+
+  const summaryId = access.summary!.camp_project_summary_document_id;
+  const selectedPhotos = await prisma.camp_project_summary_photo.findMany({
+    where: {
+      camp_project_summary_photo_id: { in: photoIds },
+      summary_document_id: summaryId,
+    },
+    select: { camp_project_summary_photo_id: true, public_id: true },
+  });
+
+  if (selectedPhotos.length !== photoIds.length) {
+    return NextResponse.json(
+      { error: "ไม่พบรูปภาพที่เลือกบางรายการในภาคผนวกนี้" },
+      { status: 400 },
+    );
+  }
+
+  const publicIds = selectedPhotos
+    .map((photo) => photo.public_id)
+    .filter((publicId): publicId is string => Boolean(publicId));
+
+  if (publicIds.length) {
+    const results = await Promise.allSettled(
+      publicIds.map((publicId) =>
+        cloudinary.uploader.destroy(publicId, { resource_type: "image" }),
+      ),
+    );
+
+    results.forEach((result) => {
+      if (result.status === "rejected") {
+        console.warn(
+          "[project-summary-photo] Cloudinary bulk delete failed",
+          result.reason,
+        );
+      }
+    });
+  }
+
+  await prisma.camp_project_summary_photo.deleteMany({
+    where: {
+      camp_project_summary_photo_id: { in: photoIds },
+      summary_document_id: summaryId,
+    },
+  });
+
+  const photos = await prisma.camp_project_summary_photo.findMany({
+    where: { summary_document_id: summaryId },
+    orderBy: { sort_order: "asc" },
+  });
+
+  return NextResponse.json({ photos, deletedCount: selectedPhotos.length });
+}

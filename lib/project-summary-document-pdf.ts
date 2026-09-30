@@ -214,14 +214,22 @@ export async function createProjectSummaryDocumentPdf(document: any) {
     );
     y += lines.length * LINE_HEIGHT + 1;
   };
+  const projectNameLabelX = LEFT + textWidth("1. ", BODY_SIZE);
+  const projectNameValueX =
+    LEFT + Math.min(textWidth("1. ชื่อโครงการ", BODY_SIZE) + 7, 190);
   const subLine = (label: string, value: unknown) => {
-    const x = LEFT;
-    const labelWidth = textWidth(label) + 7;
-    const lines = wrap(clean(value) || "-", CONTENT_WIDTH - labelWidth);
+    const valueX = Math.max(
+      projectNameValueX,
+      projectNameLabelX + textWidth(label, BODY_SIZE) + 7,
+    );
+    const lines = wrap(
+      clean(value) || "-",
+      CONTENT_WIDTH - (valueX - LEFT),
+    );
     ensure(lines.length * LINE_HEIGHT);
-    drawText(label, x, y);
+    drawText(label, projectNameLabelX, y);
     lines.forEach((line, index) =>
-      drawText(line, x + labelWidth, y + index * LINE_HEIGHT),
+      drawText(line, valueX, y + index * LINE_HEIGHT),
     );
     y += lines.length * LINE_HEIGHT;
   };

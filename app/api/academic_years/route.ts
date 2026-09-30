@@ -20,7 +20,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const year = parseInt(body.year);
-    const status = body.status || "Active";
+    const status = body.status || "Draft";
 
     const existing = await prisma.academic_years.findFirst({
       where: { year: year },

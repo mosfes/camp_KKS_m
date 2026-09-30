@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import {
   Button,
   Select,
@@ -57,6 +57,7 @@ import {
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
+import { getCleanCampPath } from "@/lib/client-active-camp";
 
 interface Question {
   id?: number;
@@ -292,7 +293,6 @@ function ResponsesTabSkeleton() {
 
 export default function SurveyPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const campId = Number(params.id);
   const { showError, showSuccess, showConfirm } = useStatusModal();
@@ -320,6 +320,7 @@ export default function SurveyPage() {
   const [saveAsTemplate, setSaveAsTemplate] = useState(false);
   const [templateTitle, setTemplateTitle] = useState("");
   const [saving, setSaving] = useState(false);
+  const submitInFlightRef = useRef(false);
 
   // Template Modal State
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -421,7 +422,7 @@ export default function SurveyPage() {
   // Sync tab change with URL search params
   const handleTabChange = (tab: "questions" | "responses") => {
     setActiveTab(tab);
-    const newUrl = `/headteacher/dashboard/camp/${campId}/survey?tab=${tab}`;
+    const newUrl = `${getCleanCampPath("survey")}?tab=${tab}`;
 
     window.history.replaceState(null, "", newUrl);
     if (tab === "responses") {
@@ -578,6 +579,7 @@ export default function SurveyPage() {
 
   // Submit / Save Form
   const handleSubmit = async () => {
+    if (submitInFlightRef.current) return;
     const finalTitle = title.trim() || "แบบสอบถามความพึงพอใจ";
     const realQuestions = questions.filter((q) => q.type !== "header");
 
@@ -613,6 +615,7 @@ export default function SurveyPage() {
       options: q.options,
     }));
 
+    submitInFlightRef.current = true;
     try {
       setSaving(true);
       const isEditing = !!survey;
@@ -665,6 +668,7 @@ export default function SurveyPage() {
     } catch (err: any) {
       showError("เกิดข้อผิดพลาด", err.message);
     } finally {
+      submitInFlightRef.current = false;
       setSaving(false);
     }
   };
@@ -810,6 +814,7 @@ export default function SurveyPage() {
                   <Button
                     className="bg-[#6b857a] font-medium text-white shadow-sm hover:bg-[#5a7268]"
                     isLoading={saving}
+                    isDisabled={saving}
                     size="sm"
                     startContent={!saving && <Save size={16} />}
                     onPress={handleSubmit}

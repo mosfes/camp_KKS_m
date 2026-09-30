@@ -26,6 +26,13 @@ import { exportCampStudentsToExcel } from "@/lib/export-camp-students-excel";
 import { useStatusModal } from "@/components/StatusModalProvider";
 
 interface Student {
+  grade_snapshot?: string | null;
+  classroom_name_snapshot?: string | null;
+  student_name_snapshot?: string | null;
+  classroom?: {
+    grade: string;
+    classroom_types?: { name: string };
+  } | null;
   student: {
     students_id: number;
     prefix_name: string | null;
@@ -217,17 +224,24 @@ export default function CampStudentsPage() {
         const stu = row.student;
         let classroomStr = "-";
 
-        if (stu.classroom_students?.[0]?.classroom) {
-          const cls = stu.classroom_students[0].classroom;
-          const gradeStr = String(cls.grade).replace("Level_", "");
-          const typeStr = cls.classroom_types?.name || "";
+        const historicalClassroom = row.classroom;
+        const historicalGrade = row.grade_snapshot || historicalClassroom?.grade;
+
+        if (historicalGrade) {
+          const gradeStr = String(historicalGrade).replace("Level_", "");
+          const typeStr =
+            row.classroom_name_snapshot ||
+            historicalClassroom?.classroom_types?.name ||
+            "";
 
           classroomStr = `ม.${gradeStr} ห้อง ${typeStr}`.trim();
         }
 
         return {
           studentId: stu.students_id,
-          name: `${stu.prefix_name || ""}${stu.firstname} ${stu.lastname}`.trim(),
+          name:
+            row.student_name_snapshot ||
+            `${stu.prefix_name || ""}${stu.firstname} ${stu.lastname}`.trim(),
           nickname: stu.nickname,
           classroom: classroomStr,
           tel: stu.tel,

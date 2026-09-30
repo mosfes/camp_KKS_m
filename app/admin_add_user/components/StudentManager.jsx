@@ -30,7 +30,7 @@ import {
 } from "@heroui/react";
 import { useState, useEffect, useRef } from "react";
 import * as XLSX from 'xlsx';
-import { Trash2, Trash, Archive, SquarePen, ArrowUp, FileDown, ClipboardPaste, HelpCircle, Search } from 'lucide-react';
+import { Trash2, Trash, Archive, SquarePen, ArrowUp, FileDown, ClipboardPaste, HelpCircle, Search, GraduationCap } from 'lucide-react';
 import studentService from "@/app/service/adminService";
 import { useRouter } from "next/navigation";
 import { PlusIcon } from "./Icons";
@@ -93,6 +93,8 @@ const StudentManager = () => {
     const [classrooms, setClassrooms] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const submitInFlightRef = useRef(false);
     const [showTrash, setShowTrash] = useState(false);
 
     // --- State เลื่อนชั้น (Moved to /admin_promote_students) ---
@@ -213,10 +215,11 @@ const StudentManager = () => {
             ]).then(([clsData, yearsData, tchData, typeData]) => {
                 if (yearsData && yearsData.length > 0) {
                     const sortedYears = [...yearsData].sort((a, b) => b.year - a.year);
-                    if (sortedYears.length > 0) {
-                        setSelectedYear(sortedYears[0].year.toString());
-                        setAddStudentYear(sortedYears[0].year.toString());
-                        setPasteYear(sortedYears[0].year.toString());
+                    const activeYear = sortedYears.find(year => year.status === "Active") || sortedYears[0];
+                    if (activeYear) {
+                        setSelectedYear(activeYear.year.toString());
+                        setAddStudentYear(activeYear.year.toString());
+                        setPasteYear(activeYear.year.toString());
                     }
                 }
             });
@@ -387,6 +390,7 @@ const StudentManager = () => {
     };
 
     const handleSubmit = async (onClose) => {
+        if (submitInFlightRef.current) return;
         if (!formData.students_id || !formData.firstname) {
             showError("ข้อมูลไม่ครบ", "กรุณากรอกรหัสนักเรียนและชื่อ");
             return;
@@ -400,6 +404,8 @@ const StudentManager = () => {
             }
         }
 
+        submitInFlightRef.current = true;
+        setIsSubmitting(true);
         try {
             if (isEditing) {
                 await studentService.updateStudent(formData);
@@ -414,6 +420,9 @@ const StudentManager = () => {
         } catch (error) {
             console.error("Operation error:", error);
             showError("เกิดข้อผิดพลาด", error.message);
+        } finally {
+            submitInFlightRef.current = false;
+            setIsSubmitting(false);
         }
     };
 
@@ -454,6 +463,10 @@ const StudentManager = () => {
 
     const handlePromoteClick = () => {
         router.push('/admin_promote_students');
+    };
+
+    const handleGraduatedClick = () => {
+        router.push('/admin_graduated_students');
     };
 
     const openPasteModal = () => {
@@ -655,10 +668,19 @@ const StudentManager = () => {
                                     variant="bordered"
                                     className="bg-white text-gray-600 border-gray-300 hover:bg-gray-50 shadow-sm rounded-full"
                                     onPress={handlePromoteClick}
-                                    isDisabled
                                 >
                                     <ArrowUp size={16} />
                                     <span className="ml-1 font-medium hidden sm:inline">เลื่อนชั้นเรียน</span>
+                                </Button>
+
+                                <Button
+                                    size="sm"
+                                    variant="bordered"
+                                    className="bg-white text-gray-600 border-gray-300 hover:bg-gray-50 shadow-sm rounded-full"
+                                    onPress={handleGraduatedClick}
+                                >
+                                    <GraduationCap size={16} />
+                                    <span className="ml-1 font-medium hidden sm:inline">ผู้จบการศึกษา</span>
                                 </Button>
 
                                 <Button
@@ -1046,6 +1068,7 @@ const StudentManager = () => {
                                 <Button
                                     fullWidth
                                     className="font-medium text-gray-600"
+                                    isDisabled={isSubmitting}
                                     variant="light"
                                     onPress={onClose}
                                 >
@@ -1054,6 +1077,8 @@ const StudentManager = () => {
                                 <Button
                                     fullWidth
                                     className="bg-[#6b857a] text-white rounded-xl font-bold shadow-sm hover:bg-[#5a7268]"
+                                    isDisabled={isSubmitting}
+                                    isLoading={isSubmitting}
                                     onPress={() => handleSubmit(onClose)}
                                 >
                                     บันทึก

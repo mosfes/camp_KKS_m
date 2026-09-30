@@ -10,7 +10,7 @@ import {
   Select,
   SelectItem,
 } from "@heroui/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Save, CheckCircle2, Plus, Trash2, Circle } from "lucide-react";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
@@ -81,6 +81,7 @@ export default function EditMissionModal({
     },
   ]);
   const [loading, setLoading] = useState(false);
+  const submitInFlightRef = useRef(false);
   const selectedType = MISSION_TYPES.find((item) => item.key === type);
 
   useEffect(() => {
@@ -221,6 +222,7 @@ export default function EditMissionModal({
   };
 
   const handleSubmit = async () => {
+    if (submitInFlightRef.current) return;
     if (!title.trim()) {
       showError("ข้อผิดพลาด", "กรุณากรอกชื่อภารกิจ");
 
@@ -267,6 +269,7 @@ export default function EditMissionModal({
       }
     }
 
+    submitInFlightRef.current = true;
     try {
       setLoading(true);
       const res = await fetch(`/api/missions/${missionData?.mission_id}`, {
@@ -294,6 +297,7 @@ export default function EditMissionModal({
     } catch {
       showError("ข้อผิดพลาด", "แก้ไขภารกิจไม่สำเร็จ");
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -556,6 +560,7 @@ export default function EditMissionModal({
               <Button
                 fullWidth
                 className="font-medium text-gray-600"
+                isDisabled={loading}
                 size="lg"
                 variant="light"
                 onPress={onClose}
@@ -566,6 +571,7 @@ export default function EditMissionModal({
                 fullWidth
                 className="bg-[#6b857a] text-white rounded-xl font-bold shadow-lg hover:bg-[#5a7268]"
                 isLoading={loading}
+                isDisabled={loading}
                 size="lg"
                 startContent={!loading && <Save size={18} />}
                 onPress={handleSubmit}

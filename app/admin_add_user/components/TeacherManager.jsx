@@ -64,6 +64,8 @@ const TeacherManager = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalTeachers, setTotalTeachers] = useState(0);
     const [isOtherPrefix, setIsOtherPrefix] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const submitInFlightRef = useRef(false);
 
     // Paste Import State
     const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
@@ -183,6 +185,7 @@ const TeacherManager = () => {
     };
 
     const handleSubmit = async (onClose) => {
+        if (submitInFlightRef.current) return;
         if (!formData.firstname || !formData.email) {
             showError("ข้อมูลไม่ครบ", "กรุณากรอกชื่อและอีเมล");
             return;
@@ -194,6 +197,8 @@ const TeacherManager = () => {
             return;
         }
 
+        submitInFlightRef.current = true;
+        setIsSubmitting(true);
         try {
             if (isEditing) {
                 await studentService.updateTeacher(formData);
@@ -209,6 +214,9 @@ const TeacherManager = () => {
             onClose();
         } catch (error) {
             showError("เกิดข้อผิดพลาด", error.message);
+        } finally {
+            submitInFlightRef.current = false;
+            setIsSubmitting(false);
         }
     };
 
@@ -671,6 +679,7 @@ const TeacherManager = () => {
                                 <Button
                                     fullWidth
                                     className="font-medium text-gray-600"
+                                    isDisabled={isSubmitting}
                                     variant="light"
                                     onPress={onClose}
                                 >
@@ -679,6 +688,8 @@ const TeacherManager = () => {
                                 <Button
                                     fullWidth
                                     className="bg-[#6b857a] text-white rounded-xl font-bold shadow-sm hover:bg-[#5a7268]"
+                                    isDisabled={isSubmitting}
+                                    isLoading={isSubmitting}
                                     onPress={() => handleSubmit(onClose)}
                                 >
                                     บันทึก

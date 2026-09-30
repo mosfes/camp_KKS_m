@@ -14,14 +14,15 @@ export const BUS_LAYOUT_ELEMENT_TYPES = [
 export type BusLayoutElementType = (typeof BUS_LAYOUT_ELEMENT_TYPES)[number];
 
 export const BUS_LAYOUT_DISPLAY_VERTICAL_SCALE = 2 / 3;
+export const BUS_LAYOUT_MIN_SEAT_SIZE = 2;
 
 export const busLayoutElementSchema = z.object({
   elementId: z.union([z.number().int().positive(), z.string()]).optional(),
   type: z.literal("SEAT"),
   x: z.number().int().min(0),
   y: z.number().int().min(0),
-  width: z.number().int().min(1).max(12),
-  height: z.number().int().min(1).max(12),
+  width: z.number().int().min(BUS_LAYOUT_MIN_SEAT_SIZE).max(12),
+  height: z.number().int().min(BUS_LAYOUT_MIN_SEAT_SIZE).max(12),
   rotation: z.union([
     z.literal(0),
     z.literal(90),

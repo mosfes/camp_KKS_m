@@ -47,13 +47,17 @@ import BusManagementModal from "./BusManagementModal";
 import PrePostTestModal from "./PrePostTestModal";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
-import CampDestinationCard from "@/components/camp-location/CampDestinationCard";
 import {
   BANGKOK_TIME_ZONE,
   formatCampScheduleDate,
   getCampScheduleSlotState,
   isCampScheduleDayToday,
 } from "@/lib/bangkok-date";
+import {
+  getCleanBasePath,
+  getCleanCampPath,
+  rememberActiveBaseId,
+} from "@/lib/client-active-camp";
 
 interface TimeSlot {
   startTime: string;
@@ -301,7 +305,7 @@ export default function CampDetailPage() {
     if (isEdit === "true") {
       setIsEditModalOpen(true);
       // Clean up the URL to remove the query param so it doesn't re-trigger on refresh
-      router.replace(`/headteacher/dashboard/camp/${campId}`);
+      router.replace(getCleanCampPath());
     }
   }, [campId, isEdit]);
 
@@ -781,17 +785,6 @@ export default function CampDetailPage() {
       {/* Main Content */}
       <div className="max-w-[1240px] mx-auto px-3 py-5">
         {/* ... existing detailed content ... */}
-        <CampDestinationCard
-          className="mb-6"
-          destination={{
-            name: camp.destination_name,
-            address: camp.destination_address,
-            latitude: camp.destination_latitude,
-            longitude: camp.destination_longitude,
-          }}
-          fallbackName={camp.location}
-        />
-
         {/* Stats Summary */}
         <div
           className={`grid ${camp?.has_shirt ? "grid-cols-3" : "grid-cols-2"} gap-3 mb-6`}
@@ -851,9 +844,7 @@ export default function CampDetailPage() {
                     <button
                       className="bg-white hover:bg-[#f0f4f2] border-gray-100 hover:border-[#6b857a] rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-3 group border shadow-sm cursor-pointer"
                       onClick={() =>
-                        router.push(
-                          `/headteacher/dashboard/camp/${campId}/project-document`,
-                        )
+                        router.push(getCleanCampPath("project-document"))
                       }
                     >
                       <div className="text-[#6b857a] group-hover:scale-110 transition-transform">
@@ -980,11 +971,7 @@ export default function CampDetailPage() {
 
                   <button
                     className="bg-white hover:bg-[#f0f4f2] border-gray-100 hover:border-[#6b857a] rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-3 group border shadow-sm cursor-pointer"
-                    onClick={() =>
-                      router.push(
-                        `/headteacher/dashboard/camp/${campId}/attendance`,
-                      )
-                    }
+                    onClick={() => router.push(getCleanCampPath("attendance"))}
                   >
                     <div className="text-[#6b857a] group-hover:scale-110 transition-transform">
                       <UserCheck size={32} />
@@ -1002,9 +989,7 @@ export default function CampDetailPage() {
                     <button
                       className="bg-white hover:bg-[#f0f4f2] border-gray-100 hover:border-[#6b857a] rounded-2xl p-6 transition-all flex flex-col items-center justify-center gap-3 group border shadow-sm cursor-pointer"
                       onClick={() =>
-                        router.push(
-                          `/headteacher/dashboard/camp/${campId}/bus-checkin`,
-                        )
+                        router.push(getCleanCampPath("bus-checkin"))
                       }
                     >
                       <div className="text-[#6b857a] group-hover:scale-110 transition-transform">
@@ -1039,9 +1024,7 @@ export default function CampDetailPage() {
                     disabled={isStudentsLoading}
                     onClick={() => {
                       setIsStudentsLoading(true);
-                      router.push(
-                        `/headteacher/dashboard/camp/${campId}/students`,
-                      );
+                      router.push(getCleanCampPath("students"));
                     }}
                   >
                     <div className="text-[#6b857a] group-hover:scale-110 transition-transform flex items-center justify-center w-[32px] h-[32px]">
@@ -1080,9 +1063,7 @@ export default function CampDetailPage() {
           >
             <button
               className="group flex min-h-[8rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-gray-100 bg-white p-2 shadow-sm transition-all hover:border-[#6b857a] hover:bg-[#f0f4f2] sm:gap-2 sm:p-4"
-              onClick={() =>
-                router.push(`/headteacher/dashboard/camp/${campId}/students`)
-              }
+              onClick={() => router.push(getCleanCampPath("students"))}
             >
               <BookOpen
                 className="h-6 w-6 text-[#6b857a] transition-transform group-hover:scale-110 sm:h-8 sm:w-8"
@@ -1097,11 +1078,7 @@ export default function CampDetailPage() {
               (camp.isOwner || camp.isHomeroomTeacher || camp.isBusTeacher) && (
                 <button
                   className="group flex min-h-[8rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-gray-100 bg-white p-2 shadow-sm transition-all hover:border-[#6b857a] hover:bg-[#f0f4f2] sm:gap-2 sm:p-4"
-                  onClick={() =>
-                    router.push(
-                      `/headteacher/dashboard/camp/${campId}/bus-checkin`,
-                    )
-                  }
+                  onClick={() => router.push(getCleanCampPath("bus-checkin"))}
                 >
                   <Bus
                     className="h-6 w-6 text-[#6b857a] transition-transform group-hover:scale-110 sm:h-8 sm:w-8"
@@ -1115,9 +1092,7 @@ export default function CampDetailPage() {
 
             <button
               className="group flex min-h-[8rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-gray-100 bg-white p-2 shadow-sm transition-all hover:border-[#6b857a] hover:bg-[#f0f4f2] sm:gap-2 sm:p-4"
-              onClick={() =>
-                router.push(`/headteacher/dashboard/camp/${campId}/tracking`)
-              }
+              onClick={() => router.push(getCleanCampPath("tracking"))}
             >
               <Users
                 className="h-6 w-6 text-[#6b857a] transition-transform group-hover:scale-110 sm:h-8 sm:w-8"
@@ -1635,9 +1610,8 @@ export default function CampDetailPage() {
                     onClick={() => {
                       if (navigatingToBase !== null) return;
                       setNavigatingToBase(station.station_id);
-                      router.push(
-                        `/headteacher/dashboard/camp/${campId}/base/${station.station_id}`,
-                      );
+                      rememberActiveBaseId(station.station_id);
+                      router.push(getCleanBasePath());
                     }}
                   >
                     {navigatingToBase === station.station_id && (

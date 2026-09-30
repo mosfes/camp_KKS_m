@@ -309,15 +309,45 @@ export async function PUT(req) {
       );
     }
 
+    const targetAcademicYear = parseInt(body.academic_year_id);
+    const classroomMemberships = await prisma.classroom_students.findMany({
+      where: { classroom_classroom_id: id },
+      select: { student_students_id: true },
+    });
+    const conflictingMembership = await prisma.classroom_students.findFirst({
+      where: {
+        student_students_id: {
+          in: classroomMemberships.map((item) => item.student_students_id),
+        },
+        academic_year: targetAcademicYear,
+        NOT: { classroom_classroom_id: id },
+      },
+      select: { student_students_id: true },
+    });
+
+    if (conflictingMembership) {
+      return NextResponse.json(
+        {
+          error: `ไม่สามารถย้ายห้องไปปีการศึกษานี้ได้ เนื่องจากนักเรียน ${conflictingMembership.student_students_id} มีห้องในปีดังกล่าวแล้ว`,
+        },
+        { status: 409 },
+      );
+    }
+
     const updatedClassroom = await prisma.$transaction(async (prisma) => {
       const classroom = await prisma.classrooms.update({
         where: { classroom_id: id },
         data: {
           grade: body.grade,
           type_classroom: parseInt(body.type_classroom),
-          academic_years_years_id: parseInt(body.academic_year_id),
+          academic_years_years_id: targetAcademicYear,
           teachers_teachers_id: parseInt(body.teacher_id),
         },
+      });
+
+      await prisma.classroom_students.updateMany({
+        where: { classroom_classroom_id: id },
+        data: { academic_year: targetAcademicYear },
       });
 
       await prisma.classroom_teacher.deleteMany({

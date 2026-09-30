@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@heroui/button";
 import { Textarea } from "@heroui/input";
@@ -15,6 +15,7 @@ export default function StudentSurveyPage() {
   const [survey, setSurvey] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
   const [answers, setAnswers] = useState<Record<number, any>>({});
   const [isCompleted, setIsCompleted] = useState(false);
 
@@ -84,6 +85,7 @@ export default function StudentSurveyPage() {
   };
 
   const handleSubmit = async () => {
+    if (submitInFlightRef.current) return;
     if (!survey || !survey.survey_question) return;
 
     // Validate that all questions are answered (except text-based feedback)
@@ -102,6 +104,7 @@ export default function StudentSurveyPage() {
       return;
     }
 
+    submitInFlightRef.current = true;
     setSubmitting(true);
 
     try {
@@ -145,6 +148,7 @@ export default function StudentSurveyPage() {
       console.error("Failed to submit survey", error);
       toast.error("เกิดข้อผิดพลาดในการส่งข้อมูล");
     } finally {
+      submitInFlightRef.current = false;
       setSubmitting(false);
     }
   };
@@ -338,6 +342,7 @@ export default function StudentSurveyPage() {
           <Button
             className="w-full md:w-auto md:min-w-[200px] bg-[#5d7c6f] text-white py-6 shadow-md hover:bg-[#4a6358] transition-colors"
             isLoading={submitting}
+            isDisabled={submitting}
             radius="full"
             size="lg"
             onPress={handleSubmit}

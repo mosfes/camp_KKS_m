@@ -10,7 +10,7 @@ import {
   Select,
   SelectItem,
 } from "@heroui/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Save, Plus, Trash2, CheckCircle2, Circle } from "lucide-react";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
@@ -81,6 +81,7 @@ export default function CreateMissionModal({
     },
   ]);
   const [loading, setLoading] = useState(false);
+  const submitInFlightRef = useRef(false);
   const selectedType = MISSION_TYPES.find((item) => item.key === type);
 
   // MCQ Handlers
@@ -154,6 +155,7 @@ export default function CreateMissionModal({
   };
 
   const handleSubmit = async () => {
+    if (submitInFlightRef.current) return;
     if (!title.trim()) {
       showError("ข้อผิดพลาด", "กรุณากรอกชื่อภารกิจ");
 
@@ -201,6 +203,7 @@ export default function CreateMissionModal({
     }
     // QR_CODE_SCANNING: no questions needed
 
+    submitInFlightRef.current = true;
     try {
       setLoading(true);
       const res = await fetch("/api/missions", {
@@ -242,6 +245,7 @@ export default function CreateMissionModal({
     } catch {
       showError("ข้อผิดพลาด", "สร้างภารกิจไม่สำเร็จ");
     } finally {
+      submitInFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -539,6 +543,7 @@ export default function CreateMissionModal({
               <Button
                 fullWidth
                 className="font-normal text-gray-600"
+                isDisabled={loading}
                 size="lg"
                 variant="light"
                 onPress={onClose}
@@ -549,6 +554,7 @@ export default function CreateMissionModal({
                 fullWidth
                 className="bg-[#6b857a] text-white rounded-xl font-medium shadow-lg hover:bg-[#5a7268]"
                 isLoading={loading}
+                isDisabled={loading}
                 size="lg"
                 startContent={!loading && <Save size={18} />}
                 onPress={handleSubmit}

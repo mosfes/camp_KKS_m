@@ -24,7 +24,7 @@ import {
     Checkbox,
     Pagination
 } from "@heroui/react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Trash2, Trash, Archive, SquarePen, Settings } from 'lucide-react';
 import TrashManager from "./TrashManager";
 import studentService from "@/app/service/adminService";
@@ -91,6 +91,8 @@ const ClassroomManager = () => {
     const [hasMore, setHasMore] = useState(true);
     const [totalClassrooms, setTotalClassrooms] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const submitInFlightRef = useRef(false);
 
     const [isEditing, setIsEditing] = useState(false);
     const [editId, setEditId] = useState(null);
@@ -425,6 +427,11 @@ const ClassroomManager = () => {
             return;
         }
 
+        if (submitInFlightRef.current) return;
+
+        submitInFlightRef.current = true;
+        setIsSubmitting(true);
+
         const payload = {
             ...formData,
             type_classroom: parseInt(formData.type_classroom),
@@ -444,6 +451,9 @@ const ClassroomManager = () => {
             onClose();
         } catch (error) {
             showError("เกิดข้อผิดพลาด", error.message);
+        } finally {
+            submitInFlightRef.current = false;
+            setIsSubmitting(false);
         }
     };
     const handleOpenAdd = () => {
@@ -876,6 +886,7 @@ const ClassroomManager = () => {
                                 <Button
                                     fullWidth
                                     className="font-medium text-gray-600"
+                                    isDisabled={isSubmitting}
                                     variant="light"
                                     onPress={onClose}
                                 >
@@ -884,6 +895,8 @@ const ClassroomManager = () => {
                                 <Button
                                     fullWidth
                                     className="bg-[#6b857a] text-white rounded-xl font-bold shadow-sm hover:bg-[#5a7268]"
+                                    isDisabled={isSubmitting}
+                                    isLoading={isSubmitting}
                                     onPress={() => handleSubmit(onClose)}
                                 >
                                     บันทึก

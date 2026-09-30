@@ -29,7 +29,7 @@ import {
 } from "@heroui/react";
 import { parseDate } from "@internationalized/date";
 import { I18nProvider } from "@react-aria/i18n";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, MapPin, Users, Calendar, GraduationCap, SquarePen, Trash2, RotateCcw, Trash, Archive, AlertTriangle, ArrowLeft, X, Eye } from 'lucide-react';
 import { useRouter } from "next/navigation";
 import adminService from "@/app/service/adminService";
@@ -131,6 +131,8 @@ const CampManager = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalCamps, setTotalCamps] = useState(0);
     const [showTrash, setShowTrash] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const submitInFlightRef = useRef(false);
 
     // Edit form state
     const [editingCamp, setEditingCamp] = useState(null);
@@ -244,6 +246,7 @@ const CampManager = () => {
     };
 
     const handleSubmitEdit = async (onClose) => {
+        if (submitInFlightRef.current) return;
         if (!formData.name) {
             showError("ข้อมูลไม่ครบ", "กรุณากรอกชื่อค่าย");
             return;
@@ -254,6 +257,8 @@ const CampManager = () => {
             return;
         }
 
+        submitInFlightRef.current = true;
+        setIsSubmitting(true);
         try {
             await adminService.updateCamp(editingCamp.camp_id, {
                 name: formData.name,
@@ -274,6 +279,9 @@ const CampManager = () => {
         } catch (error) {
             console.error("Error updating camp:", error);
             showError("เกิดข้อผิดพลาด", error.message);
+        } finally {
+            submitInFlightRef.current = false;
+            setIsSubmitting(false);
         }
     };
 
@@ -776,6 +784,7 @@ const CampManager = () => {
                             <Button
                                 fullWidth
                                 className="font-medium text-gray-600"
+                                isDisabled={isSubmitting}
                                 variant="light"
                                 onPress={onClose}
                             >
@@ -784,6 +793,8 @@ const CampManager = () => {
                             <Button
                                 fullWidth
                                 className="bg-[#6b857a] text-white rounded-xl font-bold shadow-sm hover:bg-[#5a7268]"
+                                isDisabled={isSubmitting}
+                                isLoading={isSubmitting}
                                 onPress={() => handleSubmitEdit(onClose)}
                             >
                                 บันทึก

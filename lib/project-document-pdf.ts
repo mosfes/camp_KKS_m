@@ -18,7 +18,7 @@ const BODY_SIZE = 16;
 const LINE_HEIGHT = 21;
 const BLACK = rgb(0, 0, 0);
 
-type Align = "left" | "center" | "right";
+type Align = "left" | "center" | "right" | "justify" | "thai-distribute";
 type Cell = { text: string; width?: number; align?: Align; bold?: boolean };
 type RichRun = { text: string; bold?: boolean };
 
@@ -89,6 +89,37 @@ export async function createProjectDocumentPdf(document: any) {
     };
 
     page.drawText(text, options);
+  };
+  const drawThaiDistributedText = (
+    text: string,
+    x: number,
+    top: number,
+    width: number,
+    size = BODY_SIZE,
+    bold = false,
+  ) => {
+    const graphemes = Array.from(
+      new (Intl as any).Segmenter("th", { granularity: "grapheme" }).segment(
+        text,
+      ) as Iterable<{ segment: string }>,
+      (item) => item.segment,
+    );
+
+    if (graphemes.length < 2) {
+      drawText(text, x, top, size, bold);
+
+      return;
+    }
+
+    const extra = Math.max(0, width - textWidth(text, size, bold));
+    const letterGap = extra / (graphemes.length - 1);
+    let cursor = x;
+
+    graphemes.forEach((grapheme, index) => {
+      drawText(grapheme, cursor, top, size, bold);
+      cursor += textWidth(grapheme, size, bold);
+      if (index < graphemes.length - 1) cursor += letterGap;
+    });
   };
   const words = (text: string): string[] => {
     const normalized = clean(text);
@@ -181,8 +212,8 @@ export async function createProjectDocumentPdf(document: any) {
     const firstLineIndent = options.firstLineIndent ?? 0;
     const paragraphs = clean(text).split("\n");
 
-    paragraphs.forEach((paragraph, paragraphIndex) => {
-      const indent = paragraphIndex === 0 ? firstLineIndent : 0;
+    paragraphs.forEach((paragraph) => {
+      const indent = firstLineIndent;
       const lines = wrap(paragraph, width - indent, size, options.bold);
 
       lines.forEach((item, index) => {
@@ -197,7 +228,22 @@ export async function createProjectDocumentPdf(document: any) {
               ? x + currentIndent + Math.max(0, available - itemWidth)
               : x + currentIndent;
 
-        drawText(item, itemX, y, size, options.bold);
+        if (
+          (options.align === "justify" ||
+            options.align === "thai-distribute") &&
+          index < lines.length - 1
+        ) {
+          drawThaiDistributedText(
+            item,
+            x + currentIndent,
+            y,
+            available,
+            size,
+            options.bold,
+          );
+        } else {
+          drawText(item, itemX, y, size, options.bold);
+        }
         y += lineHeight;
       });
     });
@@ -596,10 +642,11 @@ export async function createProjectDocumentPdf(document: any) {
   const projectName = clean(document.project_name) || "-";
   const projectCode = clean(document.project_code) || "-";
   const projectValueWidth = CONTENT_WIDTH - projectLabelWidth;
+  const projectSpaceWidth = textWidth(" ", projectLineSize);
   const inlineCodeWidth =
     textWidth(codeLabel, projectLineSize, true) +
     textWidth(projectCode, projectLineSize) +
-    8;
+    projectSpaceWidth * 2;
   let projectLines = wrap(projectName, projectValueWidth, projectLineSize);
 
   if (
@@ -627,13 +674,13 @@ export async function createProjectDocumentPdf(document: any) {
     MARGIN_LEFT +
     projectLabelWidth +
     textWidth(projectLastLine, projectLineSize) +
-    5;
+    projectSpaceWidth;
   const projectLastTop = y + (projectLines.length - 1) * LINE_HEIGHT;
 
   drawText(codeLabel, codeX, projectLastTop, projectLineSize, true);
   drawText(
     projectCode,
-    codeX + textWidth(codeLabel, projectLineSize, true) + 3,
+    codeX + textWidth(codeLabel, projectLineSize, true) + projectSpaceWidth,
     projectLastTop,
     projectLineSize,
   );
@@ -646,9 +693,12 @@ export async function createProjectDocumentPdf(document: any) {
     BODY_SIZE,
   );
   const orderText = clean(document.activity_order);
+  const activitySpaceWidth = textWidth(" ", BODY_SIZE);
   const lastActivity = activityLines.at(-1) || "";
   const orderWidth = orderText
-    ? textWidth(`  ลำดับกิจกรรม  ${orderText}`, BODY_SIZE)
+    ? activitySpaceWidth * 2 +
+      textWidth("ลำดับกิจกรรม", BODY_SIZE, true) +
+      textWidth(orderText, BODY_SIZE)
     : 0;
 
   ensure(activityLines.length * LINE_HEIGHT);
@@ -667,17 +717,28 @@ export async function createProjectDocumentPdf(document: any) {
       CONTENT_WIDTH - labelWidth
   ) {
     const orderX =
-      MARGIN_LEFT + labelWidth + textWidth(lastActivity, BODY_SIZE) + 6;
+      MARGIN_LEFT +
+      labelWidth +
+      textWidth(lastActivity, BODY_SIZE) +
+      activitySpaceWidth;
 
     richLine(
-      [{ text: "ลำดับกิจกรรม", bold: true }, { text: `  ${orderText}` }],
+      [{ text: "ลำดับกิจกรรม", bold: true }, { text: ` ${orderText}` }],
       orderX,
       y + (activityLines.length - 1) * LINE_HEIGHT,
     );
     y += activityLines.length * LINE_HEIGHT;
   } else {
     y += activityLines.length * LINE_HEIGHT;
-    if (orderText) labeled("ลำดับกิจกรรม", orderText, labelWidth);
+    if (orderText) {
+      ensure(LINE_HEIGHT);
+      richLine(
+        [{ text: "ลำดับกิจกรรม", bold: true }, { text: ` ${orderText}` }],
+        MARGIN_LEFT + labelWidth,
+        y,
+      );
+      y += LINE_HEIGHT;
+    }
   }
 
   ensure(LINE_HEIGHT);
@@ -726,7 +787,8 @@ export async function createProjectDocumentPdf(document: any) {
 
   heading("1", "หลักการและเหตุผล");
   drawWrapped(clean(document.rationale) || "-", {
-    firstLineIndent: 72,
+    align: "thai-distribute",
+    firstLineIndent: 36,
     lineHeight: 19,
     gap: 18,
   });

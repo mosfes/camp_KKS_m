@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@heroui/button";
 import {
@@ -28,6 +28,7 @@ export default function ParentProfilePage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const submitInFlightRef = useRef(false);
 
   useEffect(() => {
     fetch("/api/parent/profile")
@@ -60,6 +61,7 @@ export default function ParentProfilePage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitInFlightRef.current) return;
     setMessage("");
     setError("");
     const tel = form.tel.replace(/\D/g, "");
@@ -73,6 +75,7 @@ export default function ParentProfilePage() {
       return;
     }
 
+    submitInFlightRef.current = true;
     setSaving(true);
     try {
       const response = await fetch("/api/parent/profile", {
@@ -92,6 +95,7 @@ export default function ParentProfilePage() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "เกิดข้อผิดพลาด");
     } finally {
+      submitInFlightRef.current = false;
       setSaving(false);
     }
   };
@@ -196,6 +200,7 @@ export default function ParentProfilePage() {
             <Button
               className="w-full bg-[#5d7c6f] font-semibold text-white"
               isLoading={saving}
+              isDisabled={saving}
               startContent={!saving && <Save size={16} />}
               type="submit"
             >
