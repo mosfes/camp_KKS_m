@@ -43,6 +43,7 @@ import {
 } from "@/lib/student-profile-upload";
 import { toThumbnail } from "@/lib/cloudinary-url";
 import { boardStudentBusWithRetry } from "@/lib/student-bus-board";
+import { dispatchStudentBusActionCompleted } from "@/lib/student-bus-notification-events";
 import { FoodAllergySelector } from "@/components/profile/FoodAllergySelector";
 
 // Utility to format date (with optional range)
@@ -99,6 +100,10 @@ const formatBusSeat = (assignment: any) => {
           : `ชั้น ${position.floorNumber}`
       } · `
       : "";
+
+  if (assignment.bus?.layoutTemplateId) {
+    return `${floorLabel}${position.label}`;
+  }
 
   return `${floorLabel}${position.label} · ${getBusSeatSideLabel(position.label, position.seatIndex)}`;
 };
@@ -231,6 +236,7 @@ export default function StudentDashboard() {
         ),
       );
       setPendingBoardingAssignment(null);
+      dispatchStudentBusActionCompleted(assignment.campId, "board");
       toast.success(result.message || "เช็คชื่อขึ้นรถสำเร็จ");
     } catch (error: any) {
       toast.error(error.message || "เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่");
@@ -288,6 +294,7 @@ export default function StudentDashboard() {
             : item,
         ),
       );
+      dispatchStudentBusActionCompleted(assignment.campId, "alight");
       toast.success(result.message || "บันทึกว่าลงจากรถแล้ว");
     } catch {
       toast.error("เชื่อมต่อระบบไม่สำเร็จ กรุณาลองใหม่");

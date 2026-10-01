@@ -6,6 +6,7 @@ import { requireStudent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
+import { studentCampBusAssignmentWhere } from "@/lib/student-bus-assignment";
 import {
   BUS_REMINDER_TTL_MS,
   getActiveBusReminder,
@@ -57,24 +58,7 @@ export async function GET(request: Request, context: any) {
 
   if (isStatusOnly) {
     const assignment = await prisma.camp_bus_student.findFirst({
-      where: {
-        student_enrollment: {
-          camp_camp_id: campId,
-          student_students_id: studentId,
-          enrolled_at: { not: null },
-          student: activeCampStudentWhere(campId),
-        },
-        bus: {
-          classroom: {
-            classroom_students: {
-              some: {
-                student_students_id: studentId,
-                student: { deletedAt: null },
-              },
-            },
-          },
-        },
-      },
+      where: studentCampBusAssignmentWhere(campId, studentId),
       select: {
         status: true,
         participation_status: true,
@@ -133,18 +117,7 @@ export async function GET(request: Request, context: any) {
       student_enrollment_id: true,
       camp: { select: { name: true, has_transport: true } },
       camp_bus_student: {
-        where: {
-          bus: {
-            classroom: {
-              classroom_students: {
-                some: {
-                  student_students_id: studentId,
-                  student: { deletedAt: null },
-                },
-              },
-            },
-          },
-        },
+        where: { bus: { camp_camp_id: campId } },
         select: {
           assignment_id: true,
           status: true,
@@ -156,6 +129,11 @@ export async function GET(request: Request, context: any) {
               label: true,
               row_number: true,
               seat_index: true,
+              x: true,
+              y: true,
+              width: true,
+              height: true,
+              rotation: true,
               floor: { select: { floor_number: true } },
             },
           },
@@ -166,6 +144,7 @@ export async function GET(request: Request, context: any) {
               registration_plate: true,
               status: true,
               floor_count: true,
+              layout_template_id: true,
               events: {
                 where: {
                   event_type: { in: ["REMIND_BOARD", "REMIND_ALIGHT"] },
@@ -188,6 +167,22 @@ export async function GET(request: Request, context: any) {
                 select: {
                   floor_number: true,
                   row_count: true,
+                  canvas_columns: true,
+                  canvas_rows: true,
+                  elements: {
+                    orderBy: [{ z_index: "asc" }, { element_id: "asc" }],
+                    select: {
+                      element_id: true,
+                      type: true,
+                      x: true,
+                      y: true,
+                      width: true,
+                      height: true,
+                      rotation: true,
+                      label: true,
+                      z_index: true,
+                    },
+                  },
                   positions: {
                     orderBy: [{ row_number: "asc" }, { seat_index: "asc" }],
                     select: {
@@ -195,6 +190,11 @@ export async function GET(request: Request, context: any) {
                       label: true,
                       row_number: true,
                       seat_index: true,
+                      x: true,
+                      y: true,
+                      width: true,
+                      height: true,
+                      rotation: true,
                     },
                   },
                 },
@@ -240,6 +240,7 @@ export async function GET(request: Request, context: any) {
         registrationPlate: assignment.bus.registration_plate,
         status: assignment.bus.status,
         floorCount: assignment.bus.floor_count,
+        layoutTemplateId: assignment.bus.layout_template_id,
         classroom: {
           grade: assignment.bus.classroom.grade,
           roomName:
@@ -250,11 +251,29 @@ export async function GET(request: Request, context: any) {
           .map((floor: any) => ({
             floorNumber: floor.floor_number,
             rowCount: floor.row_count,
+            canvasColumns: floor.canvas_columns,
+            canvasRows: floor.canvas_rows,
+            elements: floor.elements.map((element: any) => ({
+              elementId: element.element_id,
+              type: element.type,
+              x: element.x,
+              y: element.y,
+              width: element.width,
+              height: element.height,
+              rotation: element.rotation,
+              label: element.label,
+              zIndex: element.z_index,
+            })),
             positions: floor.positions.map((position: any) => ({
               positionId: position.position_id,
               label: position.label,
               rowNumber: position.row_number,
               seatIndex: position.seat_index,
+              x: position.x,
+              y: position.y,
+              width: position.width,
+              height: position.height,
+              rotation: position.rotation,
               isOwn: position.position_id === ownPosition?.position_id,
             })),
           })),
@@ -275,6 +294,11 @@ export async function GET(request: Request, context: any) {
               rowNumber: ownPosition.row_number,
               seatIndex: ownPosition.seat_index,
               floorNumber: ownFloor,
+              x: ownPosition.x,
+              y: ownPosition.y,
+              width: ownPosition.width,
+              height: ownPosition.height,
+              rotation: ownPosition.rotation,
             }
           : null,
       },

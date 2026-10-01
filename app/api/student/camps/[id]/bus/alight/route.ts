@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 
 import { requireStudent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { studentCampBusAssignmentWhere } from "@/lib/student-bus-assignment";
 
 export async function POST(request: Request, context: any) {
   const { student, error: authError } = await requireStudent();
@@ -20,24 +21,7 @@ export async function POST(request: Request, context: any) {
 
   const result = await prisma.$transaction(async (tx) => {
     const assignment = await tx.camp_bus_student.findFirst({
-      where: {
-        student_enrollment: {
-          camp_camp_id: campId,
-          student_students_id: studentId,
-          enrolled_at: { not: null },
-          student: { deletedAt: null },
-        },
-        bus: {
-          classroom: {
-            classroom_students: {
-              some: {
-                student_students_id: studentId,
-                student: { deletedAt: null },
-              },
-            },
-          },
-        },
-      },
+      where: studentCampBusAssignmentWhere(campId, studentId),
       select: {
         assignment_id: true,
         status: true,

@@ -21,6 +21,10 @@ import {
   supportsWebPush,
   syncExistingStudentPushSubscription,
 } from "@/lib/client-web-push";
+import {
+  STUDENT_BUS_ACTION_COMPLETED_EVENT,
+  type StudentBusActionCompletedDetail,
+} from "@/lib/student-bus-notification-events";
 
 type StudentNotification = {
   id: string;
@@ -186,6 +190,15 @@ export function StudentNotificationCenter({
       }
 
       setNotifications(nextNotifications);
+      setPopupNotification((current) => {
+        if (!current) return null;
+
+        const refreshedNotification = nextNotifications.find(
+          (notification) => notification.id === current.id,
+        );
+
+        return refreshedNotification?.active ? refreshedNotification : null;
+      });
 
       const notificationToAnnounce = nextNotifications.find(
         (notification) =>
@@ -251,6 +264,40 @@ export function StudentNotificationCenter({
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [fetchNotifications, studentId]);
+
+  useEffect(() => {
+    const handleBusActionCompleted = (event: Event) => {
+      const { action, campId } = (
+        event as CustomEvent<StudentBusActionCompletedDetail>
+      ).detail;
+
+      setPopupNotification((current) =>
+        current?.campId === campId && current.action === action
+          ? null
+          : current,
+      );
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.campId === campId && notification.action === action
+            ? { ...notification, active: false }
+            : notification,
+        ),
+      );
+      void fetchNotifications();
+    };
+
+    window.addEventListener(
+      STUDENT_BUS_ACTION_COMPLETED_EVENT,
+      handleBusActionCompleted,
+    );
+
+    return () => {
+      window.removeEventListener(
+        STUDENT_BUS_ACTION_COMPLETED_EVENT,
+        handleBusActionCompleted,
+      );
+    };
+  }, [fetchNotifications]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -374,23 +421,6 @@ export function StudentNotificationCenter({
               </span>
             )}
           </div>
-
-          {pushAvailability === "ios-install-required" && (
-            <div className="flex items-start gap-3 border-b border-gray-100 bg-[#f3f8f5] px-4 py-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#4f7567] shadow-sm">
-                <Smartphone size={16} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs font-semibold text-gray-800">
-                  เพิ่ม KKS Camp ไปที่หน้าจอโฮมก่อน
-                </span>
-                <span className="mt-0.5 block text-[10px] leading-relaxed text-gray-500">
-                  บน iPhone ให้กดปุ่มแชร์ แล้วเลือก “เพิ่มไปยังหน้าจอโฮม”
-                  จากนั้นเปิดแอปและกดกระดิ่งอีกครั้ง
-                </span>
-              </span>
-            </div>
-          )}
 
           {pushAvailability === "unsupported" && (
             <div className="border-b border-gray-100 bg-gray-50 px-4 py-2.5 text-[11px] leading-relaxed text-gray-500">

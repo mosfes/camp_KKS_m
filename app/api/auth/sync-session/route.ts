@@ -169,7 +169,11 @@ export async function GET(req: any) {
         .sign(secret);
 
       const destination = safeRequestedPath || "/student/dashboard";
-      const response = NextResponse.redirect(new URL(destination, req.url));
+      const destinationUrl = new URL(destination, req.url);
+
+      destinationUrl.searchParams.set("showIosInstall", "1");
+
+      const response = NextResponse.redirect(destinationUrl);
 
       response.cookies.set("student_session", token, {
         httpOnly: true,

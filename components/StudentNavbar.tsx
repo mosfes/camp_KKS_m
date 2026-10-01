@@ -14,6 +14,7 @@ import { createPortal } from "react-dom";
 import { useClerk } from "@clerk/nextjs";
 
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { IosAddToHomeScreenPrompt } from "@/components/student/IosAddToHomeScreenPrompt";
 import { StudentNotificationCenter } from "@/components/student/StudentNotificationCenter";
 import { disconnectCurrentStudentPushSubscription } from "@/lib/client-web-push";
 
@@ -68,6 +69,7 @@ export function AppNavbar() {
 
   return (
     <>
+      <IosAddToHomeScreenPrompt />
       <Navbar
         className="bg-white border-b border-gray-200"
         classNames={{

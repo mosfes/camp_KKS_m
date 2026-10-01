@@ -20,6 +20,7 @@ import { toast } from "react-hot-toast";
 import StudentBusCheckinSkeleton from "./components/StudentBusCheckinSkeleton";
 
 import { boardStudentBusWithRetry } from "@/lib/student-bus-board";
+import { dispatchStudentBusActionCompleted } from "@/lib/student-bus-notification-events";
 
 function formatCheckedAt(value: string | null) {
   if (!value) return "";
@@ -53,6 +54,7 @@ function seatPositionLabel(
     floorNumber?: number | null;
   },
   floorCount: number,
+  isFreeformLayout = false,
 ) {
   const floorName =
     position.floorNumber === 1
@@ -64,7 +66,96 @@ function seatPositionLabel(
           : "";
   const floorLabel = floorCount > 1 && floorName ? `${floorName} · ` : "";
 
+  if (isFreeformLayout) return `${floorLabel}${position.label}`;
+
   return `${floorLabel}${position.label} · ${seatSideLabel(position.label, position.seatIndex)}`;
+}
+
+function StudentFreeformFloorCanvas({ floor }: { floor: any }) {
+  if (!floor.canvasColumns || !floor.canvasRows) return null;
+
+  const layoutItems = [
+    ...(floor.elements || []),
+    ...floor.positions.filter(
+      (position: any) => position.x !== null && position.y !== null,
+    ),
+  ];
+  const occupiedLeft = layoutItems.length
+    ? Math.min(...layoutItems.map((item: any) => item.x))
+    : 0;
+  const occupiedRight = layoutItems.length
+    ? Math.max(...layoutItems.map((item: any) => item.x + item.width))
+    : floor.canvasColumns;
+  const occupiedTop = layoutItems.length
+    ? Math.min(...layoutItems.map((item: any) => item.y))
+    : 0;
+  const occupiedBottom = layoutItems.length
+    ? Math.max(...layoutItems.map((item: any) => item.y + item.height))
+    : floor.canvasRows;
+  const displayLeft = Math.max(0, occupiedLeft - 1 / 3);
+  const displayRight = Math.min(floor.canvasColumns, occupiedRight + 1 / 3);
+  const displayTop = Math.max(0, occupiedTop);
+  const displayBottom = Math.min(floor.canvasRows, occupiedBottom + 0.4);
+  const displayColumns = Math.max(1, displayRight - displayLeft);
+  const displayRows = Math.max(1, displayBottom - displayTop);
+
+  return (
+    <div className="relative mx-auto w-full max-w-md overflow-hidden rounded-[2rem] border-[3px] border-[#5f806f] bg-[#fbfcfb] shadow-sm">
+      <div className="pointer-events-none mx-[5%] mt-[4%] flex min-h-8 items-center justify-center rounded-xl bg-[#deebe4] px-3 py-1.5 text-center text-[10px] font-bold text-[#365f4f]">
+        ด้านหน้ารถ / คนขับ
+      </div>
+      <div
+        className="relative mt-3"
+        style={{ aspectRatio: `${displayColumns} / ${displayRows * 0.72}` }}
+      >
+        {(floor.elements || []).map((element: any) => (
+          <div
+            key={`element-${element.elementId}`}
+            className="absolute flex items-center justify-center overflow-hidden rounded-md border border-gray-200 bg-gray-100/90 px-1 text-center text-[8px] font-semibold text-gray-500"
+            style={{
+              left: `${((element.x - displayLeft) / displayColumns) * 100}%`,
+              top: `${((element.y - displayTop) / displayRows) * 100}%`,
+              width: `${(element.width / displayColumns) * 100}%`,
+              height: `${(element.height / displayRows) * 100}%`,
+              transform: `rotate(${element.rotation}deg)`,
+              zIndex: element.zIndex,
+            }}
+          >
+            {element.label}
+          </div>
+        ))}
+        {floor.positions.map((position: any) => {
+          if (position.x === null || position.y === null) return null;
+
+          return (
+            <div
+              key={position.positionId}
+              className="absolute p-0.5"
+              style={{
+                left: `${((position.x - displayLeft) / displayColumns) * 100}%`,
+                top: `${((position.y - displayTop) / displayRows) * 100}%`,
+                width: `${(position.width / displayColumns) * 100}%`,
+                height: `${(position.height / displayRows) * 100}%`,
+                transform: `rotate(${position.rotation}deg)`,
+                zIndex: 20,
+              }}
+            >
+              <div
+                aria-current={position.isOwn ? "true" : undefined}
+                className={`flex h-full min-h-8 w-full items-center justify-center rounded-lg border px-1 text-center text-[9px] font-bold ${
+                  position.isOwn
+                    ? "border-[#5d7c6f] bg-[#bfe8d2] text-[#24523f] ring-2 ring-[#5d7c6f]/25"
+                    : "border-gray-200 bg-white text-gray-400"
+                }`}
+              >
+                {position.label}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function StudentBusCheckinPage() {
@@ -231,6 +322,7 @@ export default function StudentBusCheckinPage() {
         },
       }));
       setPendingBoarding(false);
+      dispatchStudentBusActionCompleted(id, "board");
       toast.success(result.message || "เช็คชื่อขึ้นรถสำเร็จ");
     } catch (error: any) {
       toast.error(error.message || "เกิดข้อผิดพลาด กรุณาลองใหม่");
@@ -271,6 +363,7 @@ export default function StudentBusCheckinPage() {
           reminder: null,
         },
       }));
+      dispatchStudentBusActionCompleted(id, "alight");
       toast.success(result.message || "บันทึกว่าลงจากรถแล้ว");
     } catch {
       toast.error("เกิดข้อผิดพลาด กรุณาลองใหม่");
@@ -340,6 +433,7 @@ export default function StudentBusCheckinPage() {
   const isTraveling = data.bus?.status === "TRAVELING";
   const hasSeat = Boolean(data.student?.position);
   const floors = data.bus?.floors || [];
+  const isFreeformLayout = Boolean(data.bus?.layoutTemplateId);
   const reminder = data.student?.reminder;
 
   return (
@@ -513,6 +607,7 @@ export default function StudentBusCheckinPage() {
                   ? seatPositionLabel(
                       data.student.position,
                       data.bus.floorCount,
+                      isFreeformLayout,
                     )
                   : "ยังไม่ได้ระบุตำแหน่ง"}
               </p>
@@ -534,59 +629,75 @@ export default function StudentBusCheckinPage() {
 
           {floors.length > 0 ? (
             <div className="mt-4 space-y-4">
-              {floors.map((floor: any) => (
-                <div
-                  key={floor.floorNumber}
-                  className="mx-auto max-w-md rounded-2xl border border-[#d8e5de] bg-[#f7faf8] p-3 sm:p-4"
-                >
-                  <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-[#365f4f]">
-                    <span>
-                      {data.bus.floorCount > 1
-                        ? floor.floorNumber === 1
-                          ? "ชั้นล่าง"
-                          : floor.floorNumber === 2
-                            ? "ชั้นบน"
-                            : `ชั้น ${floor.floorNumber}`
-                        : `ทั้งหมด ${floor.rowCount} แถว`}
-                    </span>
-                    <span>ด้านหน้ารถ ↑</span>
-                  </div>
-                  <div className="space-y-1">
-                    {Array.from({ length: floor.rowCount }, (_, rowIndex) => {
-                      const rowPositions = floor.positions
-                        .filter(
-                          (position: any) =>
-                            position.rowNumber === rowIndex + 1,
-                        )
-                        .sort((a: any, b: any) => a.seatIndex - b.seatIndex);
+              {floors.map((floor: any) =>
+                isFreeformLayout ? (
+                  <StudentFreeformFloorCanvas
+                    key={floor.floorNumber}
+                    floor={floor}
+                  />
+                ) : (
+                  <div
+                    key={floor.floorNumber}
+                    className="mx-auto max-w-md rounded-2xl border border-[#d8e5de] bg-[#f7faf8] p-3 sm:p-4"
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold text-[#365f4f]">
+                      <span>
+                        {data.bus.floorCount > 1
+                          ? floor.floorNumber === 1
+                            ? "ชั้นล่าง"
+                            : floor.floorNumber === 2
+                              ? "ชั้นบน"
+                              : `ชั้น ${floor.floorNumber}`
+                          : `ทั้งหมด ${floor.rowCount} แถว`}
+                      </span>
+                      <span>ด้านหน้ารถ ↑</span>
+                    </div>
+                    <div className="space-y-1">
+                      {Array.from({ length: floor.rowCount }, (_, rowIndex) => {
+                        const rowPositions = floor.positions
+                          .filter(
+                            (position: any) =>
+                              position.rowNumber === rowIndex + 1,
+                          )
+                          .sort((a: any, b: any) => a.seatIndex - b.seatIndex);
 
-                      return (
-                        <div
-                          key={rowIndex}
-                          className="grid grid-cols-[1fr_1fr_0.3fr_1fr_1fr] gap-1"
-                        >
-                          {rowPositions.map((position: any) => {
-                            const colClass = ["col-start-1", "col-start-2", "col-start-4", "col-start-5"][position.seatIndex] ?? "";
-                            return (
-                              <div
-                                key={position.positionId}
-                                aria-current={position.isOwn ? "true" : undefined}
-                                className={`flex min-h-9 min-w-0 items-center justify-center rounded-lg border px-1 text-center text-[10px] font-bold ${
-                                  position.isOwn
-                                    ? "border-[#5d7c6f] bg-[#bfe8d2] text-[#24523f] ring-2 ring-[#5d7c6f]/25"
-                                    : "border-gray-200 bg-white text-gray-400"
-                                } ${colClass}`}
-                              >
-                                {position.label}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
+                        return (
+                          <div
+                            key={rowIndex}
+                            className="grid grid-cols-[1fr_1fr_0.3fr_1fr_1fr] gap-1"
+                          >
+                            {rowPositions.map((position: any) => {
+                              const colClass =
+                                [
+                                  "col-start-1",
+                                  "col-start-2",
+                                  "col-start-4",
+                                  "col-start-5",
+                                ][position.seatIndex] ?? "";
+
+                              return (
+                                <div
+                                  key={position.positionId}
+                                  aria-current={
+                                    position.isOwn ? "true" : undefined
+                                  }
+                                  className={`flex min-h-9 min-w-0 items-center justify-center rounded-lg border px-1 text-center text-[10px] font-bold ${
+                                    position.isOwn
+                                      ? "border-[#5d7c6f] bg-[#bfe8d2] text-[#24523f] ring-2 ring-[#5d7c6f]/25"
+                                      : "border-gray-200 bg-white text-gray-400"
+                                  } ${colClass}`}
+                                >
+                                  {position.label}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ),
+              )}
             </div>
           ) : (
             <p className="mt-4 rounded-xl bg-gray-50 px-3 py-4 text-center text-xs text-gray-500">
@@ -668,7 +779,11 @@ export default function StudentBusCheckinPage() {
               <p className="text-xs text-[#5d7c6f]">{data.bus.name}</p>
               <p className="mt-2 text-sm text-gray-600">
                 ที่นั่ง{" "}
-                {seatPositionLabel(data.student.position, data.bus.floorCount)}
+                {seatPositionLabel(
+                  data.student.position,
+                  data.bus.floorCount,
+                  isFreeformLayout,
+                )}
               </p>
             </div>
             <p className="mt-3 text-xs leading-relaxed text-gray-500">

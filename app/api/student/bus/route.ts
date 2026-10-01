@@ -78,18 +78,6 @@ export async function GET(request: Request) {
           },
         },
         camp_bus_student: {
-          where: {
-            bus: {
-              classroom: {
-                classroom_students: {
-                  some: {
-                    student_students_id: Number(student.students_id),
-                    student: { deletedAt: null },
-                  },
-                },
-              },
-            },
-          },
           take: 1,
           select: {
             status: true,
@@ -106,6 +94,7 @@ export async function GET(request: Request) {
                 name: true,
                 status: true,
                 floor_count: true,
+                layout_template_id: true,
                 events: {
                   where: {
                     event_type: { in: ["REMIND_BOARD", "REMIND_ALIGHT"] },
@@ -148,6 +137,7 @@ export async function GET(request: Request) {
             name: assignment.bus.name,
             status: assignment.bus.status,
             floorCount: assignment.bus.floor_count,
+            layoutTemplateId: assignment.bus.layout_template_id,
           },
           student: {
             status: assignment.status,
