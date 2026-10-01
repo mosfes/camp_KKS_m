@@ -37,10 +37,13 @@ export async function getParentSession(): Promise<ParentSession | null> {
         username_student_id: studentId,
         student: { deletedAt: null },
       },
-      select: { parents_id: true },
+      select: { parents_id: true, session_version: true },
     });
 
     if (!parent) return null;
+    if (Number(payload.sessionVersion ?? 0) !== parent.session_version) {
+      return null;
+    }
 
     return {
       parentId: parent.parents_id,

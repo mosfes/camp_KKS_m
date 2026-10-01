@@ -2,13 +2,19 @@
 
 import { NextResponse } from "next/server";
 
+import { requireStationOwner } from "@/lib/camp-management-auth";
 import { prisma } from "@/lib/db";
 
 export async function GET(request, { params }) {
+  const { id } = await params;
+  const stationId = parseInt(id);
+  const { error } = await requireStationOwner(stationId);
+
+  if (error) return error;
+
   try {
-    const { id } = await params;
     const station = await prisma.station.findUnique({
-      where: { station_id: parseInt(id) },
+      where: { station_id: stationId },
       include: {
         camp: {
           select: {
@@ -76,8 +82,13 @@ export async function GET(request, { params }) {
 }
 
 export async function PUT(request, { params }) {
+  const { id } = await params;
+  const stationId = parseInt(id);
+  const { error: authError } = await requireStationOwner(stationId);
+
+  if (authError) return authError;
+
   try {
-    const { id } = await params;
     const body = await request.json();
     const { name, description } = body;
 
@@ -96,7 +107,7 @@ export async function PUT(request, { params }) {
     }
 
     const updatedStation = await prisma.station.update({
-      where: { station_id: parseInt(id) },
+      where: { station_id: stationId },
       data: {
         name,
         description,
@@ -118,12 +129,16 @@ export async function PUT(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
-  try {
-    const { id } = await params;
+  const { id } = await params;
+  const stationId = parseInt(id);
+  const { error } = await requireStationOwner(stationId);
 
+  if (error) return error;
+
+  try {
     // Soft delete the station
     await prisma.station.update({
-      where: { station_id: parseInt(id) },
+      where: { station_id: stationId },
       data: { deletedAt: new Date() },
     });
 

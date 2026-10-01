@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 
+import { requireCampOwner } from "@/lib/camp-management-auth";
 import { prisma } from "@/lib/db";
 
 export async function POST(request) {
@@ -15,6 +16,11 @@ export async function POST(request) {
         { status: 400 },
       );
     }
+
+    const parsedCampId = parseInt(campId);
+    const { error } = await requireCampOwner(parsedCampId);
+
+    if (error) return error;
     if (name.length > 255) {
       return NextResponse.json(
         { error: "ชื่อฐานกิจกรรมต้องไม่เกิน 255 ตัวอักษร" },
@@ -33,7 +39,7 @@ export async function POST(request) {
       data: {
         name,
         description: description || "",
-        camp_camp_id: parseInt(campId),
+        camp_camp_id: parsedCampId,
       },
     });
 

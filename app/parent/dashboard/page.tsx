@@ -102,7 +102,6 @@ export default function ParentDashboard() {
   const [error, setError] = useState("");
   const [navigatingTo, setNavigatingTo] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [hasParentProfile, setHasParentProfile] = useState<boolean>(true);
   const [parentProfile, setParentProfile] = useState<ParentProfile | null>(
     null,
   );
@@ -121,7 +120,6 @@ export default function ParentDashboard() {
 
           if (meData.student) {
             setStudent(meData.student);
-            setHasParentProfile(meData.hasParentProfile);
             setParentProfile(meData.parentProfile ?? null);
             if (!meData.hasParentProfile) setShowProfileModal(true);
           } else {
@@ -243,7 +241,6 @@ export default function ParentDashboard() {
           studentName={`${student.firstname} ${student.lastname}`}
           onSaved={(profile: ParentProfile) => {
             setParentProfile(profile);
-            setHasParentProfile(true);
             setShowProfileModal(false);
           }}
         />

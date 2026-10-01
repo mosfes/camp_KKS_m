@@ -105,14 +105,14 @@ export default function BreakdownModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <button
+        aria-label="ปิดหน้าต่างรายละเอียดนักเรียน"
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        type="button"
+        onClick={onClose}
+      />
 
       {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">

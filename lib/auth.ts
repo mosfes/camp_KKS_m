@@ -2,6 +2,8 @@
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
+import { prisma } from "@/lib/db";
+
 /**
  * อ่าน teacher session จาก HttpOnly cookie
  * @returns {{ teachers_id, firstname, lastname, email, role } | null}
@@ -15,8 +17,21 @@ export async function getTeacherFromRequest() {
 
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const { payload } = await jwtVerify(session.value, secret);
+    const teacherId = Number(payload.teachers_id);
 
-    return payload;
+    if (!Number.isInteger(teacherId) || teacherId <= 0) return null;
+
+    return prisma.teachers.findFirst({
+      where: { teachers_id: teacherId, deletedAt: null },
+      select: {
+        teachers_id: true,
+        firstname: true,
+        lastname: true,
+        email: true,
+        role: true,
+        profile_image_url: true,
+      },
+    });
   } catch {
     return null;
   }
@@ -38,6 +53,27 @@ export async function requireTeacher() {
 }
 
 /**
+ * Helper for administration-only endpoints. The role comes from the current
+ * database row rather than from the JWT so role changes take effect at once.
+ */
+export async function requireAdmin() {
+  const { teacher, error } = await requireTeacher();
+
+  if (error || !teacher) return { teacher: null, error };
+  if (String(teacher.role).toUpperCase() !== "ADMIN") {
+    return {
+      teacher: null,
+      error: Response.json(
+        { error: "เฉพาะผู้ดูแลระบบเท่านั้น" },
+        { status: 403 },
+      ),
+    };
+  }
+
+  return { teacher, error: null };
+}
+
+/**
  * อ่าน student session จาก HttpOnly cookie
  * @returns {{ students_id, firstname, lastname, email } | null}
  */
@@ -50,8 +86,19 @@ export async function getStudentFromRequest() {
 
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const { payload } = await jwtVerify(session.value, secret);
+    const studentId = Number(payload.students_id);
 
-    return payload;
+    if (!Number.isInteger(studentId) || studentId <= 0) return null;
+
+    return prisma.students.findFirst({
+      where: { students_id: studentId, deletedAt: null },
+      select: {
+        students_id: true,
+        firstname: true,
+        lastname: true,
+        email: true,
+      },
+    });
   } catch {
     return null;
   }

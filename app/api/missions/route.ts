@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 
+import { requireStationOwner } from "@/lib/camp-management-auth";
 import { prisma } from "@/lib/db";
 
 export async function POST(request) {
@@ -27,12 +28,17 @@ export async function POST(request) {
       );
     }
 
+    const parsedStationId = parseInt(stationId);
+    const { error } = await requireStationOwner(parsedStationId);
+
+    if (error) return error;
+
     const newMission = await prisma.mission.create({
       data: {
         title,
         description,
         type,
-        station_station_id: parseInt(stationId),
+        station_station_id: parsedStationId,
       },
     });
 
@@ -117,7 +123,7 @@ export async function POST(request) {
             postTestTitle !== title ? postTestTitle : `${title} (หลังเรียน)`,
           description,
           type: "POST_TEST",
-          station_station_id: parseInt(stationId),
+          station_station_id: parsedStationId,
         },
       });
 

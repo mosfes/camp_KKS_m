@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import {
+  buildProjectDownloadFilename,
+  projectDownloadContentDisposition,
+} from "@/lib/project-download-filename";
 import { createProjectDocumentPdf } from "@/lib/project-document-pdf";
 
 export const runtime = "nodejs";
@@ -39,11 +43,17 @@ export async function GET(
   }
 
   const bytes = await createProjectDocumentPdf(camp.project_document);
+  const filename = buildProjectDownloadFilename({
+    projectCode: camp.project_document.project_code,
+    projectName: camp.project_document.project_name,
+    fallbackCode: campId,
+    extension: "pdf",
+  });
 
   return new NextResponse(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="camp-project-${campId}.pdf"`,
+      "Content-Disposition": projectDownloadContentDisposition(filename),
       "Cache-Control": "private, no-store",
     },
   });

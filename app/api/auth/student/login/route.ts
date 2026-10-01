@@ -1,6 +1,7 @@
 export const runtime = "nodejs";
 // @ts-nocheck
 import { NextResponse } from "next/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 
 import { prisma } from "@/lib/db";
 
@@ -11,6 +12,15 @@ import { prisma } from "@/lib/db";
  */
 export async function POST(req: any) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบด้วยบัญชีที่ยืนยันแล้ว" },
+        { status: 401 },
+      );
+    }
+
     const { studentId } = await req.json();
 
     if (!studentId) {
@@ -40,6 +50,20 @@ export async function POST(req: any) {
       );
     }
 
+    const clerkUser = await currentUser();
+    const verifiedEmails = new Set(
+      (clerkUser?.emailAddresses || [])
+        .filter((entry) => entry.verification?.status === "verified")
+        .map((entry) => entry.emailAddress.trim().toLowerCase()),
+    );
+
+    if (!verifiedEmails.has(student.email.trim().toLowerCase())) {
+      return NextResponse.json(
+        { error: "บัญชีที่เข้าสู่ระบบไม่ตรงกับนักเรียน" },
+        { status: 403 },
+      );
+    }
+
     const { SignJWT } = await import("jose");
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
 
@@ -57,6 +81,8 @@ export async function POST(req: any) {
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 วัน
     });
+    response.cookies.delete("teacher_session");
+    response.cookies.delete("parent_session");
 
     return response;
   } catch {

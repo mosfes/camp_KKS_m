@@ -1,8 +1,8 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 
+import { requireCampTeacher } from "@/lib/attendance-auth";
 import { prisma } from "@/lib/db";
-import { requireTeacher } from "@/lib/auth";
 
 function generatePin() {
   return String(Math.floor(100000 + Math.random() * 900000));
@@ -52,12 +52,11 @@ async function getAllRounds(campId) {
 
 // GET: session ปัจจุบัน + ประวัติรอบทั้งหมด
 export async function GET(request, { params }) {
-  const { error: authError } = await requireTeacher();
-
-  if (authError) return authError;
-
   const { campId } = await params;
   const cid = parseInt(campId);
+  const { error: authError } = await requireCampTeacher(cid);
+
+  if (authError) return authError;
 
   const session = await getActiveSession(cid);
   const rounds = await getAllRounds(cid);
@@ -81,12 +80,11 @@ export async function GET(request, { params }) {
 
 // POST: สร้างรอบเช็คชื่อใหม่
 export async function POST(request, { params }) {
-  const { teacher, error: authError } = await requireTeacher();
-
-  if (authError) return authError;
-
   const { campId } = await params;
   const cid = parseInt(campId);
+  const { teacher, error: authError } = await requireCampTeacher(cid);
+
+  if (authError) return authError;
 
   let description = "",
     durationMinutes = 60,
@@ -198,12 +196,11 @@ export async function POST(request, { params }) {
 
 // DELETE: ปิดรอบปัจจุบัน
 export async function DELETE(request, { params }) {
-  const { error: authError } = await requireTeacher();
-
-  if (authError) return authError;
-
   const { campId } = await params;
   const cid = parseInt(campId);
+  const { error: authError } = await requireCampTeacher(cid);
+
+  if (authError) return authError;
 
   await prisma.attendance_session.updateMany({
     where: {

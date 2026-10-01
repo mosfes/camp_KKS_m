@@ -850,10 +850,10 @@ export default function StudentStationDetailPage() {
             const isLocked = isPostTest && !canDoPostTest && !completed;
 
             return (
-              <div
+              <button
                 key={mission.mission_id}
                 className={`
-                  bg-white p-6 rounded-2xl border-2 transition-all duration-300 flex items-center gap-4 cursor-pointer
+                  w-full bg-white p-6 rounded-2xl border-2 transition-all duration-300 flex items-center gap-4 cursor-pointer text-left
                   ${
                     isLocked
                       ? "opacity-60 grayscale border-gray-100"
@@ -862,6 +862,7 @@ export default function StudentStationDetailPage() {
                         : "border-transparent shadow-sm hover:shadow-md"
                   }
                 `}
+                type="button"
                 onClick={() => {
                   if (isLocked) {
                     toast.error(
@@ -914,7 +915,7 @@ export default function StudentStationDetailPage() {
                     สำเร็จ
                   </div>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
@@ -1297,10 +1298,10 @@ export default function StudentStationDetailPage() {
                                       );
 
                                       return (
-                                        <div
+                                        <button
                                           key={c.choice_id}
                                           className={`
-                                      p-3 rounded-lg border flex items-center gap-3 transition-colors
+                                      w-full p-3 rounded-lg border flex items-center gap-3 transition-colors text-left
                                       ${
                                         answers[q.question_id] === choiceLetter
                                           ? "bg-[#5d7c6f] text-white border-[#5d7c6f]"
@@ -1308,6 +1309,8 @@ export default function StudentStationDetailPage() {
                                       }
                                     ${isSubmitted ? "opacity-75 cursor-not-allowed" : "cursor-pointer hover:bg-gray-50"}
                                   `}
+                                          disabled={isSubmitted}
+                                          type="button"
                                           onClick={() =>
                                             !isSubmitted &&
                                             handleAnswerChange(
@@ -1327,7 +1330,7 @@ export default function StudentStationDetailPage() {
                                           <span className="min-w-0 break-words">
                                             {c.choice_text}
                                           </span>
-                                        </div>
+                                        </button>
                                       );
                                     },
                                   )}
@@ -1442,8 +1445,9 @@ export default function StudentStationDetailPage() {
                                       </div>
 
                                       {/* Image preview canvas with object-contain to preserve full aspect ratio */}
-                                      <div
+                                      <button
                                         className="relative group p-3 sm:p-4 bg-slate-900/5 flex items-center justify-center min-h-[220px] max-h-[360px] cursor-pointer overflow-hidden"
+                                        type="button"
                                         onClick={() =>
                                           setPreviewFullImageUrl(
                                             answers[q.question_id],
@@ -1461,7 +1465,7 @@ export default function StudentStationDetailPage() {
                                           <Eye size={16} />
                                           <span>คลิกเพื่อดูรูปภาพขนาดเต็ม</span>
                                         </div>
-                                      </div>
+                                      </button>
                                     </div>
                                   ) : uploadingQids.includes(q.question_id) ? (
                                     <div className="w-full bg-[#5d7c6f]/5 border-2 border-dashed border-[#5d7c6f]/40 py-8 px-6 rounded-2xl flex flex-col items-center justify-center gap-4 transition-all">
@@ -1492,17 +1496,9 @@ export default function StudentStationDetailPage() {
                                       </div>
                                     </div>
                                   ) : (
-                                    <div
+                                    <label
                                       className="w-full bg-white border-2 border-dashed border-gray-300 hover:border-[#5d7c6f] hover:bg-[#5d7c6f]/5 p-6 sm:p-8 rounded-2xl transition-all flex flex-col items-center justify-center gap-3 text-center cursor-pointer group"
-                                      onClick={() => {
-                                        if (!isSubmitted) {
-                                          document
-                                            .getElementById(
-                                              `file-${q.question_id}`,
-                                            )
-                                            ?.click();
-                                        }
-                                      }}
+                                      htmlFor={`file-${q.question_id}`}
                                     >
                                       <div className="w-14 h-14 rounded-2xl bg-[#5d7c6f]/10 text-[#5d7c6f] flex items-center justify-center group-hover:scale-105 group-hover:bg-[#5d7c6f] group-hover:text-white transition-all shadow-xs">
                                         <Camera size={26} />
@@ -1520,7 +1516,7 @@ export default function StudentStationDetailPage() {
                                         <Camera size={14} />
                                         เลือกรูปภาพ
                                       </span>
-                                    </div>
+                                    </label>
                                   )}
                                 </div>
                               )}

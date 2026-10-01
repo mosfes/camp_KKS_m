@@ -2,6 +2,15 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
+
+function clientIp(request: Request): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
 
 /**
  * POST /api/auth/parent/login
@@ -10,7 +19,10 @@ import { prisma } from "@/lib/db";
  */
 export async function POST(req: Request) {
   try {
-    const { username, password } = await req.json();
+    const body = await req.json();
+    const username =
+      typeof body.username === "string" ? body.username.trim() : "";
+    const password = typeof body.password === "string" ? body.password : "";
 
     if (!username || !password) {
       return NextResponse.json(
@@ -19,12 +31,43 @@ export async function POST(req: Request) {
       );
     }
 
-    const studentId = parseInt(username);
+    if (!/^\d+$/.test(username) || password.length > 128) {
+      return NextResponse.json(
+        { error: "รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง" },
+        { status: 400 },
+      );
+    }
 
-    if (isNaN(studentId)) {
+    const studentId = Number(username);
+
+    if (!Number.isSafeInteger(studentId) || studentId <= 0) {
       return NextResponse.json(
         { error: "รหัสนักเรียนต้องเป็นตัวเลข" },
         { status: 400 },
+      );
+    }
+
+    const ipLimit = checkRateLimit("parent-login-ip", clientIp(req), {
+      windowMs: 15 * 60 * 1000,
+      max: 20,
+    });
+    const accountLimit = checkRateLimit("parent-login-account", studentId, {
+      windowMs: 15 * 60 * 1000,
+      max: 8,
+    });
+
+    if (!ipLimit.allowed || !accountLimit.allowed) {
+      const retryAfter = Math.max(
+        ipLimit.retryAfterSeconds ?? 0,
+        accountLimit.retryAfterSeconds ?? 0,
+      );
+
+      return NextResponse.json(
+        { error: "ลองเข้าสู่ระบบหลายครั้งเกินไป กรุณารอสักครู่" },
+        {
+          status: 429,
+          headers: { "Retry-After": String(retryAfter) },
+        },
       );
     }
 
@@ -166,6 +209,7 @@ export async function POST(req: Request) {
       firstname: student.firstname,
       lastname: student.lastname,
       mustChangePassword,
+      sessionVersion: parent.session_version,
     };
 
     const response = NextResponse.json({
@@ -189,6 +233,8 @@ export async function POST(req: Request) {
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 วัน
     });
+    response.cookies.delete("teacher_session");
+    response.cookies.delete("student_session");
 
     return response;
   } catch {

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, useMemo, useId } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,6 +34,7 @@ export interface TeacherProfile {
   lastname: string;
   email: string;
   tel: string;
+  profile_image_url: string | null;
   role: "TEACHER" | "ADMIN" | "CAMP_LEADER";
 }
 
@@ -320,8 +322,18 @@ export function TeacherProfileView({
           {/* Avatar & Core Identity */}
           <div className="flex items-center gap-4 sm:gap-5">
             <div className="relative">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/20 backdrop-blur-md border-2 border-white/40 flex items-center justify-center text-3xl sm:text-4xl font-bold tracking-tight shadow-inner select-none">
-                {initials}
+              <div className="relative flex h-20 w-20 select-none items-center justify-center overflow-hidden rounded-2xl border-2 border-white/40 bg-white/20 text-3xl font-bold tracking-tight shadow-inner backdrop-blur-md sm:h-24 sm:w-24 sm:text-4xl">
+                {profile.profile_image_url ? (
+                  <Image
+                    fill
+                    alt={`รูปโปรไฟล์ของ ${fullName}`}
+                    className="object-cover"
+                    sizes="(max-width: 640px) 80px, 96px"
+                    src={profile.profile_image_url}
+                  />
+                ) : (
+                  initials
+                )}
               </div>
               <span
                 className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-400 border-2 border-[#5d7c6f] shadow-xs flex items-center justify-center"

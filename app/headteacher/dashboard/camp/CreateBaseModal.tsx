@@ -87,8 +87,12 @@ export default function CreateBaseModal({
         backdrop: "bg-black/60 backdrop-blur-sm",
       }}
       isOpen={isOpen}
+      isDismissable={!loading}
+      isKeyboardDismissDisabled={loading}
       size="lg"
-      onOpenChange={onClose}
+      onOpenChange={(open) => {
+        if (!open && !loading) onClose();
+      }}
     >
       <ModalContent>
         {(onClose) => (
@@ -105,7 +109,7 @@ export default function CreateBaseModal({
             <ModalBody className="py-6 space-y-4 px-6">
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="create-base-name">
                     ชื่อฐานกิจกรรม <span className="text-red-500">*</span>
                   </label>
                   <span className="text-xs text-gray-500">
@@ -113,6 +117,7 @@ export default function CreateBaseModal({
                   </span>
                 </div>
                 <input
+                  id="create-base-name"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b857a] focus:border-[#6b857a] outline-none transition-colors"
                   maxLength={255}
                   placeholder="เช่น ฐานสำรวจธรรมชาติ"
@@ -123,7 +128,7 @@ export default function CreateBaseModal({
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="create-base-description">
                     รายละเอียด
                   </label>
                   <span className="text-xs text-gray-500">
@@ -131,6 +136,7 @@ export default function CreateBaseModal({
                   </span>
                 </div>
                 <textarea
+                  id="create-base-description"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b857a] focus:border-[#6b857a] outline-none transition-colors resize-none"
                   maxLength={255}
                   placeholder="อธิบายกิจกรรมและเป้าหมายของฐานนี้"

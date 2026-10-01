@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { createProjectDocumentDocx } from "@/lib/project-document-docx";
+import {
+  buildProjectDownloadFilename,
+  projectDownloadContentDisposition,
+} from "@/lib/project-download-filename";
 
 export const runtime = "nodejs";
 
@@ -38,12 +42,18 @@ export async function GET(
   }
 
   const bytes = await createProjectDocumentDocx(camp.project_document);
+  const filename = buildProjectDownloadFilename({
+    projectCode: camp.project_document.project_code,
+    projectName: camp.project_document.project_name,
+    fallbackCode: campId,
+    extension: "docx",
+  });
 
   return new NextResponse(new Uint8Array(bytes), {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "Content-Disposition": `attachment; filename="camp-project-${campId}.docx"`,
+      "Content-Disposition": projectDownloadContentDisposition(filename),
       "Cache-Control": "private, no-store",
     },
   });

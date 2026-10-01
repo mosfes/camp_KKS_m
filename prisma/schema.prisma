@@ -20,14 +20,15 @@ enum role {
 }
 
 model teachers {
-  teachers_id Int       @id @default(autoincrement())
-  prefix_name String?   @db.VarChar(255)
-  role        role      @default(TEACHER)
-  firstname   String    @db.VarChar(255)
-  lastname    String    @db.VarChar(255)
-  tel         String    @db.VarChar(10)
-  email       String    @db.VarChar(255)
-  deletedAt   DateTime?
+  teachers_id       Int       @id @default(autoincrement())
+  prefix_name       String?   @db.VarChar(255)
+  role              role      @default(TEACHER)
+  firstname         String    @db.VarChar(255)
+  lastname          String    @db.VarChar(255)
+  tel               String    @db.VarChar(10)
+  email             String    @db.VarChar(255)
+  profile_image_url String?   @db.VarChar(500)
+  deletedAt         DateTime?
 
   classrooms                        classrooms[]
   classroom_teacher                 classroom_teacher[]
@@ -80,14 +81,40 @@ model students {
 }
 
 model parents {
-  parents_id Int    @id @default(autoincrement())
-  firstname  String @db.VarChar(255)
-  lastname   String @db.VarChar(255)
-  tel        String @db.VarChar(10)
-  password   String @db.VarChar(255)
+  parents_id        Int       @id @default(autoincrement())
+  firstname         String    @db.VarChar(255)
+  lastname          String    @db.VarChar(255)
+  tel               String    @db.VarChar(10)
+  email             String?   @db.VarChar(255)
+  email_verified_at DateTime?
+  password          String    @db.VarChar(255)
+  session_version   Int       @default(0)
 
   username_student_id Int
-  student             students @relation(fields: [username_student_id], references: [students_id])
+  student             students             @relation(fields: [username_student_id], references: [students_id])
+  auth_tokens         parent_auth_tokens[]
+
+  @@index([email])
+}
+
+enum ParentAuthTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
+model parent_auth_tokens {
+  token_id   Int                 @id @default(autoincrement())
+  parents_id Int
+  token_hash String              @unique @db.Char(64)
+  type       ParentAuthTokenType
+  email      String?             @db.VarChar(255)
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime            @default(now())
+
+  parent parents @relation(fields: [parents_id], references: [parents_id], onDelete: Cascade)
+
+  @@index([parents_id, type, used_at, expires_at])
 }
 
 model academic_years {
@@ -449,6 +476,7 @@ model document_reference_option {
   document_reference_option_id Int      @id @default(autoincrement())
   category                     String   @db.VarChar(30)
   label                        String   @db.VarChar(700)
+  indicators                   Json?
   is_active                    Boolean  @default(true)
   sort_order                   Int      @default(0)
   created_at                   DateTime @default(now())

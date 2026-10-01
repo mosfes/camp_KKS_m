@@ -1,19 +1,18 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 
+import { requireCampTeacher } from "@/lib/attendance-auth";
 import { recordStudentAttendanceOnce } from "@/lib/attendance-record";
 import { prisma } from "@/lib/db";
-import { requireTeacher } from "@/lib/auth";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
 
 // POST /api/attendance/[campId]/manual-checkin
 export async function POST(req, { params }) {
-  const { error: authError } = await requireTeacher();
-
-  if (authError) return authError;
-
   const { campId } = await params;
   const cid = parseInt(campId);
+  const { error: authError } = await requireCampTeacher(cid);
+
+  if (authError) return authError;
 
   try {
     const body = await req.json();

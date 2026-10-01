@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import {
+  buildProjectDownloadFilename,
+  projectDownloadContentDisposition,
+} from "@/lib/project-download-filename";
 import { createProjectSummaryDocumentPdf } from "@/lib/project-summary-document-pdf";
 
 export const runtime = "nodejs";
@@ -11,6 +15,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> },
 ) {
   const { teacher, error } = await requireTeacher();
+
   if (error) return error;
 
   const campId = Number((await context.params).id);
@@ -25,6 +30,7 @@ export async function GET(
       },
     },
   });
+
   if (!camp) return NextResponse.json({ error: "ไม่พบค่าย" }, { status: 404 });
   if (
     teacher.role !== "ADMIN" &&
@@ -50,10 +56,17 @@ export async function GET(
         ? camp.project_summary_document.objectives
         : camp.project_document?.objectives || [],
   });
+  const filename = buildProjectDownloadFilename({
+    projectCode: camp.project_summary_document.project_code,
+    projectName: camp.project_summary_document.project_name,
+    fallbackCode: campId,
+    extension: "pdf",
+  });
+
   return new NextResponse(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="camp-project-summary-${campId}.pdf"`,
+      "Content-Disposition": projectDownloadContentDisposition(filename),
       "Cache-Control": "private, no-store",
     },
   });

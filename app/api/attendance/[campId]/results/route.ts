@@ -1,18 +1,17 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 
+import { requireCampTeacher } from "@/lib/attendance-auth";
 import { prisma } from "@/lib/db";
-import { requireTeacher } from "@/lib/auth";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 
 // GET /api/attendance/[campId]/results?roundId=xxx
 export async function GET(request, { params }) {
-  const { error: authError } = await requireTeacher();
-
-  if (authError) return authError;
-
   const { campId } = await params;
   const cid = parseInt(campId);
+  const { error: authError } = await requireCampTeacher(cid);
+
+  if (authError) return authError;
   const { searchParams } = new URL(request.url);
   const roundId = searchParams.get("roundId");
 
@@ -88,12 +87,11 @@ export async function GET(request, { params }) {
 
 // DELETE /api/attendance/[campId]/results?roundId=xxx (ล้างการเช็คชื่อ)
 export async function DELETE(request, { params }) {
-  const { error: authError } = await requireTeacher();
-
-  if (authError) return authError;
-
   const { campId } = await params;
   const cid = parseInt(campId);
+  const { error: authError } = await requireCampTeacher(cid);
+
+  if (authError) return authError;
   const { searchParams } = new URL(request.url);
   const roundId = searchParams.get("roundId");
 

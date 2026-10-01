@@ -8,9 +8,9 @@ import {
   DropdownMenu,
   DropdownTrigger,
 } from "@heroui/dropdown";
-import { GraduationCap, LogOut, Menu, UserCircle } from "lucide-react";
+import { GraduationCap, LogOut, Menu, Settings } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -35,14 +35,31 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const [mounted, setMounted] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("กำลังโหลดข้อมูล...");
+  const navigationInFlightRef = useRef(false);
+  const logoutInFlightRef = useRef(false);
+  const navigationUnlockTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   useEffect(() => {
+    navigationInFlightRef.current = false;
+    if (navigationUnlockTimerRef.current !== null) {
+      window.clearTimeout(navigationUnlockTimerRef.current);
+      navigationUnlockTimerRef.current = null;
+    }
     setIsNavigating(false);
   }, [pathname]);
+
+  useEffect(
+    () => () => {
+      if (navigationUnlockTimerRef.current !== null) {
+        window.clearTimeout(navigationUnlockTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     fetch("/api/auth/parent/me")
@@ -55,12 +72,20 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   }, []);
 
   const navigate = (url: string, message = "กำลังโหลดข้อมูล...") => {
+    if (pathname === url || navigationInFlightRef.current) return;
+    navigationInFlightRef.current = true;
     setLoadingMessage(message);
     setIsNavigating(true);
     router.push(url);
+    navigationUnlockTimerRef.current = window.setTimeout(() => {
+      navigationInFlightRef.current = false;
+      setIsNavigating(false);
+    }, 5000);
   };
 
   const handleLogout = async () => {
+    if (logoutInFlightRef.current) return;
+    logoutInFlightRef.current = true;
     setLoadingMessage("กำลังออกจากระบบ...");
     setIsNavigating(true);
     try {
@@ -137,6 +162,7 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                       </div>
                     )}
                     <Avatar
+                      aria-label={`เปิดเมนูผู้ปกครอง ${parentName}`}
                       as="button"
                       className="bg-[#5d7c6f] text-white transition-transform"
                       name={initials}
@@ -156,7 +182,7 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                   </DropdownItem>
                   <DropdownItem
                     key="profile"
-                    startContent={<UserCircle size={16} />}
+                    startContent={<Settings size={16} />}
                     onClick={() => navigate("/parent/profile")}
                   >
                     ตั้งค่าโปรไฟล์

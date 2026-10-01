@@ -71,9 +71,13 @@ export async function POST(req: Request) {
 
     const bcrypt = await import("bcryptjs");
 
-    await prisma.parents.update({
+    const updatedParent = await prisma.parents.update({
       where: { parents_id: parent.parents_id },
-      data: { password: await bcrypt.hash(newPassword, 10) },
+      data: {
+        password: await bcrypt.hash(newPassword, 10),
+        session_version: { increment: 1 },
+      },
+      select: { session_version: true },
     });
 
     const { SignJWT } = await import("jose");
@@ -82,6 +86,7 @@ export async function POST(req: Request) {
       parents_id: session.parentId,
       students_id: session.studentId,
       mustChangePassword: false,
+      sessionVersion: updatedParent.session_version,
     })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("7d")

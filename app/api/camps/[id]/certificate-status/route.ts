@@ -1,20 +1,15 @@
 import { NextResponse } from "next/server";
 
+import { requireCampOwner } from "@/lib/camp-management-auth";
 import { prisma } from "@/lib/db";
-import { requireTeacher } from "@/lib/auth";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 
 export async function GET(request: Request, context: any) {
-  const { teacher, error: authError } = await requireTeacher();
-
-  if (authError) return authError;
-
   const params = await context.params;
   const campId = Number(params.id);
+  const { error: authError } = await requireCampOwner(campId);
 
-  if (isNaN(campId)) {
-    return NextResponse.json({ error: "Invalid camp id" }, { status: 400 });
-  }
+  if (authError) return authError;
 
   try {
     const camp = await prisma.camp.findFirst({

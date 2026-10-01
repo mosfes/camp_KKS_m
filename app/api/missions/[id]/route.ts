@@ -2,16 +2,22 @@
 
 import { NextResponse } from "next/server";
 
+import { requireMissionOwner } from "@/lib/camp-management-auth";
 import { prisma } from "@/lib/db";
 
 export async function PUT(request, { params }) {
+  const { id } = await params;
+  const missionId = parseInt(id);
+  const { error } = await requireMissionOwner(missionId);
+
+  if (error) return error;
+
   try {
-    const { id } = await params;
     const body = await request.json();
     const { title, description, type, question, questions } = body;
 
     const updatedMission = await prisma.mission.update({
-      where: { mission_id: parseInt(id) },
+      where: { mission_id: missionId },
       data: {
         title,
         description,
@@ -34,7 +40,7 @@ export async function PUT(request, { params }) {
         // Delete existing questions for this mission
         // To be safe, also delete any choices if they existed (e.g. type switch)
         const oldQuestions = await prisma.mission_question.findMany({
-          where: { mission_mission_id: parseInt(id) },
+          where: { mission_mission_id: missionId },
         });
         const oldQIds = oldQuestions.map((q) => q.question_id);
 
@@ -43,7 +49,7 @@ export async function PUT(request, { params }) {
         });
 
         await prisma.mission_question.deleteMany({
-          where: { mission_mission_id: parseInt(id) },
+          where: { mission_mission_id: missionId },
         });
 
         // Create new ones
@@ -53,7 +59,7 @@ export async function PUT(request, { params }) {
               data: {
                 question_text: q.text,
                 question_type: "TEXT",
-                mission_mission_id: parseInt(id),
+                mission_mission_id: missionId,
               },
             });
           }
@@ -72,7 +78,7 @@ export async function PUT(request, { params }) {
 
         // Get all question IDs
         const oldQuestions = await prisma.mission_question.findMany({
-          where: { mission_mission_id: parseInt(id) },
+          where: { mission_mission_id: missionId },
         });
         const oldQIds = oldQuestions.map((q) => q.question_id);
 
@@ -83,7 +89,7 @@ export async function PUT(request, { params }) {
 
         // Delete questions
         await prisma.mission_question.deleteMany({
-          where: { mission_mission_id: parseInt(id) },
+          where: { mission_mission_id: missionId },
         });
 
         // Create new ones
@@ -93,7 +99,7 @@ export async function PUT(request, { params }) {
               data: {
                 question_text: q.text,
                 question_type: "MCQ",
-                mission_mission_id: parseInt(id),
+                mission_mission_id: missionId,
                 choices: {
                   create: q.choices.map((c) => ({
                     choice_text: c.text,
@@ -114,7 +120,7 @@ export async function PUT(request, { params }) {
 
       if (questionsToUpdate.length > 0) {
         const oldQuestions = await prisma.mission_question.findMany({
-          where: { mission_mission_id: parseInt(id) },
+          where: { mission_mission_id: missionId },
         });
         const oldQIds = oldQuestions.map((q) => q.question_id);
 
@@ -123,7 +129,7 @@ export async function PUT(request, { params }) {
         });
 
         await prisma.mission_question.deleteMany({
-          where: { mission_mission_id: parseInt(id) },
+          where: { mission_mission_id: missionId },
         });
 
         for (const q of questionsToUpdate) {
@@ -132,7 +138,7 @@ export async function PUT(request, { params }) {
               "INSERT INTO mission_question (question_text, question_type, mission_mission_id) VALUES (?, ?, ?)",
               q.text,
               "PHOTO",
-              parseInt(id),
+              missionId,
             );
           }
         }
@@ -151,12 +157,16 @@ export async function PUT(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
-  try {
-    const { id } = await params;
+  const { id } = await params;
+  const missionId = parseInt(id);
+  const { error } = await requireMissionOwner(missionId);
 
+  if (error) return error;
+
+  try {
     // Soft delete the mission
     await prisma.mission.update({
-      where: { mission_id: parseInt(id) },
+      where: { mission_id: missionId },
       data: { deletedAt: new Date() },
     });
 

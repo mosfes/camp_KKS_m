@@ -21,6 +21,12 @@ import { useParams } from "next/navigation";
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
+import {
+  DocumentStandardsChecklist,
+  type DocumentStandardIndicator,
+  type DocumentStandardOption,
+  normalizeDocumentStandardOptions,
+} from "@/components/documents/DocumentStandardsChecklist";
 import DocumentTemplatePanel from "@/components/documents/DocumentTemplatePanel";
 import { useStatusModal } from "@/components/StatusModalProvider";
 import { normalizeProjectSummaryStandards } from "@/lib/project-summary-standards";
@@ -239,17 +245,113 @@ function withAttendanceIndicator(source: any, rows: any[]) {
 
 function StandardsEditor({
   values,
+  standardOptions,
   onChange,
   disabled,
 }: {
   values: any[];
+  standardOptions: DocumentStandardOption[];
   onChange: (values: any[]) => void;
   disabled?: boolean;
 }) {
   const standards = Array.isArray(values) ? values : [];
+  const findStandard = (standard: DocumentStandardOption) =>
+    standards.find((item) => item.title === standard.label);
+  const findIndicator = (
+    standard: DocumentStandardOption,
+    indicator: DocumentStandardIndicator,
+  ) =>
+    (findStandard(standard)?.subItems || []).find(
+      (item: any) =>
+        item.code === indicator.code && item.title === indicator.label,
+    );
+
+  const toggleCatalogStandard = (
+    standard: DocumentStandardOption,
+    selected: boolean,
+  ) => {
+    if (!selected) {
+      onChange(standards.filter((item) => item.title !== standard.label));
+
+      return;
+    }
+
+    if (!findStandard(standard)) {
+      onChange([
+        ...standards,
+        {
+          title: standard.label,
+          relatedItems: "",
+          achieved: true,
+          subItems: [],
+        },
+      ]);
+    }
+  };
+
+  const toggleCatalogIndicator = (
+    standard: DocumentStandardOption,
+    indicator: DocumentStandardIndicator,
+    selected: boolean,
+  ) => {
+    const currentStandard = findStandard(standard);
+    const nextSubItems = (currentStandard?.subItems || []).filter(
+      (item: any) =>
+        item.code !== indicator.code || item.title !== indicator.label,
+    );
+
+    if (selected) {
+      nextSubItems.push({
+        code: indicator.code,
+        title: indicator.label,
+        relatedItems: "",
+        achieved: true,
+      });
+    }
+
+    if (currentStandard) {
+      onChange(
+        standards.map((item) =>
+          item === currentStandard
+            ? { ...item, achieved: true, subItems: nextSubItems }
+            : item,
+        ),
+      );
+    } else if (selected) {
+      onChange([
+        ...standards,
+        {
+          title: standard.label,
+          relatedItems: "",
+          achieved: true,
+          subItems: nextSubItems,
+        },
+      ]);
+    }
+  };
 
   return (
     <div className="space-y-4">
+      <div>
+        <p className="mb-3 text-sm text-gray-500">
+          เลือกมาตรฐานและตัวชี้วัดจากรายการที่แอดมินกำหนด
+        </p>
+        <DocumentStandardsChecklist
+          disabled={disabled}
+          isIndicatorSelected={(standard, indicator) =>
+            Boolean(findIndicator(standard, indicator))
+          }
+          isStandardSelected={(standard) => Boolean(findStandard(standard))}
+          standards={standardOptions}
+          onToggleIndicator={toggleCatalogIndicator}
+          onToggleStandard={toggleCatalogStandard}
+        />
+      </div>
+      {standards.length ? (
+        <p className="pt-2 text-sm font-medium text-gray-700">
+          รายการที่เลือกและรายการเพิ่มเติม
+        </p>
+      ) : null}
       {standards.map((standard, standardIndex) => {
         const subItems = Array.isArray(standard.subItems)
           ? standard.subItems
@@ -489,6 +591,9 @@ export default function ProjectSummaryDocumentPage() {
     number[]
   >([]);
   const [people, setPeople] = useState<any[]>([]);
+  const [standardOptions, setStandardOptions] = useState<
+    DocumentStandardOption[]
+  >([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
@@ -539,12 +644,17 @@ export default function ProjectSummaryDocumentPage() {
   };
 
   const load = async () => {
-    const [summaryResponse, peopleResponse, templateResponse] =
-      await Promise.all([
-        fetch("/api/camps/" + campId + "/project-summary-document"),
-        fetch("/api/document-personnel"),
-        fetch("/api/project-summary-document-templates"),
-      ]);
+    const [
+      summaryResponse,
+      peopleResponse,
+      templateResponse,
+      referenceOptionsResponse,
+    ] = await Promise.all([
+      fetch("/api/camps/" + campId + "/project-summary-document"),
+      fetch("/api/document-personnel"),
+      fetch("/api/project-summary-document-templates"),
+      fetch("/api/document-reference-options"),
+    ]);
     const summaryData = await summaryResponse.json();
     if (!summaryResponse.ok) {
       throw new Error(summaryData.error || "โหลดเอกสารสรุปไม่สำเร็จ");
@@ -590,6 +700,13 @@ export default function ProjectSummaryDocumentPage() {
     setSelectedAppendixPhotoIds([]);
     setPeople(peopleResponse.ok ? await peopleResponse.json() : []);
     setTemplates(templateResponse.ok ? await templateResponse.json() : []);
+    setStandardOptions(
+      referenceOptionsResponse.ok
+        ? normalizeDocumentStandardOptions(
+            await referenceOptionsResponse.json(),
+          )
+        : [],
+    );
   };
 
   useEffect(() => {
@@ -1367,6 +1484,7 @@ export default function ProjectSummaryDocumentPage() {
         <Section number="4" title="สอดคล้องกับมาตรฐานการศึกษา">
           <StandardsEditor
             disabled={readOnly}
+            standardOptions={standardOptions}
             values={document.standard_alignments || []}
             onChange={(values) => update("standard_alignments", values)}
           />

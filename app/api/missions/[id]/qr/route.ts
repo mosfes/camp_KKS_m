@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 
+import { requireMissionOwner } from "@/lib/camp-management-auth";
 import { prisma } from "@/lib/db";
 
 function generatePin() {
@@ -43,10 +44,13 @@ function buildPayload(missionId, campId) {
 
 // ─── GET: ดึง QR+PIN ปัจจุบัน (สร้างใหม่ถ้าไม่มี) ───────────────
 export async function GET(request, { params }) {
-  try {
-    const { id } = await params;
-    const missionId = parseInt(id);
+  const { id } = await params;
+  const missionId = parseInt(id);
+  const { error } = await requireMissionOwner(missionId);
 
+  if (error) return error;
+
+  try {
     const mission = await prisma.mission.findUnique({
       where: { mission_id: missionId },
       include: { station: true },

@@ -1109,8 +1109,20 @@ export default function CampDetailPage() {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
           {/* Header - clickable toggle */}
           <div
+            aria-expanded={isInfoOpen}
             className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+            role="button"
+            tabIndex={0}
             onClick={() => setIsInfoOpen((prev) => !prev)}
+            onKeyDown={(event) => {
+              if (
+                event.target === event.currentTarget &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
+                event.preventDefault();
+                setIsInfoOpen((prev) => !prev);
+              }
+            }}
           >
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-[#f0f4f2] flex items-center justify-center flex-shrink-0">
@@ -1247,8 +1259,20 @@ export default function CampDetailPage() {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
           {/* Header - clickable toggle */}
           <div
+            aria-expanded={isShirtOpen}
             className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+            role="button"
+            tabIndex={0}
             onClick={() => setIsShirtOpen((prev) => !prev)}
+            onKeyDown={(event) => {
+              if (
+                event.target === event.currentTarget &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
+                event.preventDefault();
+                setIsShirtOpen((prev) => !prev);
+              }
+            }}
           >
             <div className="flex items-center gap-2 flex-wrap">
               <div className="w-8 h-8 rounded-lg bg-[#f0f4f2] flex items-center justify-center flex-shrink-0">
@@ -1320,9 +1344,10 @@ export default function CampDetailPage() {
                         </p>
                         <div className="flex flex-wrap gap-3">
                           {shirtImages.map((img, idx) => (
-                            <div
+                            <button
                               key={idx}
                               className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-100 shadow-sm bg-gray-50 flex items-center justify-center cursor-pointer"
+                              type="button"
                               onClick={() => setSelectedImage(img)}
                             >
                               <Image
@@ -1331,7 +1356,7 @@ export default function CampDetailPage() {
                                 className="object-cover hover:scale-110 transition-transform duration-300"
                                 src={img}
                               />
-                            </div>
+                            </button>
                           ))}
                         </div>
                       </div>
@@ -1419,8 +1444,20 @@ export default function CampDetailPage() {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
           {/* Header - clickable toggle */}
           <div
+            aria-expanded={isScheduleOpen}
             className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+            role="button"
+            tabIndex={0}
             onClick={() => setIsScheduleOpen((prev) => !prev)}
+            onKeyDown={(event) => {
+              if (
+                event.target === event.currentTarget &&
+                (event.key === "Enter" || event.key === " ")
+              ) {
+                event.preventDefault();
+                setIsScheduleOpen((prev) => !prev);
+              }
+            }}
           >
             <div className="flex items-center gap-2 flex-wrap">
               <div className="w-8 h-8 rounded-lg bg-[#f0f4f2] flex items-center justify-center flex-shrink-0">
@@ -1607,8 +1644,22 @@ export default function CampDetailPage() {
                   <div
                     key={station.station_id}
                     className="p-4 rounded-xl border-2 border-gray-100 hover:border-[#6b857a] hover:bg-[#6b857a]/5 transition-all cursor-pointer group"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => {
                       if (navigatingToBase !== null) return;
+                      setNavigatingToBase(station.station_id);
+                      rememberActiveBaseId(station.station_id);
+                      router.push(getCleanBasePath());
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        event.target !== event.currentTarget ||
+                        (event.key !== "Enter" && event.key !== " ") ||
+                        navigatingToBase !== null
+                      )
+                        return;
+                      event.preventDefault();
                       setNavigatingToBase(station.station_id);
                       rememberActiveBaseId(station.station_id);
                       router.push(getCleanBasePath());
@@ -1712,7 +1763,18 @@ export default function CampDetailPage() {
               <div className="w-full">
                 <div
                   className="p-4 rounded-xl border-2 border-gray-100 hover:border-[#6b857a] hover:bg-[#6b857a]/5 transition-all group cursor-pointer"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setIsSurveyResultsModalOpen(true)}
+                  onKeyDown={(event) => {
+                    if (
+                      event.target === event.currentTarget &&
+                      (event.key === "Enter" || event.key === " ")
+                    ) {
+                      event.preventDefault();
+                      setIsSurveyResultsModalOpen(true);
+                    }
+                  }}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="p-2 bg-white rounded-lg border border-gray-100 group-hover:border-[#6b857a]/20">
@@ -1924,11 +1986,14 @@ export default function CampDetailPage() {
       />
 
       {selectedImage && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={() => setSelectedImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <button
+            aria-label="ปิดภาพตัวอย่าง"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            type="button"
+            onClick={() => setSelectedImage(null)}
+          />
+          <div className="relative z-10 max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
             <button
               className="absolute top-4 right-4 bg-black/50 text-white rounded-full p-2 hover:bg-black/70 transition-colors z-10"
               onClick={() => setSelectedImage(null)}
@@ -1951,7 +2016,6 @@ export default function CampDetailPage() {
               alt="Expanded view"
               className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
               src={selectedImage}
-              onClick={(e) => e.stopPropagation()}
             />
           </div>
         </div>

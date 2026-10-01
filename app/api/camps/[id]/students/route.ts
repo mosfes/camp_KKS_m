@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { requireCampTeacher } from "@/lib/attendance-auth";
 import { prisma } from "@/lib/db";
-import { requireTeacher } from "@/lib/auth";
 import {
   activeCampEnrollmentWhere,
   activeCampStudentWhere,
@@ -11,7 +11,9 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { error: authError } = await requireTeacher();
+  const params = await context.params;
+  const campId = Number(params.id);
+  const { error: authError } = await requireCampTeacher(campId);
 
   if (authError) return authError;
 
@@ -22,13 +24,6 @@ export async function GET(
     const search = searchParams.get("search") || "";
     const filter = searchParams.get("filter") || "all";
     const includeSummary = searchParams.get("summary") !== "false";
-
-    const params = await context.params;
-    const campId = Number(params.id);
-
-    if (isNaN(campId)) {
-      return NextResponse.json({ error: "Invalid camp id" }, { status: 400 });
-    }
 
     // Build base condition for student
     let studentCondition: any = search

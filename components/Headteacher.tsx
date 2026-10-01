@@ -26,6 +26,7 @@ export function HeadteacherNavbar({
     lastname: string;
     email: string;
     role: string;
+    profile_image_url: string | null;
     roles?: string[];
   } | null>(null);
 
@@ -173,6 +174,7 @@ export function HeadteacherNavbar({
                   className="bg-[#5d7c6f] text-white transition-transform"
                   name={initials}
                   size="sm"
+                  src={teacher?.profile_image_url || undefined}
                 />
               </button>
 

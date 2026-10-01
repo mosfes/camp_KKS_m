@@ -199,13 +199,14 @@ export default function StudentMissionsPage() {
                   : 0;
 
               return (
-                <div
+                <button
                   key={station.station_id}
-                  className={`bg-white p-5 sm:p-6 rounded-2xl shadow-xs border border-gray-200/80 hover:border-[#5D7C6F]/50 hover:shadow-md transition-all duration-300 cursor-pointer flex items-center gap-4 group ${
+                  className={`w-full bg-white p-5 sm:p-6 rounded-2xl shadow-xs border border-gray-200/80 hover:border-[#5D7C6F]/50 hover:shadow-md transition-all duration-300 cursor-pointer flex items-center gap-4 group text-left ${
                     navigatingTo === station.station_id
                       ? "opacity-60 pointer-events-none"
                       : ""
                   }`}
+                  type="button"
                   onClick={() => goToStation(station.station_id)}
                 >
                   {/* Icon */}
@@ -241,7 +242,7 @@ export default function StudentMissionsPage() {
                   </div>
 
                   <ChevronRight className="text-gray-300 shrink-0" size={24} />
-                </div>
+                </button>
               );
             })}
           </div>

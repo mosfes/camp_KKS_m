@@ -24,7 +24,7 @@ interface StatusModalProps {
   type: ModalType;
   title: string;
   message: string;
-  onConfirm?: () => void; // Optional for confirmation dialogs
+  onConfirm?: () => void | Promise<void>; // Optional for confirmation dialogs
   confirmText?: string;
   isLoading?: boolean;
 }
@@ -72,19 +72,6 @@ export default function StatusModal({
     }
   };
 
-  const getColor = () => {
-    switch (type) {
-      case "success":
-        return "success";
-      case "error":
-        return "danger";
-      case "warning":
-        return "warning";
-      case "info":
-        return "primary";
-    }
-  };
-
   // Default confirm text if not provided
   const defaultConfirmText = "ยืนยัน";
 
@@ -92,13 +79,17 @@ export default function StatusModal({
     <Modal
       backdrop="blur"
       classNames={{
-        base: "bg-[#F5F1E8] rounded-2xl shadow-xl border border-[#6b857a]/20",
-        backdrop: "bg-black/60 backdrop-blur-sm",
-        wrapper: "!items-center !justify-center p-4",
+        base: "z-[2010] bg-[#F5F1E8] rounded-2xl shadow-xl border border-[#6b857a]/20",
+        backdrop: "z-[2000] bg-black/60 backdrop-blur-sm",
+        wrapper: "z-[2010] !items-center !justify-center p-4",
       }}
       isOpen={isOpen}
+      isDismissable={!isLoading}
+      isKeyboardDismissDisabled={isLoading}
       placement="center"
-      onOpenChange={onClose}
+      onOpenChange={(open) => {
+        if (!open && !isLoading) onClose();
+      }}
     >
       <ModalContent>
         {(onClose) => (
@@ -124,8 +115,9 @@ export default function StatusModal({
                         : "bg-[#6b857a] hover:bg-[#5a7268]"
                     }`}
                     isLoading={isLoading}
+                    isDisabled={isLoading}
                     onPress={() => {
-                      onConfirm();
+                      void onConfirm();
                     }}
                   >
                     {confirmText === "Confirm"
@@ -135,6 +127,7 @@ export default function StatusModal({
                   <Button
                     className="bg-white border-2 border-[#6b857a] text-[#6b857a] rounded-full font-medium w-36 shadow-sm hover:bg-gray-50"
                     variant="bordered"
+                    isDisabled={isLoading}
                     onPress={onClose}
                   >
                     ยกเลิก

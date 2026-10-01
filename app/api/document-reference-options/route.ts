@@ -4,9 +4,15 @@ import { z } from "zod";
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
+const indicatorSchema = z.object({
+  code: z.string().trim().max(100).default(""),
+  label: z.string().trim().min(1).max(1000),
+});
+
 const optionSchema = z.object({
   category: z.enum(["STANDARD", "STRATEGY"]),
   label: z.string().trim().min(1).max(700),
+  indicators: z.array(indicatorSchema).max(50).optional(),
   is_active: z.boolean().optional(),
   sort_order: z.coerce.number().int().min(0).max(10000).optional(),
 });
@@ -59,6 +65,10 @@ export async function POST(request: Request) {
     const option = await prisma.document_reference_option.create({
       data: {
         ...parsed.data,
+        indicators:
+          parsed.data.category === "STANDARD"
+            ? (parsed.data.indicators ?? [])
+            : [],
         is_active: parsed.data.is_active ?? true,
         sort_order:
           parsed.data.sort_order ?? (maxOrder._max.sort_order ?? 0) + 10,

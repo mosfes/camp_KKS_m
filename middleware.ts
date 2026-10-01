@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { jwtVerify } from "jose";
 import { NextResponse } from "next/server";
 
 import {
@@ -55,16 +56,31 @@ const isAdminRoute = createRouteMatcher([
 const isTeacherRoute = createRouteMatcher(["/headteacher(.*)"]);
 const isStudentRoute = createRouteMatcher(["/student(.*)"]);
 const isParentRoute = createRouteMatcher(["/parent(.*)"]);
+const isPublicParentRecoveryRoute = createRouteMatcher([
+  "/parent/forgot-password(.*)",
+  "/parent/reset-password(.*)",
+  "/parent/verify-email(.*)",
+]);
 
 const isProtectedApiRoute = createRouteMatcher([
+  "/api/academic_years(.*)",
+  "/api/attendance(.*)",
+  "/api/bus-layout-templates(.*)",
+  "/api/classroom-types(.*)",
   "/api/teachers(.*)",
   "/api/students(.*)",
   "/api/surveys(.*)",
+  "/api/missions(.*)",
+  "/api/overview(.*)",
+  "/api/stations(.*)",
+  "/api/teacher(.*)",
+  "/api/templates(.*)",
   "/api/upload(.*)",
   "/api/classrooms(.*)",
   "/api/vulgar-words(.*)",
   "/api/document-personnel(.*)",
   "/api/project-document-templates(.*)",
+  "/api/project-summary-document-templates(.*)",
   "/api/document-reference-options(.*)",
   "/api/camps(.*)",
   "/api/parent(.*)",
@@ -87,37 +103,41 @@ export default clerkMiddleware(async (auth, req) => {
   const studentCookie = req.cookies.get("student_session")?.value;
   const parentCookie = req.cookies.get("parent_session")?.value;
 
-  if (teacherCookie) {
-    try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-      const { payload } = await jwtVerify(teacherCookie, secret);
+  const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+  const verifyCookie = async (value: string | undefined) => {
+    if (!value) return null;
 
-      role = (payload.role as string)?.toLowerCase() || "teacher";
-    } catch (e) {
-      console.error("Failed to verify teacher_session cookie", e);
-    }
-  } else if (studentCookie) {
     try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-
-      await jwtVerify(studentCookie, secret);
-      role = "student";
-    } catch (e) {
-      console.error("Failed to verify student_session cookie", e);
+      return (await jwtVerify(value, secret)).payload;
+    } catch {
+      return null;
     }
-  } else if (parentCookie) {
-    try {
-      const { jwtVerify } = await import("jose");
-      const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+  };
+  const [teacherPayload, studentPayload, parentPayload] = await Promise.all([
+    verifyCookie(teacherCookie),
+    verifyCookie(studentCookie),
+    verifyCookie(parentCookie),
+  ]);
+  const pathname = req.nextUrl.pathname;
+  const targetsParent =
+    isParentRoute(req) || pathname.startsWith("/api/parent/");
+  const targetsStudent =
+    isStudentRoute(req) || pathname.startsWith("/api/student/");
 
-      const { payload } = await jwtVerify(parentCookie, secret);
-      role = "parent";
-      parentMustChangePassword = payload.mustChangePassword === true;
-    } catch (e) {
-      console.error("Failed to verify parent_session cookie", e);
-    }
+  // Prefer the session that matches the requested application area. This
+  // keeps a stale cookie from another role from shadowing a valid session.
+  if (targetsParent && parentPayload) {
+    role = "parent";
+    parentMustChangePassword = parentPayload.mustChangePassword === true;
+  } else if (targetsStudent && studentPayload) {
+    role = "student";
+  } else if (teacherPayload) {
+    role = (teacherPayload.role as string)?.toLowerCase() || "teacher";
+  } else if (studentPayload) {
+    role = "student";
+  } else if (parentPayload) {
+    role = "parent";
+    parentMustChangePassword = parentPayload.mustChangePassword === true;
   }
 
   if (!role && authObject.userId) {
@@ -134,12 +154,17 @@ export default clerkMiddleware(async (auth, req) => {
     r === "head_teacher" ||
     r === "headteacher";
 
-  if (isParentRoute(req) && role !== "parent") {
+  if (
+    isParentRoute(req) &&
+    !isPublicParentRecoveryRoute(req) &&
+    role !== "parent"
+  ) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
   if (
     isParentRoute(req) &&
+    !isPublicParentRecoveryRoute(req) &&
     role === "parent" &&
     parentMustChangePassword &&
     !/^\/parent\/change-password\/?$/.test(req.nextUrl.pathname)
@@ -220,7 +245,6 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  const pathname = req.nextUrl.pathname;
   const isSecure = req.nextUrl.protocol === "https:";
   const legacyBaseRoute = pathname.match(
     /^\/headteacher\/dashboard\/camp\/(\d+)\/base\/(\d+)$/,

@@ -1,9 +1,72 @@
-export const runtime = "nodejs";
 // @ts-nocheck
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 
 import { prisma } from "@/lib/db";
+import { cacheGoogleProfileImage } from "@/lib/google-profile-image";
+
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
+async function cacheTeacherImageIfMissing(
+  teacher: { teachers_id: number; profile_image_url: string | null },
+  sourceUrl: unknown,
+) {
+  if (teacher.profile_image_url) return;
+
+  try {
+    const cachedUrl = await cacheGoogleProfileImage({
+      sourceUrl,
+      accountType: "teacher",
+      accountId: teacher.teachers_id,
+    });
+
+    if (!cachedUrl) return;
+
+    await prisma.teachers.updateMany({
+      where: {
+        teachers_id: teacher.teachers_id,
+        OR: [{ profile_image_url: null }, { profile_image_url: "" }],
+      },
+      data: { profile_image_url: cachedUrl },
+    });
+  } catch (error) {
+    console.warn(
+      "[sync-session] Could not cache teacher Google image",
+      error instanceof Error ? error.name : "UnknownError",
+    );
+  }
+}
+
+async function cacheStudentImageIfMissing(
+  student: { students_id: number; profile_image_url: string | null },
+  sourceUrl: unknown,
+) {
+  if (student.profile_image_url) return;
+
+  try {
+    const cachedUrl = await cacheGoogleProfileImage({
+      sourceUrl,
+      accountType: "student",
+      accountId: student.students_id,
+    });
+
+    if (!cachedUrl) return;
+
+    await prisma.students.updateMany({
+      where: {
+        students_id: student.students_id,
+        OR: [{ profile_image_url: null }, { profile_image_url: "" }],
+      },
+      data: { profile_image_url: cachedUrl },
+    });
+  } catch (error) {
+    console.warn(
+      "[sync-session] Could not cache student Google image",
+      error instanceof Error ? error.name : "UnknownError",
+    );
+  }
+}
 
 /**
  * GET /api/auth/sync-session?to=/headteacher/dashboard
@@ -42,11 +105,22 @@ export async function GET(req: any) {
         lastname: true,
         email: true,
         role: true,
+        profile_image_url: true,
       },
     });
 
     if (teacher) {
-      const token = await new SignJWT(teacher)
+      if (!teacher.profile_image_url) {
+        after(() => cacheTeacherImageIfMissing(teacher, user?.imageUrl));
+      }
+
+      const token = await new SignJWT({
+        teachers_id: teacher.teachers_id,
+        firstname: teacher.firstname,
+        lastname: teacher.lastname,
+        email: teacher.email,
+        role: teacher.role,
+      })
         .setProtectedHeader({ alg: "HS256" })
         .setExpirationTime("7d")
         .sign(secret);
@@ -75,11 +149,21 @@ export async function GET(req: any) {
         firstname: true,
         lastname: true,
         email: true,
+        profile_image_url: true,
       },
     });
 
     if (student) {
-      const token = await new SignJWT(student)
+      if (!student.profile_image_url) {
+        after(() => cacheStudentImageIfMissing(student, user?.imageUrl));
+      }
+
+      const token = await new SignJWT({
+        students_id: student.students_id,
+        firstname: student.firstname,
+        lastname: student.lastname,
+        email: student.email,
+      })
         .setProtectedHeader({ alg: "HS256" })
         .setExpirationTime("7d")
         .sign(secret);

@@ -2,12 +2,18 @@
 
 import { NextResponse } from "next/server";
 
+import { requireTeacher } from "@/lib/auth";
+import { requireCampTemplateOwner } from "@/lib/camp-management-auth";
 import { prisma } from "@/lib/db";
 
 /**
  * GET - ดึงข้อมูลเต็มของ template (เฉพาะตัวที่เลือก)
  */
 export async function GET(request, { params }) {
+  const { error } = await requireTeacher();
+
+  if (error) return error;
+
   try {
     const resolvedParams = await params;
     const templateId = parseInt(resolvedParams.id);
@@ -81,10 +87,13 @@ export async function GET(request, { params }) {
  * DELETE - ลบ Template
  */
 export async function DELETE(request, { params }) {
-  try {
-    const resolvedParams = await params;
-    const templateId = parseInt(resolvedParams.id);
+  const resolvedParams = await params;
+  const templateId = parseInt(resolvedParams.id);
+  const { error } = await requireCampTemplateOwner(templateId);
 
+  if (error) return error;
+
+  try {
     await prisma.camp_template.delete({
       where: {
         camp_template_id: templateId,
@@ -106,9 +115,13 @@ export async function DELETE(request, { params }) {
  * PUT - แก้ไขชื่อ Template
  */
 export async function PUT(request, { params }) {
+  const resolvedParams = await params;
+  const templateId = parseInt(resolvedParams.id);
+  const { error } = await requireCampTemplateOwner(templateId);
+
+  if (error) return error;
+
   try {
-    const resolvedParams = await params;
-    const templateId = parseInt(resolvedParams.id);
     const body = await request.json();
     const { name } = body;
 

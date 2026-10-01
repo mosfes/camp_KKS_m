@@ -1113,9 +1113,10 @@ export default function StudentCampDetailPage() {
                               className={`grid gap-4 ${shirtUrls.length === 1 ? "grid-cols-1 max-w-xs mx-auto" : "grid-cols-2 md:grid-cols-3"}`}
                             >
                               {shirtUrls.map((url, idx) => (
-                                <div
+                                <button
                                   key={idx}
                                   className="bg-gray-100 rounded-2xl overflow-hidden aspect-square border border-gray-200 shadow-xs relative group cursor-pointer"
+                                  type="button"
                                   onClick={() => setSelectedImage(url)}
                                 >
                                   <img
@@ -1128,7 +1129,7 @@ export default function StudentCampDetailPage() {
                                       ดูรูปขนาดเต็ม
                                     </span>
                                   </div>
-                                </div>
+                                </button>
                               ))}
                             </div>
                           );
@@ -1143,9 +1144,9 @@ export default function StudentCampDetailPage() {
                       })()}
                     </div>
                     <div className="mb-6">
-                      <label className="block text-xs font-bold text-gray-700 mb-2.5 uppercase tracking-wider">
+                      <p className="block text-xs font-bold text-gray-700 mb-2.5 uppercase tracking-wider">
                         เลือกไซส์เสื้อ:
-                      </label>
+                      </p>
                       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                         {SHIRT_SIZES.map((size) => (
                           <button
@@ -1156,6 +1157,7 @@ export default function StudentCampDetailPage() {
                                 : "bg-white text-gray-700 border-gray-200 hover:border-[#5d7c6f]/50"
                             } ${!shirtPeriodActive ? "opacity-60 cursor-not-allowed" : ""}`}
                             disabled={savingShirt || !shirtPeriodActive}
+                            type="button"
                             onClick={() => setSelectedSize(size)}
                           >
                             {size}
@@ -2039,11 +2041,14 @@ export default function StudentCampDetailPage() {
 
       {/* Image Modal */}
       {selectedImage && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-          onClick={() => setSelectedImage(null)}
-        >
-          <div className="relative max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <button
+            aria-label="ปิดภาพตัวอย่าง"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            type="button"
+            onClick={() => setSelectedImage(null)}
+          />
+          <div className="relative z-10 max-w-4xl max-h-[90vh] w-full h-full flex items-center justify-center">
             <button
               className="absolute top-4 right-4 bg-black/50 text-white rounded-full p-2 hover:bg-black/70 transition-colors z-10"
               onClick={() => setSelectedImage(null)}
@@ -2066,7 +2071,6 @@ export default function StudentCampDetailPage() {
               alt="Expanded view"
               className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
               src={selectedImage}
-              onClick={(e) => e.stopPropagation()}
             />
           </div>
         </div>
@@ -2141,9 +2145,9 @@ export default function StudentCampDetailPage() {
               })()}
 
               <div>
-                <label className="block text-sm font-black text-gray-700 mb-4 text-center">
+                <p className="block text-sm font-black text-gray-700 mb-4 text-center">
                   กรุณาเลือกไซส์เสื้อ:
-                </label>
+                </p>
                 <div className="grid grid-cols-3 gap-3">
                   {SHIRT_SIZES.map((size) => (
                     <button
@@ -2153,6 +2157,7 @@ export default function StudentCampDetailPage() {
                           ? "bg-[#5d7c6f] text-white border-[#5d7c6f] shadow-xl shadow-[#5d7c6f]/30 scale-105"
                           : "bg-white text-gray-700 border-gray-100 hover:border-[#5d7c6f]/30"
                       }`}
+                      type="button"
                       onClick={() => setSelectedSize(size)}
                     >
                       {size}

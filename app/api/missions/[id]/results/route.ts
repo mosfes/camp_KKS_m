@@ -1,14 +1,18 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 
+import { requireMissionOwner } from "@/lib/camp-management-auth";
 import { prisma } from "@/lib/db";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 
 export async function GET(request, { params }) {
-  try {
-    const { id } = await params;
-    const missionId = parseInt(id);
+  const { id } = await params;
+  const missionId = parseInt(id);
+  const { error } = await requireMissionOwner(missionId);
 
+  if (error) return error;
+
+  try {
     if (!missionId) {
       return NextResponse.json(
         { error: "Invalid mission ID" },

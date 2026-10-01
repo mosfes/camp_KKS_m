@@ -1,8 +1,8 @@
 export const runtime = "nodejs";
 // @ts-nocheck
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
+import { requireStudent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 /**
@@ -11,18 +11,12 @@ import { prisma } from "@/lib/db";
  */
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("student_session");
+    const { student, error } = await requireStudent();
 
-    if (!session?.value) {
-      return NextResponse.json({ error: "ไม่ได้เข้าสู่ระบบ" }, { status: 401 });
-    }
-    const { jwtVerify } = await import("jose");
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload: studentSession } = await jwtVerify(session.value, secret);
+    if (error || !student) return error;
 
     const dbStudent = await prisma.students.findUnique({
-      where: { students_id: Number(studentSession.students_id) },
+      where: { students_id: Number(student.students_id) },
       select: {
         students_id: true,
         firstname: true,

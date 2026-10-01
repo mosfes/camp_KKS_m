@@ -513,8 +513,7 @@ export default function CreateSurveyModal({
 
             {/* ── Template Banner ── */}
             <div
-              className={`group flex cursor-pointer flex-col justify-between gap-4 rounded-xl border border-[#6b857a]/20 bg-gradient-to-r from-[#6b857a]/10 to-transparent transition-all hover:border-[#6b857a]/50 sm:flex-row sm:items-center ${pageMode ? "p-4 sm:p-5" : "p-4 sm:p-6"}`}
-              onClick={() => setShowTemplates(true)}
+              className={`group flex flex-col justify-between gap-4 rounded-xl border border-[#6b857a]/20 bg-gradient-to-r from-[#6b857a]/10 to-transparent transition-all hover:border-[#6b857a]/50 sm:flex-row sm:items-center ${pageMode ? "p-4 sm:p-5" : "p-4 sm:p-6"}`}
             >
               <div className="flex items-center gap-4">
                 <div className="bg-[#6b857a] p-3 rounded-xl text-white shadow-sm group-hover:scale-105 transition-transform">
@@ -545,9 +544,9 @@ export default function CreateSurveyModal({
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
                 <div className="flex items-center justify-between w-full">
-                  <label className="text-sm font-medium text-gray-700">
+                  <p className="text-sm font-medium text-gray-700">
                     บันทึกเป็นเทมเพลตสำหรับใช้ในครั้งต่อไป
-                  </label>
+                  </p>
                   <Switch
                     color="success"
                     isSelected={saveAsTemplate}
@@ -916,20 +915,23 @@ export default function CreateSurveyModal({
                     templates.map((tpl) => (
                       <div
                         key={tpl.template_id}
-                        className="flex items-center justify-between px-6 py-4 border-b border-gray-100 last:border-0 transition-colors hover:bg-gray-50 group cursor-pointer"
-                        onClick={() => {
-                          applyTemplate(tpl);
-                          onClose();
-                        }}
+                        className="flex items-center justify-between border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50 group"
                       >
-                        <div className="flex-1 text-left">
+                        <button
+                          className="flex-1 px-6 py-4 text-left"
+                          type="button"
+                          onClick={() => {
+                            applyTemplate(tpl);
+                            onClose();
+                          }}
+                        >
                           <p className="text-sm font-medium text-gray-900">
                             {tpl.title}
                           </p>
                           <p className="text-xs text-gray-500 mt-0.5">
                             {tpl.survey_template_question.length} รายการ
                           </p>
-                        </div>
+                        </button>
                         <button
                           className="p-2 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
                           title="ลบเทมเพลต"

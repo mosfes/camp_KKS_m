@@ -6,6 +6,7 @@ import { Button } from "@heroui/button";
 import {
   UserCircle2,
   Phone,
+  Mail,
   Save,
   ChevronLeft,
   AlertCircle,
@@ -18,12 +19,19 @@ type ParentProfile = {
   firstname: string;
   lastname: string;
   tel: string;
+  email: string | null;
+  emailVerified: boolean;
 };
 
 export default function ParentProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<ParentProfile | null>(null);
-  const [form, setForm] = useState({ firstname: "", lastname: "", tel: "" });
+  const [form, setForm] = useState({
+    firstname: "",
+    lastname: "",
+    tel: "",
+    email: "",
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -34,6 +42,7 @@ export default function ParentProfilePage() {
     fetch("/api/parent/profile")
       .then(async (response) => {
         const data = await response.json();
+
         if (!response.ok)
           throw new Error(data.error || "ไม่สามารถโหลดโปรไฟล์ได้");
         setProfile(data.parent);
@@ -44,6 +53,7 @@ export default function ParentProfilePage() {
             lastname:
               data.parent.lastname === "รอระบุ" ? "" : data.parent.lastname,
             tel: data.parent.tel === "0000000000" ? "" : data.parent.tel,
+            email: data.parent.email ?? "",
           });
         }
       })
@@ -68,10 +78,12 @@ export default function ParentProfilePage() {
 
     if (!form.firstname.trim() || !form.lastname.trim()) {
       setError("กรุณากรอกชื่อและนามสกุล");
+
       return;
     }
     if (tel.length !== 10) {
       setError("เบอร์โทรต้องมี 10 หลัก");
+
       return;
     }
 
@@ -84,14 +96,20 @@ export default function ParentProfilePage() {
         body: JSON.stringify({ ...form, tel }),
       });
       const data = await response.json();
+
       if (!response.ok) throw new Error(data.error || "บันทึกข้อมูลไม่สำเร็จ");
       setProfile(data.parent);
       setForm({
         firstname: data.parent.firstname,
         lastname: data.parent.lastname,
         tel: data.parent.tel,
+        email: data.parent.email ?? "",
       });
-      setMessage("บันทึกข้อมูลเรียบร้อยแล้ว");
+      setMessage(
+        data.verificationEmailSent
+          ? "บันทึกข้อมูลแล้ว กรุณาตรวจสอบอีเมลเพื่อยืนยันภายใน 30 นาที"
+          : "บันทึกข้อมูลเรียบร้อยแล้ว",
+      );
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "เกิดข้อผิดพลาด");
     } finally {
@@ -185,6 +203,28 @@ export default function ParentProfilePage() {
                 />
               </div>
             </label>
+            <label className="block space-y-1.5 text-sm font-medium text-gray-700">
+              <span>อีเมลผู้ปกครอง (ไม่บังคับ)</span>
+              <div className="relative">
+                <Mail
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={16}
+                />
+                <input
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 py-3 pl-10 pr-4 outline-none transition focus:border-[#5d7c6f] focus:ring-2 focus:ring-[#5d7c6f]/20"
+                  inputMode="email"
+                  placeholder="parent@example.com"
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => update("email", event.target.value)}
+                />
+              </div>
+              <span className="block text-xs font-normal text-gray-500">
+                {profile?.email && profile.emailVerified
+                  ? "ยืนยันอีเมลแล้ว สามารถใช้รับลิงก์ลืมรหัสผ่านได้"
+                  : "เมื่อบันทึก ระบบจะส่งลิงก์ยืนยันอีเมลซึ่งใช้ได้ 30 นาที"}
+              </span>
+            </label>
 
             {error && (
               <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-600">
@@ -199,8 +239,8 @@ export default function ParentProfilePage() {
             )}
             <Button
               className="w-full bg-[#5d7c6f] font-semibold text-white"
-              isLoading={saving}
               isDisabled={saving}
+              isLoading={saving}
               startContent={!saving && <Save size={16} />}
               type="submit"
             >

@@ -249,6 +249,15 @@ function formatBus(bus: any, permission: any) {
       (sum: number, floor: any) => sum + floor.positions.length,
       0,
     ),
+    availableCapacity: Math.max(
+      0,
+      bus.floors.reduce(
+        (sum: number, floor: any) => sum + floor.positions.length,
+        0,
+      ) -
+        bus._count.assignments -
+        bus._count.teacher_assignments,
+    ),
     classroom: {
       classroomId: bus.classroom.classroom_id,
       grade: bus.classroom.grade,
@@ -439,6 +448,12 @@ async function getBusData(
       classroom_classroom_id: { in: classroomIds },
     },
     include: {
+      _count: {
+        select: {
+          assignments: true,
+          teacher_assignments: { where: { removed_at: null } },
+        },
+      },
       layout_template: { select: { name: true } },
       classroom: {
         select: {

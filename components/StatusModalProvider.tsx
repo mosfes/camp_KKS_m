@@ -6,6 +6,7 @@ import React, {
   useState,
   ReactNode,
   useCallback,
+  useRef,
 } from "react";
 
 import StatusModal, { ModalType } from "./StatusModal";
@@ -18,7 +19,7 @@ interface StatusModalContextType {
   showConfirm: (
     title: string,
     message: string,
-    onConfirm: () => void,
+    onConfirm: () => void | Promise<void>,
     confirmText?: string,
   ) => void;
   setIsLoading: (loading: boolean) => void;
@@ -45,7 +46,7 @@ export function StatusModalProvider({ children }: { children: ReactNode }) {
     type: ModalType;
     title: string;
     message: string;
-    onConfirm?: () => void;
+    onConfirm?: () => void | Promise<void>;
     confirmText?: string;
     isLoading?: boolean;
   }>({
@@ -56,16 +57,18 @@ export function StatusModalProvider({ children }: { children: ReactNode }) {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const confirmInFlightRef = useRef(false);
 
   const openModal = useCallback(
     (
       type: ModalType,
       title: string,
       message: string,
-      onConfirm?: () => void,
+      onConfirm?: () => void | Promise<void>,
       confirmText?: string,
     ) => {
       setConfig({ type, title, message, onConfirm, confirmText });
+      confirmInFlightRef.current = false;
       setIsLoading(false);
       setIsOpen(true);
     },
@@ -94,7 +97,7 @@ export function StatusModalProvider({ children }: { children: ReactNode }) {
     (
       title: string,
       message: string,
-      onConfirm: () => void,
+      onConfirm: () => void | Promise<void>,
       confirmText?: string,
     ) => {
       openModal("warning", title, message, onConfirm, confirmText);
@@ -102,7 +105,24 @@ export function StatusModalProvider({ children }: { children: ReactNode }) {
     [openModal],
   );
 
-  const close = () => setIsOpen(false);
+  const close = useCallback(() => {
+    setIsOpen(false);
+  }, []);
+
+  const handleConfirm = useCallback(async () => {
+    const action = config.onConfirm;
+
+    if (!action || confirmInFlightRef.current) return;
+
+    confirmInFlightRef.current = true;
+    setIsLoading(true);
+    try {
+      await action();
+    } finally {
+      confirmInFlightRef.current = false;
+      setIsLoading(false);
+    }
+  }, [config.onConfirm]);
 
   return (
     <StatusModalContext.Provider
@@ -125,7 +145,7 @@ export function StatusModalProvider({ children }: { children: ReactNode }) {
         title={config.title}
         type={config.type}
         onClose={close}
-        onConfirm={config.onConfirm}
+        onConfirm={config.onConfirm ? handleConfirm : undefined}
       />
     </StatusModalContext.Provider>
   );

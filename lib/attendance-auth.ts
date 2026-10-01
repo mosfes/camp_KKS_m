@@ -4,6 +4,16 @@ import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function requireCampTeacher(campId: number) {
+  if (!Number.isInteger(campId) || campId <= 0) {
+    return {
+      teacher: null,
+      error: NextResponse.json(
+        { error: "รหัสค่ายไม่ถูกต้อง" },
+        { status: 400 },
+      ),
+    };
+  }
+
   const { teacher, error } = await requireTeacher();
 
   if (error || !teacher) return { teacher: null, error };

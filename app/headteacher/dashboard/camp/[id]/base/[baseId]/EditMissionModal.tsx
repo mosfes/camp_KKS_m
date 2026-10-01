@@ -310,9 +310,13 @@ export default function EditMissionModal({
         backdrop: "bg-black/60 backdrop-blur-sm",
       }}
       isOpen={isOpen}
+      isDismissable={!loading}
+      isKeyboardDismissDisabled={loading}
       scrollBehavior="inside"
       size="2xl"
-      onOpenChange={onClose}
+      onOpenChange={(open) => {
+        if (!open && !loading) onClose();
+      }}
     >
       <ModalContent>
         {(onClose) => (
@@ -328,7 +332,7 @@ export default function EditMissionModal({
               {/* ชื่อภารกิจ */}
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="edit-mission-title">
                     ชื่อภารกิจ <span className="text-red-500">*</span>
                   </label>
                   <span className="text-xs text-gray-400">
@@ -336,6 +340,7 @@ export default function EditMissionModal({
                   </span>
                 </div>
                 <input
+                  id="edit-mission-title"
                   className={inputCls}
                   maxLength={255}
                   placeholder="เช่น ถ่ายรูปสัตว์ป่า"
@@ -389,7 +394,7 @@ export default function EditMissionModal({
               {/* รายละเอียด */}
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-gray-700" htmlFor="edit-mission-description">
                     รายละเอียด
                   </label>
                   <span className="text-xs text-gray-400">
@@ -397,6 +402,7 @@ export default function EditMissionModal({
                   </span>
                 </div>
                 <textarea
+                  id="edit-mission-description"
                   className={`${inputCls} resize-none`}
                   maxLength={1000}
                   placeholder="อธิบายภารกิจนี้โดยย่อ"
@@ -418,9 +424,9 @@ export default function EditMissionModal({
                   )}
                   <div className="flex items-center gap-2">
                     <span className="w-1.5 h-5 bg-[#6b857a] rounded-full" />
-                    <label className="text-sm font-semibold text-gray-700">
+                    <p className="text-sm font-semibold text-gray-700">
                       คำถาม
-                    </label>
+                    </p>
                   </div>
                   {textQuestions.map((q, i) => (
                     <div key={i} className="flex gap-2 group">
@@ -463,9 +469,9 @@ export default function EditMissionModal({
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <span className="w-1.5 h-5 bg-[#6b857a] rounded-full" />
-                    <label className="text-sm font-semibold text-gray-700">
+                    <p className="text-sm font-semibold text-gray-700">
                       คำถามแบบทดสอบ
-                    </label>
+                    </p>
                   </div>
 
                   {mcqQuestions.map((q, qi) => (

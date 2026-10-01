@@ -8,6 +8,14 @@ import { LayoutTemplate, Plus, RefreshCw, Trash2 } from "lucide-react";
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
+import {
+  DocumentStandardsChecklist,
+  documentIndicatorText,
+  normalizeDocumentStandardOptions,
+  updateStandardReferenceText,
+  type DocumentStandardIndicator,
+  type DocumentStandardOption,
+} from "@/components/documents/DocumentStandardsChecklist";
 import DocumentTemplatePanel from "@/components/documents/DocumentTemplatePanel";
 import { useStatusModal } from "@/components/StatusModalProvider";
 
@@ -282,6 +290,9 @@ export default function ProjectDocumentPage() {
   const [document, setDocument] = useState<any>(null);
   const [people, setPeople] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [standardOptions, setStandardOptions] = useState<
+    DocumentStandardOption[]
+  >([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
@@ -318,19 +329,33 @@ export default function ProjectDocumentPage() {
       fetch("/api/teachers").then((response) =>
         response.ok ? response.json() : [],
       ),
+      fetch("/api/document-reference-options").then((response) =>
+        response.ok ? response.json() : [],
+      ),
     ])
-      .then(([documentData, personnelData, templateData, teachersData]) => {
-        setDocument(documentData);
-        setPeople(Array.isArray(personnelData) ? personnelData : []);
-        setTemplates(Array.isArray(templateData) ? templateData : []);
-        setTeachers(
-          Array.isArray(teachersData)
-            ? teachersData
-            : Array.isArray(teachersData?.data)
-              ? teachersData.data
-              : [],
-        );
-      })
+      .then(
+        ([
+          documentData,
+          personnelData,
+          templateData,
+          teachersData,
+          referenceOptionsData,
+        ]) => {
+          setDocument(documentData);
+          setPeople(Array.isArray(personnelData) ? personnelData : []);
+          setTemplates(Array.isArray(templateData) ? templateData : []);
+          setTeachers(
+            Array.isArray(teachersData)
+              ? teachersData
+              : Array.isArray(teachersData?.data)
+                ? teachersData.data
+                : [],
+          );
+          setStandardOptions(
+            normalizeDocumentStandardOptions(referenceOptionsData),
+          );
+        },
+      )
       .catch((error) => showError("ข้อผิดพลาด", error.message))
       .finally(() => setLoading(false));
   }, [campId]);
@@ -338,6 +363,45 @@ export default function ProjectDocumentPage() {
   const update = (key: string, value: any) => {
     if (readOnly && !(key === "status" && value === "DRAFT")) return;
     setDocument((current: any) => ({ ...current, [key]: value }));
+  };
+
+  const hasStandardReferenceLine = (line: string) =>
+    String(document?.standards || "")
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .includes(line.trim());
+
+  const toggleStandardReference = (
+    standard: DocumentStandardOption,
+    selected: boolean,
+  ) => {
+    const indicatorLines = standard.indicators.map(documentIndicatorText);
+
+    update(
+      "standards",
+      updateStandardReferenceText(
+        document.standards,
+        selected ? [] : [standard.label, ...indicatorLines],
+        selected ? [standard.label] : [],
+      ),
+    );
+  };
+
+  const toggleIndicatorReference = (
+    standard: DocumentStandardOption,
+    indicator: DocumentStandardIndicator,
+    selected: boolean,
+  ) => {
+    const indicatorLine = documentIndicatorText(indicator);
+
+    update(
+      "standards",
+      updateStandardReferenceText(
+        document.standards,
+        selected ? [] : [indicatorLine],
+        selected ? [standard.label, indicatorLine] : [],
+      ),
+    );
   };
 
   const refreshFromCamp = async () => {
@@ -651,16 +715,33 @@ export default function ProjectDocumentPage() {
             </Field>
           </div>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
-            <Field label="สนองมาตรฐานการศึกษา">
+            <div>
+              <span className={labelClass}>สนองมาตรฐานการศึกษา</span>
+              <p className="mb-3 text-xs text-gray-500">
+                เลือกมาตรฐานและตัวชี้วัดจากรายการที่แอดมินกำหนด
+              </p>
+              <DocumentStandardsChecklist
+                disabled={readOnly}
+                isIndicatorSelected={(_, indicator) =>
+                  hasStandardReferenceLine(documentIndicatorText(indicator))
+                }
+                isStandardSelected={(standard) =>
+                  hasStandardReferenceLine(standard.label)
+                }
+                standards={standardOptions}
+                onToggleIndicator={toggleIndicatorReference}
+                onToggleStandard={toggleStandardReference}
+              />
+              <span className={`${labelClass} mt-4`}>รายละเอียดเพิ่มเติม</span>
               <textarea
                 className={`${inputClass} min-h-28 resize-y`}
-                placeholder="พิมพ์มาตรฐานการศึกษาที่โครงการสนอง"
+                placeholder="รายการที่เลือกจะแสดงที่นี่ และสามารถพิมพ์เพิ่มเติมได้"
                 value={document.standards || ""}
                 onChange={(event) =>
                   update("standards", event.target.value)
                 }
               />
-            </Field>
+            </div>
             <Field label="กลยุทธ์โรงเรียน">
               <textarea
                 className={`${inputClass} min-h-28 resize-y`}

@@ -17,6 +17,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Trash2,
 } from "lucide-react";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
@@ -29,6 +30,7 @@ const categories = {
 const emptyForm = {
   category: "STANDARD",
   label: "",
+  indicators: [],
   is_active: true,
 };
 
@@ -108,6 +110,7 @@ export default function DocumentReferenceOptionsManager() {
     setForm({
       category: option.category,
       label: option.label,
+      indicators: Array.isArray(option.indicators) ? option.indicators : [],
       is_active: option.is_active,
     });
     onOpen();
@@ -127,7 +130,15 @@ export default function DocumentReferenceOptionsManager() {
         {
           method: editingId ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            ...form,
+            indicators:
+              form.category === "STANDARD"
+                ? form.indicators.filter((item) =>
+                    String(item.label || "").trim(),
+                  )
+                : [],
+          }),
         },
       );
       const data = await response.json();
@@ -237,7 +248,7 @@ export default function DocumentReferenceOptionsManager() {
               startContent={<Plus size={18} />}
               onPress={openAdd}
             >
-              เพิ่มตัวเลือก
+              {category === "STANDARD" ? "เพิ่มมาตรฐาน" : "เพิ่มกลยุทธ์"}
             </Button>
           </div>
         </div>
@@ -274,6 +285,21 @@ export default function DocumentReferenceOptionsManager() {
                   <p className="whitespace-pre-wrap text-sm text-gray-800">
                     {option.label}
                   </p>
+                  {option.category === "STANDARD" &&
+                  Array.isArray(option.indicators) &&
+                  option.indicators.length ? (
+                    <div className="mt-2 space-y-1 border-l-2 border-[#cad8d2] pl-3 text-xs text-gray-500">
+                      {option.indicators.map((indicator, index) => (
+                        <p
+                          key={`${indicator.code}-${indicator.label}-${index}`}
+                        >
+                          {[indicator.code, indicator.label]
+                            .filter(Boolean)
+                            .join(" ")}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <Chip
                   color={option.is_active ? "success" : "default"}
@@ -333,30 +359,146 @@ export default function DocumentReferenceOptionsManager() {
         )}
       </div>
 
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+      <Modal
+        isOpen={isOpen}
+        scrollBehavior="inside"
+        size="2xl"
+        onOpenChange={onOpenChange}
+      >
         <ModalContent>
           {(close) => (
             <>
               <ModalHeader>
-                {editingId ? "แก้ไขตัวเลือก" : "เพิ่มตัวเลือกเอกสาร"}
+                {editingId
+                  ? form.category === "STANDARD"
+                    ? "แก้ไขมาตรฐานและตัวชี้วัด"
+                    : "แก้ไขกลยุทธ์"
+                  : form.category === "STANDARD"
+                    ? "เพิ่มมาตรฐานและตัวชี้วัด"
+                    : "เพิ่มกลยุทธ์"}
               </ModalHeader>
               <ModalBody>
                 <Select
                   label="หมวด"
                   selectedKeys={new Set([form.category])}
-                  onSelectionChange={(keys) =>
-                    setForm({ ...form, category: Array.from(keys)[0] })
-                  }
+                  onSelectionChange={(keys) => {
+                    const nextCategory = Array.from(keys)[0];
+                    setForm({
+                      ...form,
+                      category: nextCategory,
+                      indicators:
+                        nextCategory === "STANDARD" ? form.indicators : [],
+                    });
+                  }}
                 >
                   <SelectItem key="STANDARD">มาตรฐานการศึกษา</SelectItem>
                   <SelectItem key="STRATEGY">กลยุทธ์โรงเรียน</SelectItem>
                 </Select>
                 <Input
                   isRequired
-                  label="ข้อความตัวเลือก"
+                  label={
+                    form.category === "STANDARD"
+                      ? "ชื่อมาตรฐาน"
+                      : "ข้อความกลยุทธ์"
+                  }
                   value={form.label}
                   onValueChange={(value) => setForm({ ...form, label: value })}
                 />
+                {form.category === "STANDARD" ? (
+                  <div className="space-y-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">
+                          ตัวชี้วัดของมาตรฐาน
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-500">
+                          ครูจะเห็นรายการเหล่านี้และติ๊กเลือกในเอกสารได้
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        startContent={<Plus size={15} />}
+                        variant="flat"
+                        onPress={() =>
+                          setForm({
+                            ...form,
+                            indicators: [
+                              ...form.indicators,
+                              { code: "", label: "" },
+                            ],
+                          })
+                        }
+                      >
+                        เพิ่มตัวชี้วัด
+                      </Button>
+                    </div>
+                    {form.indicators.length === 0 ? (
+                      <p className="rounded-xl bg-white p-3 text-center text-sm text-gray-400">
+                        ยังไม่มีตัวชี้วัด
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {form.indicators.map((indicator, index) => (
+                          <div
+                            className="grid gap-2 rounded-xl bg-white p-3 sm:grid-cols-[120px_1fr_auto]"
+                            key={index}
+                          >
+                            <Input
+                              label="รหัส"
+                              placeholder="เช่น 1.1"
+                              value={indicator.code}
+                              onValueChange={(value) =>
+                                setForm({
+                                  ...form,
+                                  indicators: form.indicators.map(
+                                    (item, itemIndex) =>
+                                      itemIndex === index
+                                        ? { ...item, code: value }
+                                        : item,
+                                  ),
+                                })
+                              }
+                            />
+                            <Input
+                              isRequired
+                              label="รายละเอียดตัวชี้วัด"
+                              value={indicator.label}
+                              onValueChange={(value) =>
+                                setForm({
+                                  ...form,
+                                  indicators: form.indicators.map(
+                                    (item, itemIndex) =>
+                                      itemIndex === index
+                                        ? { ...item, label: value }
+                                        : item,
+                                  ),
+                                })
+                              }
+                            />
+                            <Button
+                              isIconOnly
+                              aria-label="ลบตัวชี้วัด"
+                              className="mt-4"
+                              color="danger"
+                              size="sm"
+                              variant="light"
+                              onPress={() =>
+                                setForm({
+                                  ...form,
+                                  indicators: form.indicators.filter(
+                                    (_, itemIndex) => itemIndex !== index,
+                                  ),
+                                })
+                              }
+                            >
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
                 <Switch
                   isSelected={form.is_active}
                   onValueChange={(value) =>

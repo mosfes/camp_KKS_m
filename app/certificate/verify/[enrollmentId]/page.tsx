@@ -69,6 +69,7 @@ function VerificationCard({
         >
           <Image
             priority
+            unoptimized
             alt="KKS Camp"
             className="mb-4 h-16 w-16 object-contain"
             height={64}

@@ -176,21 +176,15 @@ export default function MonitorMissionModal({
   const lightbox =
     lightboxSrc && typeof document !== "undefined"
       ? createPortal(
-          <div
-            className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
-            onClick={(e) => {
-              e.stopPropagation();
-              e.nativeEvent.stopImmediatePropagation();
-              setLightboxSrc(null);
-            }}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-            }}
-          >
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
+            <button
+              aria-label="ปิดภาพคำตอบ"
+              className="absolute inset-0 bg-black/85 backdrop-blur-md"
+              type="button"
+              onClick={() => setLightboxSrc(null)}
+            />
             <div
-              className="relative max-w-5xl w-full max-h-[92vh] flex flex-col items-center"
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => e.stopPropagation()}
+              className="relative z-10 max-w-5xl w-full max-h-[92vh] flex flex-col items-center"
             >
               {/* Lightbox Top bar */}
               <div className="w-full flex items-center justify-between pb-3 text-white px-2">
@@ -679,8 +673,9 @@ export default function MonitorMissionModal({
 
                                         {ans.type === "PHOTO" && (
                                           <div className="ml-6 sm:ml-7">
-                                            <div
+                                            <button
                                               className="relative group inline-block rounded-xl overflow-hidden border border-gray-200 bg-gray-50 shadow-xs cursor-pointer transition-all hover:shadow-md hover:border-[#6b857a]/50"
+                                              type="button"
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 e.nativeEvent.stopImmediatePropagation();
@@ -703,7 +698,7 @@ export default function MonitorMissionModal({
                                                   คลิกดูรูปภาพขนาดเต็ม
                                                 </span>
                                               </div>
-                                            </div>
+                                            </button>
                                           </div>
                                         )}
 

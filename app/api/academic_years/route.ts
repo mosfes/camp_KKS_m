@@ -2,9 +2,14 @@
 // app/api/academic_years/route.js
 import { NextResponse } from "next/server";
 
+import { requireAdmin, requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function GET() {
+  const { error } = await requireTeacher();
+
+  if (error) return error;
+
   try {
     const years = await prisma.academic_years.findMany({
       orderBy: { year: "desc" },
@@ -17,6 +22,10 @@ export async function GET() {
 }
 
 export async function POST(req) {
+  const { error } = await requireAdmin();
+
+  if (error) return error;
+
   try {
     const body = await req.json();
     const year = parseInt(body.year);
@@ -49,6 +58,10 @@ export async function POST(req) {
 }
 
 export async function DELETE(request) {
+  const { error } = await requireAdmin();
+
+  if (error) return error;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

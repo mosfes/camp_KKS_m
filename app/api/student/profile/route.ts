@@ -1,8 +1,8 @@
 export const runtime = "nodejs";
 // @ts-nocheck
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 
+import { requireStudent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
   isCloudinaryUploadUrl,
@@ -14,17 +14,11 @@ import {
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("student_session");
+    const { student: sessionStudent, error } = await requireStudent();
 
-    if (!session?.value)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (error || !sessionStudent) return error;
 
-    const { jwtVerify } = await import("jose");
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload: studentSession } = await jwtVerify(session.value, secret);
-
-    const studentId = Number(studentSession.students_id);
+    const studentId = Number(sessionStudent.students_id);
 
     const student = await prisma.students.findUnique({
       where: { students_id: studentId },
@@ -128,15 +122,10 @@ export async function GET() {
 
 export async function PUT(req: any) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get("student_session");
+    const { student: sessionStudent, error } = await requireStudent();
 
-    if (!session?.value)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (error || !sessionStudent) return error;
 
-    const { jwtVerify } = await import("jose");
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-    const { payload: studentSession } = await jwtVerify(session.value, secret);
     const body = await req.json();
     const parsed = profileUpdateSchema.safeParse(body);
 
@@ -148,7 +137,7 @@ export async function PUT(req: any) {
     }
 
     const validated = parsed.data;
-    const studentId = Number(studentSession.students_id);
+    const studentId = Number(sessionStudent.students_id);
 
     if (
       (validated.student_tel && !isTenDigitPhone(validated.student_tel)) ||
@@ -220,7 +209,7 @@ export async function PUT(req: any) {
     // Update parent phone if parent exists, if not, create a placeholder record
     if (validated.parent_tel) {
       const existingParent = await prisma.parents.findFirst({
-        where: { username_student_id: Number(studentSession.students_id) },
+        where: { username_student_id: studentId },
       });
 
       const parentTelDigits = validated.parent_tel.replace(/\D/g, "");
@@ -236,11 +225,8 @@ export async function PUT(req: any) {
             firstname: "รอระบุ",
             lastname: "รอระบุ",
             tel: parentTelDigits,
-            password: await require("bcryptjs").hash(
-              `kks${studentSession.students_id}`,
-              10,
-            ),
-            username_student_id: Number(studentSession.students_id),
+            password: await require("bcryptjs").hash(`kks${studentId}`, 10),
+            username_student_id: studentId,
           },
         });
       }

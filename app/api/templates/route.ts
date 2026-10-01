@@ -1,12 +1,17 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 
+import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 /**
  * GET - ดึงรายการ template ทั้งหมด (เฉพาะข้อมูลพื้นฐาน)
  */
 export async function GET() {
+  const { error } = await requireTeacher();
+
+  if (error) return error;
+
   try {
     const templates = await prisma.camp_template.findMany({
       select: {

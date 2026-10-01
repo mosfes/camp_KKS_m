@@ -724,8 +724,12 @@ export default function CreateCampModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
+        aria-hidden="true"
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
+        role="presentation"
+        onClick={() => {
+          if (!isLoading) onClose();
+        }}
       />
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
@@ -743,7 +747,10 @@ export default function CreateCampModal({
             </p>
           </div>
           <button
+            aria-label="ปิดหน้าต่างสร้างค่าย"
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            disabled={isLoading}
+            type="button"
             onClick={onClose}
           >
             <X className="text-gray-400" size={24} />
@@ -829,11 +836,12 @@ export default function CreateCampModal({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="create-camp-name">
                     ชื่อค่าย <span className="text-red-500">*</span>
                   </label>
                   <input
                     required
+                    id="create-camp-name"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b857a] outline-none"
                     placeholder="เช่น MSEC Camp 2025"
                     type="text"
@@ -844,8 +852,10 @@ export default function CreateCampModal({
 
                 {/* Grade Selection */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <div className="block text-sm font-medium text-gray-700 mb-1">
+                    <p>
                     เลือกระดับชั้น (เลือกได้มากกว่า 1) <span className="text-red-500">*</span>
+                    </p>
                     <Select
                       isRequired
                       classNames={{
@@ -868,19 +878,19 @@ export default function CreateCampModal({
                         </SelectItem>
                       ))}
                     </Select>
-                  </label>
+                  </div>
                 </div>
 
                 {/* Classroom Selection (Multiple) */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <p className="block text-sm font-medium text-gray-700 mb-1">
                     เลือกห้องเรียน <span className="text-red-500">*</span>
                     {selectedClassroomIds.length > 0 && (
                       <span className="ml-2 text-xs text-[#6b857a]">
                         (เลือกแล้ว {selectedClassroomIds.length} ห้อง)
                       </span>
                     )}
-                  </label>
+                  </p>
                   <div className="w-full px-4 py-2 border border-gray-300 rounded-lg max-h-40 overflow-y-auto bg-white">
                     {selectedGrades.length === 0 ? (
                       <p className="text-sm text-gray-400">
@@ -948,11 +958,12 @@ export default function CreateCampModal({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="create-camp-location">
                     สถานที่ <span className="text-red-500">*</span>
                   </label>
                   <input
                     required
+                    id="create-camp-location"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b857a] outline-none"
                     placeholder="อาคารวิทยวิภาส คณะวิทยาศาสตร์ มข."
                     type="text"
@@ -977,10 +988,11 @@ export default function CreateCampModal({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="create-camp-description">
                     รายละเอียด
                   </label>
                   <textarea
+                    id="create-camp-description"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#6b857a] outline-none resize-none"
                     placeholder="ค่ายเกี่ยวกับการประยุกต์ใช้ STEM ในชีวิตประจำวัน"
                     rows={3}
@@ -991,9 +1003,9 @@ export default function CreateCampModal({
 
                 {/* Camp Image Upload */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <p className="block text-sm font-medium text-gray-700 mb-1">
                     รูปภาพหน้าปกค่าย
-                  </label>
+                  </p>
                   {!campImage ? (
                     <label className="block w-full cursor-pointer mt-1">
                       <input
@@ -1039,9 +1051,9 @@ export default function CreateCampModal({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Registration Period */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                    <p className="block text-xs font-bold text-gray-500 uppercase mb-1">
                       ช่วงเวลารับสมัคร <span className="text-red-500">*</span>
-                    </label>
+                    </p>
                     <DateRangePicker
                       aria-label="Registration Period"
                       className="w-full h-[56px]"
@@ -1073,9 +1085,9 @@ export default function CreateCampModal({
 
                   {/* Camp Period */}
                   <div>
-                    <label className="block text-xs font-bold text-[#6b857a] uppercase mb-1">
+                    <p className="block text-xs font-bold text-[#6b857a] uppercase mb-1">
                       วันจัดค่าย <span className="text-red-500">*</span>
-                    </label>
+                    </p>
                     <DateRangePicker
                       aria-label="Camp Period"
                       className="w-full h-[56px]"
@@ -1167,10 +1179,11 @@ export default function CreateCampModal({
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
                             {/* Start Time */}
                             <div className="min-w-0 md:col-span-3">
-                              <label className="block text-xs text-gray-500 mb-1">
+                              <label className="block text-xs text-gray-500 mb-1" htmlFor={`create-start-${dayIndex}-${slotIndex}`}>
                                 เวลาเริ่ม
                               </label>
                               <input
+                                id={`create-start-${dayIndex}-${slotIndex}`}
                                 className="w-full min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b857a] focus:border-transparent"
                                 type="time"
                                 value={slot.startTime}
@@ -1187,10 +1200,11 @@ export default function CreateCampModal({
 
                             {/* End Time */}
                             <div className="min-w-0 md:col-span-3">
-                              <label className="block text-xs text-gray-500 mb-1">
+                              <label className="block text-xs text-gray-500 mb-1" htmlFor={`create-end-${dayIndex}-${slotIndex}`}>
                                 เวลาสิ้นสุด
                               </label>
                               <input
+                                id={`create-end-${dayIndex}-${slotIndex}`}
                                 className="w-full min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b857a] focus:border-transparent"
                                 type="time"
                                 value={slot.endTime}
@@ -1207,10 +1221,11 @@ export default function CreateCampModal({
 
                             {/* Activity */}
                             <div className="min-w-0 md:col-span-5">
-                              <label className="block text-xs text-gray-500 mb-1">
+                              <label className="block text-xs text-gray-500 mb-1" htmlFor={`create-activity-${dayIndex}-${slotIndex}`}>
                                 กิจกรรม
                               </label>
                               <input
+                                id={`create-activity-${dayIndex}-${slotIndex}`}
                                 className="w-full min-w-0 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6b857a] focus:border-transparent"
                                 placeholder="ชื่อกิจกรรม เช่น ลงทะเบียน, กิจกรรมกลุ่ม"
                                 type="text"
@@ -1273,12 +1288,13 @@ export default function CreateCampModal({
               {/* Option Cards: มีเสื้อ vs ไม่มีเสื้อ */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Option 1: มีเสื้อค่าย */}
-                <div
+                <button
                   className={`cursor-pointer rounded-2xl p-5 border-2 transition-all flex items-start gap-4 ${
                     formData.hasShirt
                       ? "border-[#6b857a] bg-[#6b857a]/5 shadow-sm"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   }`}
+                  type="button"
                   onClick={() => handleChange("hasShirt", true)}
                 >
                   <div
@@ -1307,15 +1323,16 @@ export default function CreateCampModal({
                       นักเรียนสามารถเลือกขนาดเสื้อและจองเสื้อได้ตอนสมัครค่าย
                     </p>
                   </div>
-                </div>
+                </button>
 
                 {/* Option 2: ไม่มีเสื้อค่าย */}
-                <div
+                <button
                   className={`cursor-pointer rounded-2xl p-5 border-2 transition-all flex items-start gap-4 ${
                     !formData.hasShirt
                       ? "border-[#6b857a] bg-[#6b857a]/5 shadow-sm"
                       : "border-gray-200 hover:border-gray-300 bg-white"
                   }`}
+                  type="button"
                   onClick={() => handleChange("hasShirt", false)}
                 >
                   <div
@@ -1342,16 +1359,16 @@ export default function CreateCampModal({
                       ค่ายนี้ไม่มีเสื้อแจกหรือเปิดรับจองเสื้อ
                     </p>
                   </div>
-                </div>
+                </button>
               </div>
 
               {/* Detail if hasShirt is true */}
               {formData.hasShirt ? (
                 <div className="space-y-6 p-5 border border-gray-200 rounded-2xl bg-gray-50/50">
                   <div>
-                    <label className="block text-xs font-bold text-gray-600 uppercase mb-2">
+                    <p className="block text-xs font-bold text-gray-600 uppercase mb-2">
                       ช่วงเวลาจองเสื้อ
-                    </label>
+                    </p>
                     <DateRangePicker
                       aria-label="Shirt Reservation Period"
                       className="w-full h-[56px] bg-white rounded-lg"
@@ -1385,9 +1402,9 @@ export default function CreateCampModal({
 
                   {/* Shirt Image Upload - max 3 images */}
                   <div>
-                    <label className="block text-xs font-bold text-gray-600 uppercase mb-1">
+                    <p className="block text-xs font-bold text-gray-600 uppercase mb-1">
                       รูปตัวอย่างเสื้อค่าย (สูงสุด 3 รูป)
-                    </label>
+                    </p>
                     <p className="text-xs text-gray-400 mb-3">
                       อัปโหลดรูปภาพตัวอย่างเสื้อค่ายเพื่อให้นักเรียนใช้ประกอบการตัดสินใจ
                     </p>
@@ -1487,7 +1504,7 @@ export default function CreateCampModal({
           {currentStep === 1 ? (
             <button
               className="px-5 sm:px-6 py-2.5 sm:py-3 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-100 transition-all font-semibold text-sm"
-              disabled={isLoading}
+              disabled={isLoading || submitInFlightRef.current}
               onClick={onClose}
               type="button"
             >

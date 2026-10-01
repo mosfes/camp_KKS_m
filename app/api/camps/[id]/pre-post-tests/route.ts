@@ -1,14 +1,18 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 
+import { requireCampOwner } from "@/lib/camp-management-auth";
 import { prisma } from "@/lib/db";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 
 export async function GET(request, { params }) {
-  try {
-    const { id: campId } = await params;
-    const parsedCampId = parseInt(campId);
+  const { id: campId } = await params;
+  const parsedCampId = parseInt(campId);
+  const { error } = await requireCampOwner(parsedCampId);
 
+  if (error) return error;
+
+  try {
     // Fetch all stations in the camp with PRE_TEST and POST_TEST missions
     const stations = await prisma.station.findMany({
       where: {

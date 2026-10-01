@@ -311,9 +311,12 @@ export default function SelectProjectTypeModal({
                                                             : "border-gray-200 hover:border-gray-300"
                                                         }
                                                     `}
-                            onClick={() => setSelectedTemplate(template)}
                           >
-                            <div className="flex items-start gap-3 flex-1 cursor-pointer">
+                            <button
+                              className="flex flex-1 cursor-pointer items-start gap-3 text-left"
+                              type="button"
+                              onClick={() => setSelectedTemplate(template)}
+                            >
                               <div className="p-2 bg-white rounded-lg border border-gray-200">
                                 <FileText
                                   className="text-[#6b857a]"
@@ -334,7 +337,7 @@ export default function SelectProjectTypeModal({
                                   </p>
                                 )}
                               </div>
-                            </div>
+                            </button>
 
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
@@ -412,7 +415,6 @@ export default function SelectProjectTypeModal({
               </ModalHeader>
               <ModalBody className="px-6 py-4">
                 <Input
-                  autoFocus
                   label="ชื่อ Template"
                   placeholder="กรอกชื่อ Template ใหม่..."
                   value={editingTemplateName}

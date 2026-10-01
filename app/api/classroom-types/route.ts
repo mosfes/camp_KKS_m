@@ -1,9 +1,14 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 
+import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
 export async function GET() {
+  const { error } = await requireAdmin();
+
+  if (error) return error;
+
   try {
     const types = await prisma.classroom_types.findMany({
       orderBy: { name: "asc" },
@@ -19,6 +24,10 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const { error } = await requireAdmin();
+
+  if (error) return error;
+
   try {
     const body = await request.json();
     const { name, valid_grades } = body;
@@ -40,6 +49,10 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
+  const { error: authError } = await requireAdmin();
+
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
@@ -69,6 +82,10 @@ export async function DELETE(request) {
 }
 
 export async function PATCH(request) {
+  const { error: authError } = await requireAdmin();
+
+  if (authError) return authError;
+
   try {
     const body = await request.json();
     const { classroom_type_id, name, valid_grades } = body;

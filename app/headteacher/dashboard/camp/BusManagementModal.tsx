@@ -387,6 +387,7 @@ type Bus = {
   lastDepartedAt: string | null;
   classroomId: number;
   capacity: number;
+  availableCapacity: number;
   classroom: {
     classroomId: number;
     grade: string;
@@ -828,7 +829,7 @@ export default function BusManagementModal({
     "STUDENT" | "TEACHER"
   >("STUDENT");
   const [studentStatusFilter, setStudentStatusFilter] =
-    useState<StudentStatusFilter>("registered");
+    useState<StudentStatusFilter>("all");
   const [busStudentSearch, setBusStudentSearch] = useState("");
   const [busStudentStatusFilter, setBusStudentStatusFilter] =
     useState<BusStudentStatusFilter>("all");
@@ -1012,22 +1013,16 @@ export default function BusManagementModal({
   const transferTargetBus = transferTargetBuses.find(
     (bus) => bus.busId === Number(transferTargetBusId),
   );
-  const transferTargetAvailableCapacity = transferTargetBus
-    ? Math.max(
-        0,
-        transferTargetBus.capacity -
-          transferTargetBus.assignments.length -
-          transferTargetBus.teacherAssignments.length,
-      )
-    : 0;
-  const selectedBusAvailableCapacity = selectedBus
-    ? Math.max(
-        0,
-        selectedBus.capacity -
-          selectedBus.assignments.length -
-          selectedBus.teacherAssignments.length,
-      )
-    : 0;
+  const transferTargetAvailableCapacity =
+    transferTargetBus?.availableCapacity || 0;
+  const transferSelectableStudentCount = Math.min(
+    selectedBus?.assignments.length || 0,
+    transferTargetAvailableCapacity,
+  );
+  const areAllTransferStudentsSelected =
+    transferSelectableStudentCount > 0 &&
+    transferStudentEnrollmentIds.length === transferSelectableStudentCount;
+  const selectedBusAvailableCapacity = selectedBus?.availableCapacity || 0;
 
   const fetchBuses = async (preferredBusId?: number | null) => {
     try {
@@ -1644,14 +1639,17 @@ export default function BusManagementModal({
 
       if (!response.ok) throw new Error(data.error || "บันทึกผังไม่สำเร็จ");
 
+      await fetchBuses(selectedBus.busId);
+      setShowUnassignedConfirm(false);
+      setSelectedPositionId(null);
+
       if (showMessage) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
         showSuccess(
-          "บันทึกแล้ว",
+          "บันทึกผังสำเร็จ",
           data.message || "อัปเดตผังที่นั่งแล้ว นักเรียนยังต้องยืนยันขึ้นรถเอง",
         );
       }
-      await fetchBuses(selectedBus.busId);
-      setSelectedPositionId(null);
 
       return true;
     } catch (error: any) {
@@ -2072,6 +2070,14 @@ export default function BusManagementModal({
         .length,
     };
   }, [selectableAssignments]);
+  const allStudentsHaveSeats = useMemo(
+    () =>
+      selectableAssignments.length > 0 &&
+      selectableAssignments.every((assignment) =>
+        seatedAssignmentIds.has(assignment.assignmentId),
+      ),
+    [seatedAssignmentIds, selectableAssignments],
+  );
   const filteredAssignments = useMemo(() => {
     const query = studentSearch.trim().toLocaleLowerCase();
 
@@ -2186,7 +2192,7 @@ export default function BusManagementModal({
   useEffect(() => {
     setStudentSearch("");
     setTeacherSearch("");
-    setStudentStatusFilter("registered");
+    setStudentStatusFilter("all");
     setSeatSelectionTab(
       selectedPositionId !== null &&
         Object.values(draftTeacherAssignments).includes(selectedPositionId)
@@ -3482,10 +3488,7 @@ export default function BusManagementModal({
               <Button
                 className="bg-[#365f4f] font-medium text-white"
                 isLoading={savingAction === "save"}
-                onPress={() => {
-                  setShowUnassignedConfirm(false);
-                  void saveLayout();
-                }}
+                onPress={() => void saveLayout()}
               >
                 ยืนยันและบันทึกผัง
               </Button>
@@ -3526,6 +3529,12 @@ export default function BusManagementModal({
               <div className="space-y-4">
                 <Select
                   aria-label="รถปลายทาง"
+                  classNames={{
+                    trigger:
+                      "min-h-16 border-2 border-amber-300 bg-amber-50 px-4 shadow-sm data-[hover=true]:border-amber-400 data-[open=true]:border-amber-500",
+                    label: "font-semibold text-amber-800",
+                    value: "font-bold text-gray-900",
+                  }}
                   label="รถปลายทาง"
                   placeholder="เลือกรถปลายทาง"
                   selectedKeys={
@@ -3538,14 +3547,7 @@ export default function BusManagementModal({
                     const target = transferTargetBuses.find(
                       (bus) => bus.busId === Number(value),
                     );
-                    const available = target
-                      ? Math.max(
-                          0,
-                          target.capacity -
-                            target.assignments.length -
-                            target.teacherAssignments.length,
-                        )
-                      : 0;
+                    const available = target?.availableCapacity || 0;
 
                     setTransferTargetBusId(value);
                     setTransferStudentEnrollmentIds((current) =>
@@ -3554,12 +3556,7 @@ export default function BusManagementModal({
                   }}
                 >
                   {transferTargetBuses.map((bus) => {
-                    const available = Math.max(
-                      0,
-                      bus.capacity -
-                        bus.assignments.length -
-                        bus.teacherAssignments.length,
-                    );
+                    const available = bus.availableCapacity;
 
                     return (
                       <SelectItem
@@ -3583,13 +3580,19 @@ export default function BusManagementModal({
                     size="sm"
                     onPress={() =>
                       setTransferStudentEnrollmentIds(
-                        (selectedBus?.assignments || [])
-                          .slice(0, transferTargetAvailableCapacity)
-                          .map((assignment) => assignment.studentEnrollmentId),
+                        areAllTransferStudentsSelected
+                          ? []
+                          : (selectedBus?.assignments || [])
+                              .slice(0, transferTargetAvailableCapacity)
+                              .map(
+                                (assignment) => assignment.studentEnrollmentId,
+                              ),
                       )
                     }
                   >
-                    เลือกสูงสุด
+                    {areAllTransferStudentsSelected
+                      ? "ยกเลิกทั้งหมด"
+                      : "เลือกทั้งหมด"}
                   </Button>
                 </div>
 
@@ -3655,11 +3658,6 @@ export default function BusManagementModal({
                     );
                   })}
                 </div>
-
-                <p className="rounded-xl bg-blue-50 px-3 py-2.5 text-xs leading-relaxed text-blue-800">
-                  ระบบจะรักษาสถานะและประวัติขึ้น–ลงรถเดิมไว้
-                  แต่จะล้างที่นั่งเดิมเพื่อให้จัดที่นั่งบนรถปลายทางใหม่
-                </p>
               </div>
             </ModalBody>
             <ModalFooter className="flex justify-end gap-2">
@@ -3696,12 +3694,30 @@ export default function BusManagementModal({
             body: "gap-4 bg-[#f7faf8] p-4",
             footer: "border-t border-gray-100 bg-white px-5 py-4",
           }}
-          isOpen={selectedPositionId !== null}
+          isOpen={selectedPositionId !== null && !showUnassignedConfirm}
           placement="center"
           scrollBehavior="inside"
           size="md"
           onOpenChange={(open) => {
-            if (!open) setSelectedPositionId(null);
+            if (!open && !showUnassignedConfirm) {
+              setDraftAssignments(
+                Object.fromEntries(
+                  (selectedBus?.assignments || []).map((assignment) => [
+                    assignment.assignmentId,
+                    assignment.positionId,
+                  ]),
+                ),
+              );
+              setDraftTeacherAssignments(
+                Object.fromEntries(
+                  (selectedBus?.teacherAssignments || []).map((assignment) => [
+                    assignment.teacherId,
+                    assignment.positionId,
+                  ]),
+                ),
+              );
+              setSelectedPositionId(null);
+            }
           }}
         >
           <ModalContent>
@@ -4154,12 +4170,12 @@ export default function BusManagementModal({
                       >
                         {(
                           [
-                            ["all", "ทั้งหมด", studentCounts.all],
                             [
                               "registered",
                               "ลงทะเบียนแล้ว",
                               studentCounts.registered,
                             ],
+                            ["all", "ทั้งหมด", studentCounts.all],
                             [
                               "unregistered",
                               "ยังไม่ลงทะเบียน",
@@ -4271,7 +4287,9 @@ export default function BusManagementModal({
 
                       {filteredAssignments.length === 0 && (
                         <p className="px-3 py-5 text-center text-xs text-gray-500">
-                          ไม่พบรายชื่อนักเรียนตามเงื่อนไข
+                          {!studentSearch.trim() && allStudentsHaveSeats
+                            ? "นักเรียนทุกคนมีที่นั่งแล้ว"
+                            : "ไม่พบรายชื่อนักเรียนตามเงื่อนไข"}
                         </p>
                       )}
                     </div>

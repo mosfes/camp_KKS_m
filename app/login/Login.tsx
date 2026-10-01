@@ -59,6 +59,7 @@ export default function ParentLoginPage() {
             <div className="mb-3">
               <Image
                 priority
+                unoptimized
                 alt="KKS Camp Logo"
                 height={90}
                 src="/images/logoKKS.png"
@@ -132,6 +133,14 @@ export default function ParentLoginPage() {
                 }}
               />
             </div>
+
+            <button
+              className="ml-auto block text-xs font-semibold text-[#5d7c6f] transition-colors hover:text-[#405d51]"
+              type="button"
+              onClick={() => router.push("/parent/forgot-password")}
+            >
+              ลืมรหัสผ่าน?
+            </button>
           </div>
 
           {error && <p className="text-xs text-red-500 text-center">{error}</p>}
