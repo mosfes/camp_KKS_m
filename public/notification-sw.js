@@ -24,7 +24,23 @@ self.addEventListener("push", (event) => {
     data: { url: data.url || "/student/dashboard" },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, options),
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((clientList) => {
+          clientList.forEach((client) => {
+            client.postMessage({
+              type: data.type || "KKS_STUDENT_BUS_PUSH",
+              action: data.action,
+              campId: data.campId,
+              eventId: data.eventId,
+            });
+          });
+        }),
+    ]),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {

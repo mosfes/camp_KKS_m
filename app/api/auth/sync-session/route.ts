@@ -171,7 +171,7 @@ export async function GET(req: any) {
       const destination = safeRequestedPath || "/student/dashboard";
       const destinationUrl = new URL(destination, req.url);
 
-      destinationUrl.searchParams.set("showIosInstall", "1");
+      destinationUrl.searchParams.set("showInstallPrompt", "1");
 
       const response = NextResponse.redirect(destinationUrl);
 

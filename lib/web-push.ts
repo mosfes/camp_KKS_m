@@ -53,6 +53,10 @@ export function createStudentBusPushPayload(input: BusPushInput) {
   if (!content) throw new Error("Unsupported bus reminder action");
 
   return {
+    type: "KKS_STUDENT_BUS_PUSH",
+    action: input.action,
+    campId: input.campId,
+    eventId: input.eventId,
     title: content.title,
     body: `${content.message}\n${input.campName} · ${input.busName}`,
     icon: "/icons/icon-192.png",

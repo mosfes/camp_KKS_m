@@ -2,6 +2,8 @@ import type { BusReminderAction } from "@/lib/camp-bus-reminder";
 
 export const STUDENT_BUS_ACTION_COMPLETED_EVENT =
   "kks:student-bus-action-completed";
+export const STUDENT_BUS_SYNC_REQUESTED_EVENT =
+  "kks:student-bus-sync-requested";
 
 export type StudentBusActionCompletedDetail = {
   campId: number;
@@ -24,4 +26,10 @@ export function dispatchStudentBusActionCompleted(
       { detail: { campId: normalizedCampId, action } },
     ),
   );
+}
+
+export function dispatchStudentBusSyncRequested() {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(new Event(STUDENT_BUS_SYNC_REQUESTED_EVENT));
 }

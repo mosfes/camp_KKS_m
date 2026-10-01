@@ -23,6 +23,7 @@ import {
 } from "@/lib/client-web-push";
 import {
   STUDENT_BUS_ACTION_COMPLETED_EVENT,
+  dispatchStudentBusSyncRequested,
   type StudentBusActionCompletedDetail,
 } from "@/lib/student-bus-notification-events";
 
@@ -42,7 +43,8 @@ type StudentNotification = {
 type NotificationPermissionState = NotificationPermission | "unsupported";
 type PushAvailability = "available" | "ios-install-required" | "unsupported";
 
-const POLL_INTERVAL_MS = 10_000;
+const FALLBACK_POLL_INTERVAL_MS = 60_000;
+const PUSH_HEARTBEAT_INTERVAL_MS = 5 * 60_000;
 const MAX_STORED_IDS = 100;
 
 function parseStoredIds(value: string | null) {
@@ -210,6 +212,7 @@ export function StudentNotificationCenter({
         storeIds(storageKeys.announced, announcedIdsRef.current);
         setPopupNotification(notificationToAnnounce);
         void showDeviceNotification(notificationToAnnounce);
+        dispatchStudentBusSyncRequested();
       }
     } catch {
       // Background notification polling must not interrupt the student UI.
@@ -248,9 +251,14 @@ export function StudentNotificationCenter({
 
     void fetchNotifications();
 
+    const pollIntervalMs = isPushSubscribed
+      ? PUSH_HEARTBEAT_INTERVAL_MS
+      : FALLBACK_POLL_INTERVAL_MS;
     const timer = window.setInterval(() => {
-      void fetchNotifications();
-    }, POLL_INTERVAL_MS);
+      if (document.visibilityState === "visible") {
+        void fetchNotifications();
+      }
+    }, pollIntervalMs);
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         void fetchNotifications();
@@ -263,7 +271,30 @@ export function StudentNotificationCenter({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [fetchNotifications, studentId]);
+  }, [fetchNotifications, isPushSubscribed, studentId]);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "KKS_STUDENT_BUS_PUSH") return;
+
+      void fetchNotifications();
+      dispatchStudentBusSyncRequested();
+    };
+
+    navigator.serviceWorker.addEventListener(
+      "message",
+      handleServiceWorkerMessage,
+    );
+
+    return () => {
+      navigator.serviceWorker.removeEventListener(
+        "message",
+        handleServiceWorkerMessage,
+      );
+    };
+  }, [fetchNotifications]);
 
   useEffect(() => {
     const handleBusActionCompleted = (event: Event) => {

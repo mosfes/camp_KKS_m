@@ -43,7 +43,10 @@ import {
 } from "@/lib/student-profile-upload";
 import { toThumbnail } from "@/lib/cloudinary-url";
 import { boardStudentBusWithRetry } from "@/lib/student-bus-board";
-import { dispatchStudentBusActionCompleted } from "@/lib/student-bus-notification-events";
+import {
+  STUDENT_BUS_SYNC_REQUESTED_EVENT,
+  dispatchStudentBusActionCompleted,
+} from "@/lib/student-bus-notification-events";
 import { FoodAllergySelector } from "@/components/profile/FoodAllergySelector";
 
 // Utility to format date (with optional range)
@@ -128,6 +131,12 @@ export default function StudentDashboard() {
     food_allergy: "",
     profile_image_url: null as string | null,
   });
+  const needsFastBusPolling = busAssignments.some(
+    (assignment) =>
+      assignment.configured &&
+      assignment.student?.participationStatus === "ACTIVE" &&
+      Boolean(assignment.student?.reminder),
+  );
 
   useEffect(() => {
     if (busRefreshCooldown <= 0) return;
@@ -363,7 +372,10 @@ export default function StudentDashboard() {
       }
     };
 
-    const timer = window.setInterval(poll, 15000);
+    const timer = window.setInterval(
+      poll,
+      needsFastBusPolling ? 15_000 : 60_000,
+    );
 
     // fetch ทันทีเมื่อ user กลับมาที่ tab (แทนที่จะรอ interval ถัดไป)
     const handleVisibilityChange = () => {
@@ -373,12 +385,14 @@ export default function StudentDashboard() {
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener(STUDENT_BUS_SYNC_REQUESTED_EVENT, poll);
 
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener(STUDENT_BUS_SYNC_REQUESTED_EVENT, poll);
     };
-  }, [refreshBusAssignments]);
+  }, [needsFastBusPolling, refreshBusAssignments]);
 
   const onProfileSaved = () => {
     setShowProfileModal(false);

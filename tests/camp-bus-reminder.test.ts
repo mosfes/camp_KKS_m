@@ -103,6 +103,10 @@ test("builds a web push payload that opens the matching bus page", () => {
       studentIds: [1001],
     }),
     {
+      type: "KKS_STUDENT_BUS_PUSH",
+      action: "alight",
+      campId: 42,
+      eventId: 99,
       title: "ถึงเวลาลงรถ",
       body: "ครูประจำรถแจ้งว่ารถจอดแล้ว กรุณากดลงจากรถ\nค่ายวิทยาศาสตร์ · รถบัส 1",
       icon: "/icons/icon-192.png",

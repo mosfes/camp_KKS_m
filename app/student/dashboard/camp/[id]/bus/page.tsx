@@ -20,7 +20,10 @@ import { toast } from "react-hot-toast";
 import StudentBusCheckinSkeleton from "./components/StudentBusCheckinSkeleton";
 
 import { boardStudentBusWithRetry } from "@/lib/student-bus-board";
-import { dispatchStudentBusActionCompleted } from "@/lib/student-bus-notification-events";
+import {
+  STUDENT_BUS_SYNC_REQUESTED_EVENT,
+  dispatchStudentBusActionCompleted,
+} from "@/lib/student-bus-notification-events";
 
 function formatCheckedAt(value: string | null) {
   if (!value) return "";
@@ -169,6 +172,7 @@ export default function StudentBusCheckinPage() {
   const [boarding, setBoarding] = useState(false);
   const [alighting, setAlighting] = useState(false);
   const [pendingBoarding, setPendingBoarding] = useState(false);
+  const needsFastBusPolling = Boolean(data?.student?.reminder);
 
   useEffect(() => {
     if (busRefreshCooldown <= 0) return;
@@ -287,14 +291,26 @@ export default function StudentBusCheckinPage() {
   }, [fetchBusData]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    const refreshStatus = () => {
       if (document.visibilityState === "visible") {
         void fetchBusData(false, true);
       }
-    }, 30000);
+    };
+    const timer = window.setInterval(
+      refreshStatus,
+      needsFastBusPolling ? 15_000 : 60_000,
+    );
 
-    return () => window.clearInterval(timer);
-  }, [fetchBusData]);
+    window.addEventListener(STUDENT_BUS_SYNC_REQUESTED_EVENT, refreshStatus);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener(
+        STUDENT_BUS_SYNC_REQUESTED_EVENT,
+        refreshStatus,
+      );
+    };
+  }, [fetchBusData, needsFastBusPolling]);
 
   const boardBus = async () => {
     if (
