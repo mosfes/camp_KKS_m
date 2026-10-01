@@ -10,21 +10,26 @@ import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
 
 export const metadata: Metadata = {
+  applicationName: "KKS Camp",
   title: {
     default: siteConfig.name,
     template: `%s - ${siteConfig.name}`,
   },
   description: siteConfig.description,
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "KKS Camp",
+  },
   icons: {
     icon: "/images/logoKKS.png",
+    apple: "/apple-icon.png",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "black" },
-  ],
+  themeColor: "#5d7c6f",
 };
 export default function LoginLayout({
   children,
@@ -59,7 +64,7 @@ export default function LoginLayout({
         },
       }}
     >
-      <html suppressHydrationWarning lang="en">
+      <html suppressHydrationWarning lang="th">
         <body
           className={clsx(
             "min-h-screen text-foreground bg-[#f5f5f2] font-sans antialiased",

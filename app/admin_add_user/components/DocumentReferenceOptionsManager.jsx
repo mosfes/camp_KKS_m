@@ -424,7 +424,12 @@ export default function DocumentReferenceOptionsManager() {
                             ...form,
                             indicators: [
                               ...form.indicators,
-                              { code: "", label: "" },
+                              {
+                                code: "",
+                                label: "",
+                                clauseCode: "",
+                                clauseLabel: "",
+                              },
                             ],
                           })
                         }
@@ -440,12 +445,12 @@ export default function DocumentReferenceOptionsManager() {
                       <div className="space-y-2">
                         {form.indicators.map((indicator, index) => (
                           <div
-                            className="grid gap-2 rounded-xl bg-white p-3 sm:grid-cols-[120px_1fr_auto]"
+                            className="grid gap-2 rounded-xl bg-white p-3 sm:grid-cols-[100px_110px_1fr_auto]"
                             key={index}
                           >
                             <Input
                               label="รหัส"
-                              placeholder="เช่น 1.1"
+                              placeholder="เช่น 1.1.2"
                               value={indicator.code}
                               onValueChange={(value) =>
                                 setForm({
@@ -454,6 +459,22 @@ export default function DocumentReferenceOptionsManager() {
                                     (item, itemIndex) =>
                                       itemIndex === index
                                         ? { ...item, code: value }
+                                        : item,
+                                  ),
+                                })
+                              }
+                            />
+                            <Input
+                              label="ข้อหลัก"
+                              placeholder="เช่น 1.1"
+                              value={indicator.clauseCode || ""}
+                              onValueChange={(value) =>
+                                setForm({
+                                  ...form,
+                                  indicators: form.indicators.map(
+                                    (item, itemIndex) =>
+                                      itemIndex === index
+                                        ? { ...item, clauseCode: value }
                                         : item,
                                   ),
                                 })
@@ -470,6 +491,23 @@ export default function DocumentReferenceOptionsManager() {
                                     (item, itemIndex) =>
                                       itemIndex === index
                                         ? { ...item, label: value }
+                                        : item,
+                                  ),
+                                })
+                              }
+                            />
+                            <Input
+                              className="sm:col-start-2 sm:col-end-4"
+                              label="ชื่อข้อหลัก (ถ้ามี)"
+                              placeholder="เช่น ผลสัมฤทธิ์ทางวิชาการของผู้เรียน"
+                              value={indicator.clauseLabel || ""}
+                              onValueChange={(value) =>
+                                setForm({
+                                  ...form,
+                                  indicators: form.indicators.map(
+                                    (item, itemIndex) =>
+                                      itemIndex === index
+                                        ? { ...item, clauseLabel: value }
                                         : item,
                                   ),
                                 })

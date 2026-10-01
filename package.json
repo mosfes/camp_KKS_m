@@ -6,6 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
     "db:migrate:deploy": "prisma migrate deploy",
+    "web-push:keys": "web-push generate-vapid-keys",
     "start": "next start",
     "lint": "eslint --fix",
     "test:camp-reminders": "tsx --test tests/*.test.ts"
@@ -86,6 +87,7 @@
     "recharts": "^3.8.1",
     "resend": "^6.27.0",
     "swr": "^2.4.1",
+    "web-push": "^3.6.7",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "xlsx-js-style": "1.2.0",
     "zod": "^4.4.1"
@@ -99,6 +101,7 @@
     "@types/node": "20.5.7",
     "@types/react": "18.3.3",
     "@types/react-dom": "18.3.0",
+    "@types/web-push": "^3.6.4",
     "@typescript-eslint/eslint-plugin": "8.34.1",
     "@typescript-eslint/parser": "8.34.1",
     "eslint": "9.39.5",

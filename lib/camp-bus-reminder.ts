@@ -14,6 +14,34 @@ export interface ActiveBusReminder {
   message: string;
 }
 
+export interface BusReminderContent {
+  action: BusReminderAction;
+  title: string;
+  message: string;
+}
+
+export function getBusReminderContent(
+  eventType: string,
+): BusReminderContent | null {
+  if (eventType === "REMIND_BOARD") {
+    return {
+      action: "board",
+      title: "ถึงเวลาขึ้นรถ",
+      message: "ครูประจำรถกำลังเช็กจำนวนคน กรุณากดยืนยันขึ้นรถ",
+    };
+  }
+
+  if (eventType === "REMIND_ALIGHT") {
+    return {
+      action: "alight",
+      title: "ถึงเวลาลงรถ",
+      message: "ครูประจำรถแจ้งว่ารถจอดแล้ว กรุณากดลงจากรถ",
+    };
+  }
+
+  return null;
+}
+
 export function getActiveBusReminder(
   events: BusReminderEvent[] | undefined,
   isOnBus: boolean,
@@ -33,11 +61,13 @@ export function getActiveBusReminder(
     return null;
   }
 
+  const content = getBusReminderContent(event.event_type);
+
+  if (!content) return null;
+
   return {
-    action: isOnBus ? "alight" : "board",
+    action: content.action,
     sentAt: createdAt.toISOString(),
-    message: isOnBus
-      ? "ครูประจำรถแจ้งว่ารถจอดแล้ว กรุณากดลงจากรถ"
-      : "ครูประจำรถกำลังเช็กจำนวนคน กรุณากดยืนยันขึ้นรถ",
+    message: content.message,
   };
 }

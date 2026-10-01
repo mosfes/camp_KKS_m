@@ -10,9 +10,10 @@ import CampBreadcrumb from "../../CampBreadcrumb";
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
 import {
   DocumentStandardsChecklist,
-  documentIndicatorText,
+  documentStandardCode,
   normalizeDocumentStandardOptions,
-  updateStandardReferenceText,
+  readStandardReferenceSelection,
+  updateStandardReferenceSelection,
   type DocumentStandardIndicator,
   type DocumentStandardOption,
 } from "@/components/documents/DocumentStandardsChecklist";
@@ -365,25 +366,32 @@ export default function ProjectDocumentPage() {
     setDocument((current: any) => ({ ...current, [key]: value }));
   };
 
-  const hasStandardReferenceLine = (line: string) =>
-    String(document?.standards || "")
-      .split(/\r?\n/)
-      .map((item) => item.trim())
-      .includes(line.trim());
+  const standardSelection = readStandardReferenceSelection(
+    document?.standards,
+    standardOptions,
+  );
 
   const toggleStandardReference = (
     standard: DocumentStandardOption,
     selected: boolean,
   ) => {
-    const indicatorLines = standard.indicators.map(documentIndicatorText);
+    const standardCode = documentStandardCode(standard);
+    const indicatorCodes = new Set(standardSelection.indicatorCodes);
 
     update(
       "standards",
-      updateStandardReferenceText(
-        document.standards,
-        selected ? [] : [standard.label, ...indicatorLines],
-        selected ? [standard.label] : [],
-      ),
+      updateStandardReferenceSelection(document.standards, standardOptions, {
+        standardCodes: selected
+          ? [...standardSelection.standardCodes, standardCode]
+          : standardSelection.standardCodes.filter(
+              (code) => code !== standardCode,
+            ),
+        indicatorCodes: selected
+          ? Array.from(indicatorCodes)
+          : Array.from(indicatorCodes).filter(
+              (code) => code.split(".")[0] !== standardCode,
+            ),
+      }),
     );
   };
 
@@ -392,15 +400,18 @@ export default function ProjectDocumentPage() {
     indicator: DocumentStandardIndicator,
     selected: boolean,
   ) => {
-    const indicatorLine = documentIndicatorText(indicator);
+    const indicatorCodes = new Set(standardSelection.indicatorCodes);
+    if (selected) indicatorCodes.add(indicator.code);
+    else indicatorCodes.delete(indicator.code);
 
     update(
       "standards",
-      updateStandardReferenceText(
-        document.standards,
-        selected ? [] : [indicatorLine],
-        selected ? [standard.label, indicatorLine] : [],
-      ),
+      updateStandardReferenceSelection(document.standards, standardOptions, {
+        standardCodes: selected
+          ? [...standardSelection.standardCodes, documentStandardCode(standard)]
+          : standardSelection.standardCodes,
+        indicatorCodes: Array.from(indicatorCodes),
+      }),
     );
   };
 
@@ -723,10 +734,12 @@ export default function ProjectDocumentPage() {
               <DocumentStandardsChecklist
                 disabled={readOnly}
                 isIndicatorSelected={(_, indicator) =>
-                  hasStandardReferenceLine(documentIndicatorText(indicator))
+                  standardSelection.indicatorCodes.includes(indicator.code)
                 }
                 isStandardSelected={(standard) =>
-                  hasStandardReferenceLine(standard.label)
+                  standardSelection.standardCodes.includes(
+                    documentStandardCode(standard),
+                  )
                 }
                 standards={standardOptions}
                 onToggleIndicator={toggleIndicatorReference}

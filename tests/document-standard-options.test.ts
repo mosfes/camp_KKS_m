@@ -3,7 +3,10 @@ import test from "node:test";
 
 import {
   documentIndicatorText,
+  formatStandardReferenceSelection,
   normalizeDocumentStandardOptions,
+  readStandardReferenceSelection,
+  updateStandardReferenceSelection,
   updateStandardReferenceText,
 } from "../components/documents/DocumentStandardsChecklist";
 
@@ -36,7 +39,14 @@ test("normalizes active standard options and their indicators", () => {
     {
       document_reference_option_id: 1,
       label: "มาตรฐานที่ 1",
-      indicators: [{ code: "1.1", label: "ผู้เรียนมีผลสัมฤทธิ์ทางการเรียน" }],
+      indicators: [
+        {
+          code: "1.1",
+          label: "ผู้เรียนมีผลสัมฤทธิ์ทางการเรียน",
+          clauseCode: "",
+          clauseLabel: "",
+        },
+      ],
     },
   ]);
 });
@@ -64,5 +74,65 @@ test("removes only catalog lines when a standard is unchecked", () => {
   assert.equal(
     documentIndicatorText({ code: "1.1", label: "ตัวชี้วัด" }),
     "1.1 ตัวชี้วัด",
+  );
+});
+
+test("formats selected standards and indicators as the compact document summary", () => {
+  const standards = normalizeDocumentStandardOptions([
+    {
+      document_reference_option_id: 1,
+      category: "STANDARD",
+      label: "มาตรฐานที่ 1 คุณภาพของผู้เรียน",
+      indicators: [
+        {
+          code: "1.1.2",
+          label: "มีความสามารถในการคิดวิเคราะห์",
+          clauseCode: "1.1",
+          clauseLabel: "ผลสัมฤทธิ์ทางวิชาการของผู้เรียน",
+        },
+      ],
+    },
+    {
+      document_reference_option_id: 3,
+      category: "STANDARD",
+      label: "มาตรฐานที่ 3 กระบวนการจัดการเรียนการสอน",
+      indicators: [{ code: "3.1", label: "จัดการเรียนรู้ผ่านการปฏิบัติจริง" }],
+    },
+  ]);
+
+  const summary = formatStandardReferenceSelection(
+    {
+      standardCodes: ["3", "1"],
+      indicatorCodes: ["3.1", "1.1.2"],
+    },
+    standards,
+  );
+
+  assert.equal(
+    summary,
+    "มาตรฐานการศึกษาขั้นพื้นฐานฯ มาตรฐานที่ 1,3 ข้อที่ 1.1, 3 ตัวชี้วัดที่ 1.1.2, 3.1",
+  );
+  assert.deepEqual(readStandardReferenceSelection(summary, standards), {
+    standardCodes: ["1", "3"],
+    indicatorCodes: ["1.1.2", "3.1"],
+  });
+});
+
+test("updates the generated summary without discarding custom text", () => {
+  const standards = normalizeDocumentStandardOptions([
+    {
+      document_reference_option_id: 1,
+      category: "STANDARD",
+      label: "มาตรฐานที่ 1 คุณภาพของผู้เรียน",
+      indicators: [{ code: "1.1.2", label: "คิดวิเคราะห์" }],
+    },
+  ]);
+
+  assert.equal(
+    updateStandardReferenceSelection("หมายเหตุเพิ่มเติม", standards, {
+      standardCodes: ["1"],
+      indicatorCodes: ["1.1.2"],
+    }),
+    "มาตรฐานการศึกษาขั้นพื้นฐานฯ มาตรฐานที่ 1 ข้อที่ 1.1 ตัวชี้วัดที่ 1.1.2\nหมายเหตุเพิ่มเติม",
   );
 });

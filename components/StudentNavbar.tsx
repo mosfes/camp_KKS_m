@@ -14,6 +14,8 @@ import { createPortal } from "react-dom";
 import { useClerk } from "@clerk/nextjs";
 
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { StudentNotificationCenter } from "@/components/student/StudentNotificationCenter";
+import { disconnectCurrentStudentPushSubscription } from "@/lib/client-web-push";
 
 export function AppNavbar() {
   const router = useRouter();
@@ -46,6 +48,7 @@ export function AppNavbar() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
+      await disconnectCurrentStudentPushSubscription();
       await fetch("/api/auth/student/logout", { method: "POST" });
     } catch (e) {
       console.error("Student logout API error:", e);
@@ -86,6 +89,11 @@ export function AppNavbar() {
 
         {/* RIGHT */}
         <NavbarContent className="gap-3" justify="end">
+          <NavbarItem>
+            <StudentNotificationCenter
+              studentId={student?.students_id ?? null}
+            />
+          </NavbarItem>
           <NavbarItem>
             {mounted ? (
               <Dropdown placement="bottom-end">

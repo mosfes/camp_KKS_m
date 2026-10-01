@@ -1,5 +1,39 @@
 # Next.js & HeroUI Template
 
+## Progressive Web App and student bus push notifications
+
+The application includes a web app manifest, install icons, a service worker,
+and persistent Web Push subscriptions for student bus reminders. When a teacher
+sends a board or alight reminder, subscribed student devices receive a system
+notification even when the application is not currently open. The existing
+in-app popup remains the fallback while the application is open.
+
+Generate one VAPID key pair and keep it stable across deployments:
+
+```bash
+npm run web-push:keys
+```
+
+Configure the generated values in every production environment:
+
+```env
+NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY=your_public_key
+WEB_PUSH_VAPID_PRIVATE_KEY=your_private_key
+WEB_PUSH_VAPID_SUBJECT=https://your-production-domain.example
+```
+
+Apply the database migration before deploying the application:
+
+```bash
+npm run db:migrate:deploy
+npm run build
+```
+
+Production Web Push requires HTTPS. On iPhone and iPad, iOS 16.4 or newer is
+required and the user must first add KKS Camp to the Home Screen, open it from
+the installed icon, and enable notifications from the bell menu. Never commit
+the private VAPID key to source control.
+
 ## Camp reminder emails with Resend
 
 The production app sends two transactional reminders. Seven days before a

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { requireTeacher } from "@/lib/auth";
@@ -9,6 +9,7 @@ import {
 } from "@/lib/camp-bus-reminder";
 import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { sendStudentBusPushNotifications } from "@/lib/web-push";
 
 const requestSchema = z.object({
   action: z.enum(["board", "alight"]),
@@ -33,7 +34,9 @@ export async function POST(request: Request, context: any) {
     return NextResponse.json({ error: "รหัสค่ายไม่ถูกต้อง" }, { status: 400 });
   }
 
-  const parsed = requestSchema.safeParse(await request.json().catch(() => null));
+  const parsed = requestSchema.safeParse(
+    await request.json().catch(() => null),
+  );
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -46,6 +49,7 @@ export async function POST(request: Request, context: any) {
     bus_id: number;
     name: string;
     status: "PARKED" | "TRAVELING";
+    campName: string;
   } | null = null;
 
   if (parsed.data.busId) {
@@ -57,14 +61,28 @@ export async function POST(request: Request, context: any) {
 
     if (permission.error) return permission.error;
 
-    targetBus = await prisma.camp_bus.findFirst({
+    const selectedBus = await prisma.camp_bus.findFirst({
       where: {
         bus_id: parsed.data.busId,
         camp_camp_id: campId,
         camp: { deletedAt: null, has_transport: true },
       },
-      select: { bus_id: true, name: true, status: true },
+      select: {
+        bus_id: true,
+        name: true,
+        status: true,
+        camp: { select: { name: true } },
+      },
     });
+
+    if (selectedBus) {
+      targetBus = {
+        bus_id: selectedBus.bus_id,
+        name: selectedBus.name,
+        status: selectedBus.status,
+        campName: selectedBus.camp.name,
+      };
+    }
   } else {
     const assignment = await prisma.camp_bus_teacher.findFirst({
       where: {
@@ -79,12 +97,20 @@ export async function POST(request: Request, context: any) {
             bus_id: true,
             name: true,
             status: true,
+            camp: { select: { name: true } },
           },
         },
       },
     });
 
-    targetBus = assignment?.bus || null;
+    targetBus = assignment?.bus
+      ? {
+          bus_id: assignment.bus.bus_id,
+          name: assignment.bus.name,
+          status: assignment.bus.status,
+          campName: assignment.bus.camp.name,
+        }
+      : null;
   }
 
   if (!targetBus) {
@@ -122,12 +148,17 @@ export async function POST(request: Request, context: any) {
   }
 
   const targetStatus = action === "board" ? "OFF_BUS" : "ON_BUS";
-  const [recipientCount, latestReminder] = await Promise.all([
-    prisma.camp_bus_student.count({
+  const [recipients, latestReminder] = await Promise.all([
+    prisma.camp_bus_student.findMany({
       where: {
         bus_bus_id: targetBus.bus_id,
         participation_status: "ACTIVE",
         status: targetStatus,
+      },
+      select: {
+        student_enrollment: {
+          select: { student_students_id: true },
+        },
       },
     }),
     prisma.camp_bus_event.findFirst({
@@ -142,6 +173,7 @@ export async function POST(request: Request, context: any) {
       select: { created_at: true },
     }),
   ]);
+  const recipientCount = recipients.length;
 
   if (recipientCount === 0) {
     return NextResponse.json(
@@ -159,7 +191,8 @@ export async function POST(request: Request, context: any) {
     const retryAfterSeconds = Math.max(
       1,
       Math.ceil(
-        (latestReminder.created_at.getTime() + BUS_REMINDER_COOLDOWN_MS -
+        (latestReminder.created_at.getTime() +
+          BUS_REMINDER_COOLDOWN_MS -
           Date.now()) /
           1000,
       ),
@@ -182,7 +215,25 @@ export async function POST(request: Request, context: any) {
       teacher_teachers_id: teacherId,
       event_type: eventType,
     },
-    select: { created_at: true },
+    select: { event_id: true, created_at: true },
+  });
+
+  after(async () => {
+    try {
+      await sendStudentBusPushNotifications({
+        action,
+        busName: targetBus.name,
+        campId,
+        campName: targetBus.campName,
+        eventId: reminder.event_id,
+        studentIds: recipients.map(
+          (recipient) => recipient.student_enrollment.student_students_id,
+        ),
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("[student web push] reminder dispatch failed", error);
+    }
   });
 
   return NextResponse.json(

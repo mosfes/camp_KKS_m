@@ -27,6 +27,27 @@ const nextConfig = {
   },
   // Keep Prisma Client working in serverless environments
   serverExternalPackages: ["@prisma/client"],
+  async headers() {
+    return [
+      {
+        source: "/notification-sw.js",
+        headers: [
+          {
+            key: "Content-Type",
+            value: "application/javascript; charset=utf-8",
+          },
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'self'; script-src 'self'",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

@@ -7,6 +7,8 @@ import { prisma } from "@/lib/db";
 const indicatorSchema = z.object({
   code: z.string().trim().max(100).default(""),
   label: z.string().trim().min(1).max(1000),
+  clauseCode: z.string().trim().max(100).default(""),
+  clauseLabel: z.string().trim().max(1000).default(""),
 });
 
 const updateSchema = z.object({

@@ -74,10 +74,27 @@ model students {
   student_enrollment        student_enrollment[]
   attendance_record_student attendance_record_student[]
   student_location_update   student_location_update[]
+  push_subscriptions        student_push_subscription[]
   promotion_items           promotion_item[]
 
   @@index([deletedAt])
   @@index([status])
+}
+
+model student_push_subscription {
+  subscription_id     Int      @id @default(autoincrement())
+  student_students_id Int
+  endpoint_hash       String   @unique @db.Char(64)
+  endpoint            String   @db.Text
+  p256dh              String   @db.VarChar(255)
+  auth                String   @db.VarChar(255)
+  user_agent          String?  @db.VarChar(500)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  student students @relation(fields: [student_students_id], references: [students_id], onDelete: Cascade)
+
+  @@index([student_students_id])
 }
 
 model parents {
