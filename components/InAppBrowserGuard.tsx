@@ -53,17 +53,23 @@ function buildChromeIntent(currentUrl: string) {
 
 export default function InAppBrowserGuard({
   children,
+  initialUserAgent,
 }: {
   children: ReactNode;
+  initialUserAgent?: string;
 }) {
-  const [browserInfo, setBrowserInfo] = useState<BrowserInfo | null>(null);
+  const [browserInfo, setBrowserInfo] = useState<BrowserInfo | null>(() =>
+    initialUserAgent ? detectBrowser(initialUserAgent) : null,
+  );
   const [currentUrl, setCurrentUrl] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    setBrowserInfo(detectBrowser(window.navigator.userAgent));
+    if (!initialUserAgent) {
+      setBrowserInfo(detectBrowser(window.navigator.userAgent));
+    }
     setCurrentUrl(window.location.href);
-  }, []);
+  }, [initialUserAgent]);
 
   const chromeIntent = useMemo(() => {
     if (!currentUrl || !browserInfo?.isAndroid) return "";

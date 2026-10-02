@@ -20,7 +20,13 @@ export type DocumentStandardOption = {
 
 export type DocumentStandardSelection = {
   standardCodes: string[];
+  clauseCodes: string[];
   indicatorCodes: string[];
+};
+
+export type DocumentStrategyOption = {
+  document_reference_option_id: number;
+  label: string;
 };
 
 const STANDARD_SUMMARY_PREFIX = "มาตรฐานการศึกษาขั้นพื้นฐานฯ";
@@ -54,6 +60,86 @@ export function normalizeDocumentStandardOptions(
       (item) =>
         Number.isInteger(item.document_reference_option_id) && item.label,
     );
+}
+
+export function normalizeDocumentStrategyOptions(
+  value: unknown,
+): DocumentStrategyOption[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter(
+      (item) => item?.category === "STRATEGY" && item?.is_active !== false,
+    )
+    .map((item) => ({
+      document_reference_option_id: Number(item.document_reference_option_id),
+      label: clean(item.label),
+    }))
+    .filter(
+      (item) =>
+        Number.isInteger(item.document_reference_option_id) && item.label,
+    );
+}
+
+function normalizedComparableText(value: unknown) {
+  return clean(value).replace(/\s+/g, " ");
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function documentStrategyPattern(
+  strategy: DocumentStrategyOption,
+  global = false,
+) {
+  const labelPattern = normalizedComparableText(strategy.label)
+    .split(" ")
+    .map(escapeRegExp)
+    .join("\\s+");
+
+  return new RegExp(
+    `(?:^|\\n)[\\t ]*(?:กลยุทธ์โรงเรียน\\s+)?${labelPattern}(?=[\\t ]*(?:\\n|$))`,
+    global ? "gu" : "u",
+  );
+}
+
+export function documentStrategyText(strategy: DocumentStrategyOption) {
+  const label = clean(strategy.label);
+
+  return label.startsWith("กลยุทธ์โรงเรียน")
+    ? label
+    : `กลยุทธ์โรงเรียน ${label}`;
+}
+
+export function isDocumentStrategySelected(
+  value: unknown,
+  strategy: DocumentStrategyOption,
+) {
+  return documentStrategyPattern(strategy).test(String(value ?? ""));
+}
+
+export function updateDocumentStrategySelection(
+  currentValue: unknown,
+  strategy: DocumentStrategyOption,
+  selected: boolean,
+) {
+  const currentText = clean(currentValue);
+
+  if (selected) {
+    if (isDocumentStrategySelected(currentText, strategy)) return currentText;
+
+    return [currentText, documentStrategyText(strategy)]
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  return currentText
+    .replace(documentStrategyPattern(strategy, true), "")
+    .split(/\r?\n/)
+    .map(clean)
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function documentIndicatorText(indicator: DocumentStandardIndicator) {
@@ -111,6 +197,7 @@ export function readStandardReferenceSelection(
 ): DocumentStandardSelection {
   const text = String(value ?? "");
   const standardCodes: string[] = [];
+  const clauseCodes: string[] = [];
   const indicatorCodes: string[] = [];
   const summary = text
     .split(/\r?\n/)
@@ -121,9 +208,13 @@ export function readStandardReferenceSelection(
     const standardPart = summary.match(
       /มาตรฐานที่\s+(.+?)(?=\s+ข้อที่|\s+ตัวชี้วัดที่|$)/,
     )?.[1];
+    const clausePart = summary.match(
+      /ข้อที่\s+(.+?)(?=\s+ตัวชี้วัดที่|$)/,
+    )?.[1];
     const indicatorPart = summary.match(/ตัวชี้วัดที่\s+(.+)$/)?.[1];
 
     if (standardPart) standardCodes.push(...codesFrom(standardPart));
+    if (clausePart) clauseCodes.push(...codesFrom(clausePart));
     if (indicatorPart) indicatorCodes.push(...codesFrom(indicatorPart));
   }
 
@@ -144,6 +235,7 @@ export function readStandardReferenceSelection(
 
   return {
     standardCodes: uniqueSortedCodes(standardCodes),
+    clauseCodes: uniqueSortedCodes(clauseCodes),
     indicatorCodes: uniqueSortedCodes(indicatorCodes),
   };
 }
@@ -154,26 +246,31 @@ export function formatStandardReferenceSelection(
 ) {
   const standardCodes = uniqueSortedCodes([
     ...selection.standardCodes,
+    ...selection.clauseCodes.map((code) => code.split(".")[0]),
     ...selection.indicatorCodes.map((code) => code.split(".")[0]),
   ]);
   const indicatorCodes = uniqueSortedCodes(selection.indicatorCodes);
 
   if (!standardCodes.length) return "";
 
-  const clauses = indicatorCodes.map((indicatorCode) => {
-    for (const standard of standards) {
-      const indicator = standard.indicators.find(
-        (item) => item.code === indicatorCode,
-      );
-      if (indicator) {
-        if (indicator.clauseCode) return indicator.clauseCode;
-        break;
+  const clauses = [
+    ...selection.clauseCodes,
+    ...indicatorCodes.map((indicatorCode) => {
+      for (const standard of standards) {
+        const indicator = standard.indicators.find(
+          (item) => item.code === indicatorCode,
+        );
+        if (indicator) {
+          if (indicator.clauseCode) return indicator.clauseCode;
+          break;
+        }
       }
-    }
 
-    const parts = indicatorCode.split(".");
-    return parts.length > 2 ? parts.slice(0, -1).join(".") : parts[0];
-  });
+      const parts = indicatorCode.split(".");
+
+      return parts.length > 2 ? parts.slice(0, -1).join(".") : parts[0];
+    }),
+  ];
 
   const pieces = [
     `${STANDARD_SUMMARY_PREFIX} มาตรฐานที่ ${standardCodes.join(",")}`,
@@ -341,7 +438,7 @@ export function DocumentStandardsChecklist({
                         </p>
                       )
                     ) : null}
-                    <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-600">
+                    <label className="ml-5 flex cursor-pointer items-start gap-3 text-sm text-gray-600 sm:ml-7">
                       <input
                         checked={isIndicatorSelected(standard, indicator)}
                         className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
@@ -363,6 +460,51 @@ export function DocumentStandardsChecklist({
             </div>
           ) : null}
         </div>
+      ))}
+    </div>
+  );
+}
+
+export function DocumentStrategiesChecklist({
+  strategies,
+  disabled,
+  isStrategySelected,
+  onToggleStrategy,
+}: {
+  strategies: DocumentStrategyOption[];
+  disabled?: boolean;
+  isStrategySelected: (strategy: DocumentStrategyOption) => boolean;
+  onToggleStrategy: (
+    strategy: DocumentStrategyOption,
+    selected: boolean,
+  ) => void;
+}) {
+  if (!strategies.length) {
+    return (
+      <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+        ยังไม่มีกลยุทธ์จากแอดมิน สามารถกรอกข้อมูลเพิ่มเติมเองได้ด้านล่าง
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {strategies.map((strategy) => (
+        <label
+          key={strategy.document_reference_option_id}
+          className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm font-medium text-gray-800"
+        >
+          <input
+            checked={isStrategySelected(strategy)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
+            disabled={disabled}
+            type="checkbox"
+            onChange={(event) =>
+              onToggleStrategy(strategy, event.target.checked)
+            }
+          />
+          <span>{strategy.label}</span>
+        </label>
       ))}
     </div>
   );

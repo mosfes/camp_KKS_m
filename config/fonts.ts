@@ -1,12 +1,8 @@
-import { Fira_Code as FontMono, Kanit as FontSans } from "next/font/google";
+import { Kanit as FontSans } from "next/font/google";
 
 export const fontSans = FontSans({
+  preload: false,
   subsets: ["latin", "thai"],
   variable: "--font-sans",
   weight: ["300", "400", "500", "600", "700"], //
-});
-
-export const fontMono = FontMono({
-  subsets: ["latin"],
-  variable: "--font-mono",
 });

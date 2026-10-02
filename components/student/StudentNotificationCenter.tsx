@@ -44,7 +44,7 @@ type StudentNotification = {
 type NotificationPermissionState = NotificationPermission | "unsupported";
 type PushAvailability = "available" | "ios-install-required" | "unsupported";
 
-const FOREGROUND_POLL_INTERVAL_MS = 5_000;
+const FOREGROUND_POLL_INTERVAL_MS = 15_000;
 const NOTIFICATION_REQUEST_TIMEOUT_MS = 8_000;
 const MAX_STORED_IDS = 100;
 

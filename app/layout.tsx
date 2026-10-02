@@ -1,11 +1,10 @@
 import "@/styles/globals.css";
 import { Metadata, Viewport } from "next";
 import clsx from "clsx";
-import { thTH } from "@clerk/localizations";
-import { ClerkProvider } from "@clerk/nextjs";
 
 import { Providers } from "./providers";
 
+import AppAuthProvider from "@/components/AppAuthProvider";
 import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
 
@@ -23,7 +22,7 @@ export const metadata: Metadata = {
     title: "KKS Camp",
   },
   icons: {
-    icon: "/images/logoKKS.png",
+    icon: "/icons/favicon-64.png",
     apple: "/apple-icon.png",
   },
 };
@@ -37,40 +36,21 @@ export default function LoginLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider
-      appearance={{
-        elements: {
-          footerAction: "hidden",
-          footer: "hidden",
-        },
-      }}
-      localization={{
-        ...thTH,
-        formButtonPrimary: "เข้าสู่ระบบ",
-        formFieldLabel__username: "เบอร์โทรศัพท์",
-        socialButtonsBlockButton: "เข้าสู่ระบบด้วย {{provider|titleize}}",
-        dividerText: "สำหรับ ผู้ปกครอง",
-        signIn: {
-          start: {
-            title: "ยินดีต้อนรับสู่ KKS Camp",
-            subtitle: "ล็อคอินเพื่อเข้าใช้งานระบบ",
-          },
-        },
-        unstable__errors: {
-          form_identifier_not_found: "ไม่พบเบอร์โทรศัพท์นี้ในระบบ",
-          form_param_format_invalid: "รูปแบบเบอร์โทรศัพท์ไม่ถูกต้อง",
-          form_param_nil: "กรุณากรอกข้อมูล",
-          form_password_incorrect: "รหัสผ่านไม่ถูกต้อง",
-        },
-      }}
-    >
-      <html suppressHydrationWarning lang="th">
-        <body
-          className={clsx(
-            "min-h-screen text-foreground bg-[#f5f5f2] font-sans antialiased",
-            fontSans.variable,
-          )}
-        >
+    <html suppressHydrationWarning lang="th">
+      <head>
+        <link
+          crossOrigin="anonymous"
+          href="https://res.cloudinary.com"
+          rel="preconnect"
+        />
+      </head>
+      <body
+        className={clsx(
+          "min-h-screen text-foreground bg-[#f5f5f2] font-sans antialiased",
+          fontSans.variable,
+        )}
+      >
+        <AppAuthProvider>
           <Providers
             themeProps={{
               attribute: "class",
@@ -80,8 +60,8 @@ export default function LoginLayout({
           >
             {children}
           </Providers>
-        </body>
-      </html>
-    </ClerkProvider>
+        </AppAuthProvider>
+      </body>
+    </html>
   );
 }

@@ -31,6 +31,15 @@ export async function GET(request, context) {
   }
 
   try {
+    // This count is independent from the detail lookup. Start it immediately so
+    // it does not extend the critical path before the hero can stream to the
+    // student page.
+    const totalEnrolledPromise = prisma.student_enrollment.count({
+      where: {
+        ...activeCampEnrollmentWhere(campId),
+        enrolled_at: { not: null },
+      },
+    });
     const camp = await prisma.camp.findFirst({
       where: {
         camp_id: campId,
@@ -133,12 +142,7 @@ export async function GET(request, context) {
     const enrollment = camp.student_enrollment[0];
     const [totalEnrolled, results, surveyResponseCount, certificateCount] =
       await Promise.all([
-        prisma.student_enrollment.count({
-          where: {
-            ...activeCampEnrollmentWhere(campId),
-            enrolled_at: { not: null },
-          },
-        }),
+        totalEnrolledPromise,
         enrollment
           ? prisma.mission_result.findMany({
               where: {

@@ -1,11 +1,21 @@
 import type { ReactNode } from "react";
 
-import { AppNavbar } from "@/components/StudentNavbar";
+import { Suspense } from "react";
+
+import {
+  StudentNavbarFallback,
+  StudentNavbarServer,
+} from "@/components/StudentNavbarServer";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#f5f5f0]">
-      <AppNavbar />
+    <div
+      className="min-h-screen bg-[#f5f5f0]"
+      style={{ fontFamily: 'Arial, "Noto Sans Thai", Tahoma, sans-serif' }}
+    >
+      <Suspense fallback={<StudentNavbarFallback />}>
+        <StudentNavbarServer />
+      </Suspense>
       <main>{children}</main>
     </div>
   );

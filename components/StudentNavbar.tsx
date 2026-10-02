@@ -1,61 +1,39 @@
 "use client";
-import { Navbar, NavbarBrand, NavbarContent, NavbarItem } from "@heroui/navbar";
-import {
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem,
-} from "@heroui/dropdown";
-import { Avatar } from "@heroui/avatar";
 import { GraduationCap, LogOut, Settings } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
-import { useClerk } from "@clerk/nextjs";
 
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { AddToHomeScreenPrompt } from "@/components/student/AddToHomeScreenPrompt";
-import { StudentNotificationCenter } from "@/components/student/StudentNotificationCenter";
-import { StudentPushPermissionPrompt } from "@/components/student/StudentPushPermissionPrompt";
+import { StudentDeferredEnhancements } from "@/components/student/StudentDeferredEnhancements";
 import { disconnectCurrentStudentPushSubscription } from "@/lib/client-web-push";
 
-export function AppNavbar() {
+export type StudentNavbarStudent = {
+  students_id: number;
+  firstname: string;
+  lastname: string;
+  nickname: string | null;
+  email: string;
+  profile_image_url: string | null;
+};
+
+export function AppNavbar({
+  initialStudent,
+}: {
+  initialStudent: StudentNavbarStudent | null;
+}) {
   const router = useRouter();
-  const { signOut } = useClerk();
   const [navigating, setNavigating] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
-  const [student, setStudent] = useState<{
-    students_id: number;
-    firstname: string;
-    lastname: string;
-    nickname: string | null;
-    email: string;
-    profile_image_url: string | null;
-  } | null>(null);
-
-  const [mounted, setMounted] = useState(false);
-
-  // ดึงข้อมูลนักเรียนจาก session cookie
-  useEffect(() => {
-    setMounted(true);
-    fetch("/api/auth/student/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data) setStudent(data);
-      })
-      .catch(() => {});
-  }, []);
+  const student = initialStudent;
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
       await disconnectCurrentStudentPushSubscription();
       await fetch("/api/auth/student/logout", { method: "POST" });
-    } catch (e) {
-      console.error("Student logout API error:", e);
-    }
-    await signOut({ redirectUrl: "/" });
+    } catch {}
     window.location.href = "/";
   };
 
@@ -70,125 +48,92 @@ export function AppNavbar() {
 
   return (
     <>
-      <AddToHomeScreenPrompt />
-      <StudentPushPermissionPrompt studentId={student?.students_id ?? null} />
-      <Navbar
-        className="bg-white border-b border-gray-200"
-        classNames={{
-          wrapper: "max-w-6xl mx-auto px-4 sm:px-6 lg:px-8",
-        }}
-        height="64px"
-        maxWidth="full"
-      >
-        {/* LEFT */}
-        <NavbarBrand className="gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#5d7c6f] flex items-center justify-center text-white">
-            <GraduationCap size={20} />
+      <nav className="h-16 border-b border-gray-200 bg-white">
+        <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5d7c6f] text-white">
+              <GraduationCap size={20} />
+            </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-semibold text-black">KKS Camp</span>
+              <span className="text-xs text-gray-500">ค่ายของฉัน</span>
+            </div>
           </div>
-          <div className="flex flex-col leading-tight">
-            <span className="font-semibold text-sm text-black">KKS Camp</span>
-            <span className="text-xs text-gray-500">ค่ายของฉัน</span>
-          </div>
-        </NavbarBrand>
 
-        {/* RIGHT */}
-        <NavbarContent className="gap-3" justify="end">
-          <NavbarItem>
-            <StudentNotificationCenter
+          <div className="flex items-center gap-3">
+            <StudentDeferredEnhancements
               studentId={student?.students_id ?? null}
             />
-          </NavbarItem>
-          <NavbarItem>
-            {mounted ? (
-              <Dropdown placement="bottom-end">
-                <DropdownTrigger>
-                  <div
-                    suppressHydrationWarning
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    {/* แสดงชื่อเล่น + badge นักเรียน */}
-                    {student && (
-                      <div className="hidden sm:flex items-center gap-2">
-                        {displayNickname && (
-                          <span className="text-sm font-medium text-gray-700">
-                            น้อง{displayNickname}
-                          </span>
-                        )}
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#e8f0ee] text-[#3d6357] border border-[#b8d0c8]">
-                          นักเรียน
-                        </span>
-                      </div>
-                    )}
 
-                    {/* Avatar — แสดงรูปถ้ามี url */}
-                    {student?.profile_image_url ? (
-                      <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-[#5d7c6f]/30 flex-shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          alt="โปรไฟล์"
-                          className="w-full h-full object-cover"
-                          src={student.profile_image_url}
-                        />
-                      </div>
-                    ) : (
-                      <Avatar
-                        as="button"
-                        className="bg-[#5d7c6f] text-white transition-transform"
-                        name={initials}
-                        size="sm"
-                      />
+            <details className="group relative">
+              <summary className="flex cursor-pointer list-none items-center gap-2 rounded-xl p-1 outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f] [&::-webkit-details-marker]:hidden">
+                {student && (
+                  <div className="hidden items-center gap-2 sm:flex">
+                    {displayNickname && (
+                      <span className="text-sm font-medium text-gray-700">
+                        น้อง{displayNickname}
+                      </span>
                     )}
+                    <span className="inline-flex items-center rounded-full border border-[#b8d0c8] bg-[#e8f0ee] px-2.5 py-0.5 text-xs font-medium text-[#3d6357]">
+                      นักเรียน
+                    </span>
                   </div>
-                </DropdownTrigger>
+                )}
 
-                <DropdownMenu aria-label="Profile Actions" variant="flat">
-                  <DropdownItem key="profile" className="h-14 gap-2">
-                    <div>
-                      <p className="font-semibold">
-                        {displayNickname
-                          ? `น้อง${displayNickname}`
-                          : displayName}
-                      </p>
-                      <p className="text-xs text-gray-500">{displayEmail}</p>
-                    </div>
-                  </DropdownItem>
+                {student?.profile_image_url ? (
+                  <Image
+                    alt="โปรไฟล์"
+                    className="h-8 w-8 rounded-full border-2 border-[#5d7c6f]/30 object-cover"
+                    height={32}
+                    src={student.profile_image_url}
+                    width={32}
+                  />
+                ) : (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#5d7c6f] text-xs font-medium text-white">
+                    {initials}
+                  </span>
+                )}
+              </summary>
 
-                  <DropdownItem
-                    key="settings"
-                    startContent={
-                      navigating ? (
-                        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Settings size={16} />
-                      )
-                    }
-                    onClick={() => {
-                      if (navigating) return;
-                      setNavigating(true);
-                      router.push("/student/profile");
-                    }}
-                  >
-                    ตั้งค่าโปรไฟล์
-                  </DropdownItem>
-
-                  <DropdownItem
-                    key="logout"
-                    color="danger"
-                    startContent={<LogOut size={16} />}
-                    onClick={handleLogout}
-                  >
-                    ออกจากระบบ
-                  </DropdownItem>
-                </DropdownMenu>
-              </Dropdown>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Avatar className="bg-gray-200" size="sm" />
+              <div className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-gray-200 bg-white p-2 shadow-xl">
+                <div className="border-b border-gray-100 px-3 py-2.5">
+                  <p className="font-semibold text-gray-800">
+                    {displayNickname ? `น้อง${displayNickname}` : displayName}
+                  </p>
+                  <p className="truncate text-xs text-gray-500">
+                    {displayEmail}
+                  </p>
+                </div>
+                <button
+                  className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-60"
+                  disabled={navigating}
+                  type="button"
+                  onClick={() => {
+                    if (navigating) return;
+                    setNavigating(true);
+                    router.push("/student/profile");
+                  }}
+                >
+                  {navigating ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                  ) : (
+                    <Settings size={16} />
+                  )}
+                  ตั้งค่าโปรไฟล์
+                </button>
+                <button
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
+                  type="button"
+                  onClick={() => void handleLogout()}
+                >
+                  <LogOut size={16} />
+                  ออกจากระบบ
+                </button>
               </div>
-            )}
-          </NavbarItem>
-        </NavbarContent>
-      </Navbar>
+            </details>
+          </div>
+        </div>
+      </nav>
       {isLoggingOut &&
         createPortal(
           <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/50 backdrop-blur-sm">

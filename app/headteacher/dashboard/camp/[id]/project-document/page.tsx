@@ -9,13 +9,19 @@ import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
 import {
+  DocumentStrategiesChecklist,
   DocumentStandardsChecklist,
   documentStandardCode,
+  isDocumentStrategySelected,
   normalizeDocumentStandardOptions,
+  normalizeDocumentStrategyOptions,
   readStandardReferenceSelection,
+  updateDocumentStrategySelection,
   updateStandardReferenceSelection,
+  type DocumentStandardClause,
   type DocumentStandardIndicator,
   type DocumentStandardOption,
+  type DocumentStrategyOption,
 } from "@/components/documents/DocumentStandardsChecklist";
 import DocumentTemplatePanel from "@/components/documents/DocumentTemplatePanel";
 import { useStatusModal } from "@/components/StatusModalProvider";
@@ -294,6 +300,9 @@ export default function ProjectDocumentPage() {
   const [standardOptions, setStandardOptions] = useState<
     DocumentStandardOption[]
   >([]);
+  const [strategyOptions, setStrategyOptions] = useState<
+    DocumentStrategyOption[]
+  >([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
@@ -355,6 +364,9 @@ export default function ProjectDocumentPage() {
           setStandardOptions(
             normalizeDocumentStandardOptions(referenceOptionsData),
           );
+          setStrategyOptions(
+            normalizeDocumentStrategyOptions(referenceOptionsData),
+          );
         },
       )
       .catch((error) => showError("ข้อผิดพลาด", error.message))
@@ -386,11 +398,47 @@ export default function ProjectDocumentPage() {
           : standardSelection.standardCodes.filter(
               (code) => code !== standardCode,
             ),
+        clauseCodes: selected
+          ? standardSelection.clauseCodes
+          : standardSelection.clauseCodes.filter(
+              (code) => code.split(".")[0] !== standardCode,
+            ),
         indicatorCodes: selected
           ? Array.from(indicatorCodes)
           : Array.from(indicatorCodes).filter(
               (code) => code.split(".")[0] !== standardCode,
             ),
+      }),
+    );
+  };
+
+  const toggleClauseReference = (
+    standard: DocumentStandardOption,
+    clause: DocumentStandardClause,
+    selected: boolean,
+  ) => {
+    const clauseCodes = new Set(standardSelection.clauseCodes);
+    const indicatorCodes = new Set(standardSelection.indicatorCodes);
+
+    if (selected) {
+      clauseCodes.add(clause.code);
+    } else {
+      clauseCodes.delete(clause.code);
+      for (const indicator of standard.indicators) {
+        if (indicator.clauseCode === clause.code) {
+          indicatorCodes.delete(indicator.code);
+        }
+      }
+    }
+
+    update(
+      "standards",
+      updateStandardReferenceSelection(document.standards, standardOptions, {
+        standardCodes: selected
+          ? [...standardSelection.standardCodes, documentStandardCode(standard)]
+          : standardSelection.standardCodes,
+        clauseCodes: Array.from(clauseCodes),
+        indicatorCodes: Array.from(indicatorCodes),
       }),
     );
   };
@@ -410,8 +458,19 @@ export default function ProjectDocumentPage() {
         standardCodes: selected
           ? [...standardSelection.standardCodes, documentStandardCode(standard)]
           : standardSelection.standardCodes,
+        clauseCodes: standardSelection.clauseCodes,
         indicatorCodes: Array.from(indicatorCodes),
       }),
+    );
+  };
+
+  const toggleStrategyReference = (
+    strategy: DocumentStrategyOption,
+    selected: boolean,
+  ) => {
+    update(
+      "strategy",
+      updateDocumentStrategySelection(document.strategy, strategy, selected),
     );
   };
 
@@ -733,6 +792,9 @@ export default function ProjectDocumentPage() {
               </p>
               <DocumentStandardsChecklist
                 disabled={readOnly}
+                isClauseSelected={(_, clause) =>
+                  standardSelection.clauseCodes.includes(clause.code)
+                }
                 isIndicatorSelected={(_, indicator) =>
                   standardSelection.indicatorCodes.includes(indicator.code)
                 }
@@ -742,6 +804,7 @@ export default function ProjectDocumentPage() {
                   )
                 }
                 standards={standardOptions}
+                onToggleClause={toggleClauseReference}
                 onToggleIndicator={toggleIndicatorReference}
                 onToggleStandard={toggleStandardReference}
               />
@@ -755,14 +818,27 @@ export default function ProjectDocumentPage() {
                 }
               />
             </div>
-            <Field label="กลยุทธ์โรงเรียน">
+            <div>
+              <span className={labelClass}>กลยุทธ์โรงเรียน</span>
+              <p className="mb-3 text-xs text-gray-500">
+                เลือกกลยุทธ์จากรายการที่แอดมินกำหนด
+              </p>
+              <DocumentStrategiesChecklist
+                disabled={readOnly}
+                isStrategySelected={(strategy) =>
+                  isDocumentStrategySelected(document.strategy, strategy)
+                }
+                strategies={strategyOptions}
+                onToggleStrategy={toggleStrategyReference}
+              />
+              <span className={`${labelClass} mt-4`}>รายละเอียดเพิ่มเติม</span>
               <textarea
                 className={`${inputClass} min-h-28 resize-y`}
-                placeholder="พิมพ์กลยุทธ์โรงเรียนที่เกี่ยวข้อง"
+                placeholder="รายการที่เลือกจะแสดงที่นี่ และสามารถพิมพ์เพิ่มเติมได้"
                 value={document.strategy || ""}
                 onChange={(event) => update("strategy", event.target.value)}
               />
-            </Field>
+            </div>
           </div>
         </Section>
 
