@@ -1,6 +1,12 @@
 "use client";
 
+import { normalizeVapidPublicKey } from "@/lib/vapid-key";
+
 const SERVICE_WORKER_URL = "/notification-sw.js";
+
+export const KKS_PWA_INSTALLED_EVENT = "kks:pwa-installed";
+export const STUDENT_PUSH_SUBSCRIPTION_CHANGED_EVENT =
+  "kks:student-push-subscription-changed";
 
 type SerializedPushSubscription = {
   endpoint: string;
@@ -57,16 +63,63 @@ export async function registerPwaServiceWorker() {
 }
 
 function urlBase64ToUint8Array(value: string) {
-  const padding = "=".repeat((4 - (value.length % 4)) % 4);
-  const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const rawData = window.atob(base64);
+  const normalized = normalizeVapidPublicKey(value);
+
+  if (!normalized) {
+    throw new Error("คีย์การแจ้งเตือนของระบบไม่ถูกต้อง กรุณาแจ้งผู้ดูแลระบบ");
+  }
+
+  const padding = "=".repeat((4 - (normalized.length % 4)) % 4);
+  const base64 = (normalized + padding).replace(/-/g, "+").replace(/_/g, "/");
+  let rawData: string;
+
+  try {
+    rawData = window.atob(base64);
+  } catch {
+    throw new Error("คีย์การแจ้งเตือนของระบบไม่ถูกต้อง กรุณาแจ้งผู้ดูแลระบบ");
+  }
   const output = new Uint8Array(rawData.length);
 
   for (let index = 0; index < rawData.length; index += 1) {
     output[index] = rawData.charCodeAt(index);
   }
 
+  if (output.length !== 65 || output[0] !== 4) {
+    throw new Error("คีย์การแจ้งเตือนของระบบไม่ถูกต้อง กรุณาแจ้งผู้ดูแลระบบ");
+  }
+
   return output;
+}
+
+async function getApplicationServerKey() {
+  const configResponse = await fetch("/api/student/push-subscriptions", {
+    cache: "no-store",
+  });
+  const config = await configResponse.json().catch(() => ({}));
+
+  if (!configResponse.ok || !config.configured || !config.vapidPublicKey) {
+    throw new Error(
+      config.error || "ระบบ Web Push ยังไม่ได้ตั้งค่าคีย์สำหรับการแจ้งเตือน",
+    );
+  }
+
+  return urlBase64ToUint8Array(config.vapidPublicKey);
+}
+
+function subscriptionUsesKey(
+  subscription: PushSubscription,
+  applicationServerKey: Uint8Array,
+) {
+  const currentKey = subscription.options.applicationServerKey;
+
+  if (!currentKey) return false;
+
+  const currentBytes = new Uint8Array(currentKey);
+
+  return (
+    currentBytes.length === applicationServerKey.length &&
+    currentBytes.every((byte, index) => byte === applicationServerKey[index])
+  );
 }
 
 function serializeSubscription(
@@ -106,6 +159,10 @@ async function saveSubscription(subscription: PushSubscription) {
   }
 }
 
+function dispatchPushSubscriptionChanged() {
+  window.dispatchEvent(new Event(STUDENT_PUSH_SUBSCRIPTION_CHANGED_EVENT));
+}
+
 export async function syncExistingStudentPushSubscription() {
   if (!supportsWebPush() || Notification.permission !== "granted") {
     return false;
@@ -115,9 +172,27 @@ export async function syncExistingStudentPushSubscription() {
 
   if (!registration) return false;
 
-  const subscription = await registration.pushManager.getSubscription();
+  const applicationServerKey = await getApplicationServerKey();
+  let subscription = await registration.pushManager.getSubscription();
 
-  if (!subscription) return false;
+  if (
+    subscription &&
+    !subscriptionUsesKey(subscription, applicationServerKey)
+  ) {
+    await subscription.unsubscribe();
+    subscription = null;
+  }
+
+  if (!subscription) {
+    try {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+    } catch {
+      return false;
+    }
+  }
 
   await saveSubscription(subscription);
 
@@ -141,27 +216,39 @@ export async function enableStudentWebPush() {
     throw new Error("ไม่สามารถเปิด service worker ได้");
   }
 
+  const applicationServerKey = await getApplicationServerKey();
   let subscription = await registration.pushManager.getSubscription();
 
+  if (
+    subscription &&
+    !subscriptionUsesKey(subscription, applicationServerKey)
+  ) {
+    await subscription.unsubscribe();
+    subscription = null;
+  }
+
   if (!subscription) {
-    const configResponse = await fetch("/api/student/push-subscriptions", {
-      cache: "no-store",
-    });
-    const config = await configResponse.json().catch(() => ({}));
+    try {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "InvalidCharacterError"
+      ) {
+        throw new Error(
+          "คีย์การแจ้งเตือนของระบบไม่ถูกต้อง กรุณาแจ้งผู้ดูแลระบบ",
+        );
+      }
 
-    if (!configResponse.ok || !config.configured || !config.vapidPublicKey) {
-      throw new Error(
-        config.error || "ระบบ Web Push ยังไม่ได้ตั้งค่าคีย์สำหรับการแจ้งเตือน",
-      );
+      throw error;
     }
-
-    subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(config.vapidPublicKey),
-    });
   }
 
   await saveSubscription(subscription);
+  dispatchPushSubscriptionChanged();
 
   return { permission, subscribed: true } as const;
 }

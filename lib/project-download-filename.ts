@@ -5,6 +5,11 @@ type ProjectDownloadFilenameInput = {
   extension: "docx" | "pdf";
 };
 
+type ProjectSummaryDownloadFilenameInput = {
+  projectName?: string | null;
+  extension: "docx" | "pdf";
+};
+
 function sanitizeFilenamePart(value: string) {
   return value
     .replace(/[\u0000-\u001f\u007f]/g, " ")
@@ -20,11 +25,20 @@ export function buildProjectDownloadFilename({
   fallbackCode,
   extension,
 }: ProjectDownloadFilenameInput) {
-  const code = sanitizeFilenamePart(projectCode || String(fallbackCode));
+  const code = sanitizeFilenamePart(projectCode || "");
   const name = sanitizeFilenamePart(projectName || "โครงการ");
   const baseName = [code, name].filter(Boolean).join(" ");
 
   return `${baseName || `project-${fallbackCode}`}.${extension}`;
+}
+
+export function buildProjectSummaryDownloadFilename({
+  projectName,
+  extension,
+}: ProjectSummaryDownloadFilenameInput) {
+  const name = sanitizeFilenamePart(projectName || "โครงการ");
+
+  return `สรุป ${name || "โครงการ"}.${extension}`;
 }
 
 function encodeRFC5987(value: string) {

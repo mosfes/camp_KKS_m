@@ -19,7 +19,13 @@ const LINE_HEIGHT = 21;
 const BLACK = rgb(0, 0, 0);
 
 type Align = "left" | "center" | "right" | "justify" | "thai-distribute";
-type Cell = { text: string; width?: number; align?: Align; bold?: boolean };
+type Cell = {
+  text: string;
+  width?: number;
+  align?: Align;
+  verticalAlign?: "top" | "middle";
+  bold?: boolean;
+};
 type RichRun = { text: string; bold?: boolean };
 
 function clean(value: unknown) {
@@ -529,6 +535,11 @@ export async function createProjectDocumentPdf(document: any) {
           const bold = Boolean(cell.bold || options.totalRow === rowIndex);
           const lineWidth = textWidth(cellLine, size, bold);
           const align = cell.align ?? header.align ?? "left";
+          const blockHeight = allLines[columnIndex].length * lineHeight;
+          const alignedTop =
+            cell.verticalAlign === "middle"
+              ? y + Math.max(paddingY, (rowHeight - blockHeight) / 2)
+              : y + paddingY;
           const alignedX =
             align === "right"
               ? x + width - paddingX - lineWidth
@@ -539,7 +550,7 @@ export async function createProjectDocumentPdf(document: any) {
           drawText(
             cellLine,
             alignedX,
-            y + paddingY + lineIndex * lineHeight,
+            alignedTop + lineIndex * lineHeight,
             size,
             bold,
           );
@@ -814,8 +825,10 @@ export async function createProjectDocumentPdf(document: any) {
       {
         text: clean(row.step).replace(/\s*(\([A-Za-z][^)]*\))\s*$/, "\n$1"),
         bold: true,
+        align: "center",
+        verticalAlign: "middle",
       },
-      { text: row.method },
+      { text: row.method, align: "center", verticalAlign: "middle" },
       { text: row.period, align: "center" },
       { text: money(row.budget, ""), align: "center" },
       { text: row.responsible },

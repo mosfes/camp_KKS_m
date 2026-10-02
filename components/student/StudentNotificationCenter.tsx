@@ -14,6 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import {
+  STUDENT_PUSH_SUBSCRIPTION_CHANGED_EVENT,
   enableStudentWebPush,
   isIosDevice,
   isStandalonePwa,
@@ -43,8 +44,8 @@ type StudentNotification = {
 type NotificationPermissionState = NotificationPermission | "unsupported";
 type PushAvailability = "available" | "ios-install-required" | "unsupported";
 
-const FALLBACK_POLL_INTERVAL_MS = 60_000;
-const PUSH_HEARTBEAT_INTERVAL_MS = 5 * 60_000;
+const FOREGROUND_POLL_INTERVAL_MS = 5_000;
+const NOTIFICATION_REQUEST_TIMEOUT_MS = 8_000;
 const MAX_STORED_IDS = 100;
 
 function parseStoredIds(value: string | null) {
@@ -155,10 +156,16 @@ export function StudentNotificationCenter({
     if (!studentId || !storageKeys || requestInFlightRef.current) return;
 
     requestInFlightRef.current = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(
+      () => controller.abort(),
+      NOTIFICATION_REQUEST_TIMEOUT_MS,
+    );
 
     try {
       const response = await fetch("/api/student/notifications", {
         cache: "no-store",
+        signal: controller.signal,
       });
 
       if (!response.ok) return;
@@ -217,6 +224,7 @@ export function StudentNotificationCenter({
     } catch {
       // Background notification polling must not interrupt the student UI.
     } finally {
+      window.clearTimeout(timeout);
       requestInFlightRef.current = false;
     }
   }, [storageKeys, studentId]);
@@ -247,31 +255,58 @@ export function StudentNotificationCenter({
   }, [studentId]);
 
   useEffect(() => {
+    const handleSubscriptionChanged = () => {
+      setPushAvailability("available");
+      setPermission(Notification.permission);
+      setIsPushSubscribed(true);
+      setPushMessage("");
+    };
+
+    window.addEventListener(
+      STUDENT_PUSH_SUBSCRIPTION_CHANGED_EVENT,
+      handleSubscriptionChanged,
+    );
+
+    return () => {
+      window.removeEventListener(
+        STUDENT_PUSH_SUBSCRIPTION_CHANGED_EVENT,
+        handleSubscriptionChanged,
+      );
+    };
+  }, []);
+
+  useEffect(() => {
     if (!studentId) return;
 
     void fetchNotifications();
 
-    const pollIntervalMs = isPushSubscribed
-      ? PUSH_HEARTBEAT_INTERVAL_MS
-      : FALLBACK_POLL_INTERVAL_MS;
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") {
         void fetchNotifications();
       }
-    }, pollIntervalMs);
+    }, FOREGROUND_POLL_INTERVAL_MS);
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         void fetchNotifications();
       }
     };
+    const handleFocus = () => void fetchNotifications();
+    const handleOnline = () => void fetchNotifications();
+    const handlePageShow = () => void fetchNotifications();
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("pageshow", handlePageShow);
 
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("pageshow", handlePageShow);
     };
-  }, [fetchNotifications, isPushSubscribed, studentId]);
+  }, [fetchNotifications, studentId]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;

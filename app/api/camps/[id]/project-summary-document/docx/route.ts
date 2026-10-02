@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import {
-  buildProjectDownloadFilename,
+  buildProjectSummaryDownloadFilename,
   projectDownloadContentDisposition,
 } from "@/lib/project-download-filename";
 import { createProjectSummaryDocumentDocx } from "@/lib/project-summary-document-docx";
@@ -54,10 +54,8 @@ export async function GET(
         ? camp.project_summary_document.objectives
         : camp.project_document?.objectives || [],
   });
-  const filename = buildProjectDownloadFilename({
-    projectCode: camp.project_summary_document.project_code,
+  const filename = buildProjectSummaryDownloadFilename({
     projectName: camp.project_summary_document.project_name,
-    fallbackCode: campId,
     extension: "docx",
   });
 

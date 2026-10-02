@@ -109,27 +109,6 @@ export async function createProjectSummaryDocumentPdf(document: any) {
       color: BLACK,
     });
   };
-  const splitLongToken = (
-    token: string,
-    maxWidth: number,
-    size: number,
-    bold: boolean,
-  ) => {
-    const chunks: string[] = [];
-    let chunk = "";
-    for (const character of token) {
-      const candidate = chunk + character;
-      if (chunk && textWidth(candidate, size, bold) > maxWidth) {
-        chunks.push(chunk);
-        chunk = character;
-      } else {
-        chunk = candidate;
-      }
-    }
-    if (chunk) chunks.push(chunk);
-
-    return chunks;
-  };
   const wrap = (
     value: string,
     maxWidth: number,
@@ -141,24 +120,43 @@ export async function createProjectSummaryDocumentPdf(document: any) {
       const tokens = paragraph.split(/\s+/).filter(Boolean);
       if (!tokens.length) {
         lines.push("");
+
         continue;
       }
+
       let line = "";
       for (const originalToken of tokens) {
-        const tokenParts =
-          textWidth(originalToken, size, bold) > maxWidth
-            ? splitLongToken(originalToken, maxWidth, size, bold)
-            : [originalToken];
-        for (const token of tokenParts) {
-          const candidate = line ? `${line} ${token}` : token;
+        const tokenWidth = textWidth(originalToken, size, bold);
+        const candidate = line ? `${line} ${originalToken}` : originalToken;
+        const candidateFits = textWidth(candidate, size, bold) <= maxWidth;
+
+        if (tokenWidth <= maxWidth && candidateFits) {
+          line = candidate;
+          continue;
+        }
+
+        const isThaiToken = /[\u0E00-\u0E7F]/.test(originalToken);
+
+        if (tokenWidth <= maxWidth && !isThaiToken) {
+          lines.push(line);
+          line = originalToken;
+          continue;
+        }
+
+        let needsSeparator = Boolean(line);
+        for (const character of originalToken) {
+          const candidate = `${line}${needsSeparator ? " " : ""}${character}`;
+
           if (line && textWidth(candidate, size, bold) > maxWidth) {
             lines.push(line);
-            line = token;
+            line = character;
           } else {
             line = candidate;
           }
+          needsSeparator = false;
         }
       }
+
       if (line) lines.push(line);
     }
 
@@ -802,7 +800,7 @@ export async function createProjectSummaryDocumentPdf(document: any) {
       }
       y += boxHeight + 5;
       if (clean(photo.caption)) {
-        drawWrapped(photo.caption, { size: 13, gap: 5 });
+        centered(photo.caption, 13, false, 5);
       } else {
         y += 8;
       }

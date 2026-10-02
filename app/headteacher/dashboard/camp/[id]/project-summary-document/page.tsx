@@ -11,9 +11,12 @@ import {
   ImagePlus,
   Images,
   LockKeyhole,
+  Pencil,
   Plus,
   RefreshCw,
+  Save,
   Trash2,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { useParams } from "next/navigation";
@@ -23,8 +26,10 @@ import CampBreadcrumb from "../../CampBreadcrumb";
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
 import {
   DocumentStandardsChecklist,
+  type DocumentStandardClause,
   type DocumentStandardIndicator,
   type DocumentStandardOption,
+  documentStandardCode,
   normalizeDocumentStandardOptions,
 } from "@/components/documents/DocumentStandardsChecklist";
 import DocumentTemplatePanel from "@/components/documents/DocumentTemplatePanel";
@@ -255,15 +260,32 @@ function StandardsEditor({
   disabled?: boolean;
 }) {
   const standards = Array.isArray(values) ? values : [];
-  const findStandard = (standard: DocumentStandardOption) =>
-    standards.find((item) => item.title === standard.label);
+  const standardCodeFromTitle = (value: unknown) =>
+    String(value || "").match(/มาตรฐานที่\s*(\d+(?:\.\d+)*)/)?.[1] || "";
+  const findStandard = (standard: DocumentStandardOption) => {
+    const catalogCode = documentStandardCode(standard);
+
+    return standards.find(
+      (item) =>
+        item.title === standard.label ||
+        (catalogCode && standardCodeFromTitle(item.title) === catalogCode),
+    );
+  };
   const findIndicator = (
     standard: DocumentStandardOption,
     indicator: DocumentStandardIndicator,
   ) =>
-    (findStandard(standard)?.subItems || []).find(
-      (item: any) =>
-        item.code === indicator.code && item.title === indicator.label,
+    (findStandard(standard)?.subItems || []).find((item: any) =>
+      indicator.code
+        ? item.code === indicator.code
+        : item.title === indicator.label,
+    );
+  const findClause = (
+    standard: DocumentStandardOption,
+    clause: DocumentStandardClause,
+  ) =>
+    (findStandard(standard)?.subItems || []).find((item: any) =>
+      clause.code ? item.code === clause.code : item.title === clause.label,
     );
 
   const toggleCatalogStandard = (
@@ -271,7 +293,9 @@ function StandardsEditor({
     selected: boolean,
   ) => {
     if (!selected) {
-      onChange(standards.filter((item) => item.title !== standard.label));
+      const currentStandard = findStandard(standard);
+
+      onChange(standards.filter((item) => item !== currentStandard));
 
       return;
     }
@@ -289,21 +313,23 @@ function StandardsEditor({
     }
   };
 
-  const toggleCatalogIndicator = (
+  const toggleCatalogSubItem = (
     standard: DocumentStandardOption,
-    indicator: DocumentStandardIndicator,
+    subItem: { code: string; label: string },
     selected: boolean,
   ) => {
     const currentStandard = findStandard(standard);
     const nextSubItems = (currentStandard?.subItems || []).filter(
       (item: any) =>
-        item.code !== indicator.code || item.title !== indicator.label,
+        subItem.code
+          ? item.code !== subItem.code
+          : item.title !== subItem.label,
     );
 
     if (selected) {
       nextSubItems.push({
-        code: indicator.code,
-        title: indicator.label,
+        code: subItem.code,
+        title: subItem.label,
         relatedItems: "",
         achieved: true,
       });
@@ -329,6 +355,16 @@ function StandardsEditor({
       ]);
     }
   };
+  const toggleCatalogClause = (
+    standard: DocumentStandardOption,
+    clause: DocumentStandardClause,
+    selected: boolean,
+  ) => toggleCatalogSubItem(standard, clause, selected);
+  const toggleCatalogIndicator = (
+    standard: DocumentStandardOption,
+    indicator: DocumentStandardIndicator,
+    selected: boolean,
+  ) => toggleCatalogSubItem(standard, indicator, selected);
 
   return (
     <div className="space-y-4">
@@ -338,11 +374,15 @@ function StandardsEditor({
         </p>
         <DocumentStandardsChecklist
           disabled={disabled}
+          isClauseSelected={(standard, clause) =>
+            Boolean(findClause(standard, clause))
+          }
           isIndicatorSelected={(standard, indicator) =>
             Boolean(findIndicator(standard, indicator))
           }
           isStandardSelected={(standard) => Boolean(findStandard(standard))}
           standards={standardOptions}
+          onToggleClause={toggleCatalogClause}
           onToggleIndicator={toggleCatalogIndicator}
           onToggleStandard={toggleCatalogStandard}
         />
@@ -599,6 +639,11 @@ export default function ProjectSummaryDocumentPage() {
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(true);
   const [photoCaption, setPhotoCaption] = useState("");
+  const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
+  const [editingPhotoCaption, setEditingPhotoCaption] = useState("");
+  const [savingPhotoCaptionId, setSavingPhotoCaptionId] = useState<
+    number | null
+  >(null);
   const [missionPhotoPickerOpen, setMissionPhotoPickerOpen] = useState(false);
   const [missionPhotoSources, setMissionPhotoSources] = useState<any[]>([]);
   const [selectedMissionPhotoIds, setSelectedMissionPhotoIds] = useState<
@@ -612,6 +657,11 @@ export default function ProjectSummaryDocumentPage() {
   >([]);
   const [loadingMissionPhotos, setLoadingMissionPhotos] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const captionInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingPhotoId !== null) captionInputRef.current?.focus();
+  }, [editingPhotoId]);
 
   const loadTemplates = async () => {
     const response = await fetch("/api/project-summary-document-templates");
@@ -1232,6 +1282,48 @@ export default function ProjectSummaryDocumentPage() {
     setSelectedAppendixPhotoIds((current) =>
       current.filter((id) => id !== photoId),
     );
+  };
+
+  const startPhotoCaptionEditing = (photo: any) => {
+    if (readOnly) return;
+    setEditingPhotoId(photo.camp_project_summary_photo_id);
+    setEditingPhotoCaption(String(photo.caption || ""));
+  };
+
+  const cancelPhotoCaptionEditing = () => {
+    setEditingPhotoId(null);
+    setEditingPhotoCaption("");
+  };
+
+  const savePhotoCaption = async (photoId: number) => {
+    setSavingPhotoCaptionId(photoId);
+    try {
+      const response = await fetch(
+        "/api/camps/" + campId + "/project-summary-document/photos/" + photoId,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ caption: editingPhotoCaption }),
+        },
+      );
+      const updatedPhoto = await response.json();
+      if (!response.ok) {
+        throw new Error(updatedPhoto.error || "บันทึกคำบรรยายภาพไม่สำเร็จ");
+      }
+
+      setPhotos((current) =>
+        current.map((photo) =>
+          photo.camp_project_summary_photo_id === photoId
+            ? updatedPhoto
+            : photo,
+        ),
+      );
+      cancelPhotoCaptionEditing();
+    } catch (error: any) {
+      showError("บันทึกคำบรรยายไม่สำเร็จ", error.message);
+    } finally {
+      setSavingPhotoCaptionId(null);
+    }
   };
 
   const toggleAppendixPhotoSelection = (photoId: number) => {
@@ -2627,12 +2719,20 @@ export default function ProjectSummaryDocumentPage() {
                       key={photoId}
                     >
                       <button
-                        aria-label={`${selected ? "ยกเลิกการเลือก" : "เลือก"}รูป ${index + 1}`}
-                        aria-pressed={selected}
-                        className="block w-full"
+                        aria-label={
+                          photo.caption
+                            ? `${selected ? "ยกเลิกการเลือก" : "เลือก"}รูป ${index + 1}`
+                            : `เพิ่มคำบรรยายรูป ${index + 1}`
+                        }
+                        aria-pressed={photo.caption ? selected : undefined}
+                        className="group relative block w-full"
                         disabled={readOnly}
                         type="button"
-                        onClick={() => toggleAppendixPhotoSelection(photoId)}
+                        onClick={() =>
+                          photo.caption
+                            ? toggleAppendixPhotoSelection(photoId)
+                            : startPhotoCaptionEditing(photo)
+                        }
                       >
                         <Image
                           alt={photo.caption || "ภาพกิจกรรม " + (index + 1)}
@@ -2657,18 +2757,73 @@ export default function ProjectSummaryDocumentPage() {
                       >
                         <Check size={17} strokeWidth={3} />
                       </button>
-                      <div className="flex items-center justify-between gap-2 p-3">
-                        <span className="text-sm text-gray-600">
-                          {photo.caption || "ไม่มีคำบรรยาย"}
-                        </span>
-                        <button
-                          className="text-xs text-red-500"
-                          disabled={readOnly}
-                          type="button"
-                          onClick={() => deletePhoto(photoId)}
-                        >
-                          ลบ
-                        </button>
+                      <div className="p-3">
+                        {editingPhotoId === photoId ? (
+                          <form
+                            className="flex items-center gap-2"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              void savePhotoCaption(photoId);
+                            }}
+                          >
+                            <input
+                              ref={captionInputRef}
+                              aria-label={`คำบรรยายรูป ${index + 1}`}
+                              className={inputClass + " min-w-0 flex-1"}
+                              disabled={savingPhotoCaptionId === photoId}
+                              maxLength={500}
+                              placeholder="ใส่คำบรรยายภาพ"
+                              value={editingPhotoCaption}
+                              onChange={(event) =>
+                                setEditingPhotoCaption(event.target.value)
+                              }
+                            />
+                            <button
+                              aria-label="บันทึกคำบรรยาย"
+                              className="rounded-lg bg-[#5d7c6f] p-2 text-white disabled:opacity-50"
+                              disabled={savingPhotoCaptionId === photoId}
+                              type="submit"
+                            >
+                              <Save size={16} />
+                            </button>
+                            <button
+                              aria-label="ยกเลิกแก้ไขคำบรรยาย"
+                              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-50"
+                              disabled={savingPhotoCaptionId === photoId}
+                              type="button"
+                              onClick={cancelPhotoCaptionEditing}
+                            >
+                              <X size={16} />
+                            </button>
+                          </form>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2">
+                            <button
+                              aria-label={`${photo.caption ? "แก้ไข" : "เพิ่ม"}คำบรรยายรูป ${index + 1}`}
+                              className={`flex items-center gap-2 text-sm text-gray-600 hover:text-[#4d685e] disabled:cursor-default disabled:hover:text-gray-600 ${
+                                photo.caption ? "min-w-0 flex-1 text-left" : "ml-auto"
+                              }`}
+                              disabled={readOnly}
+                              type="button"
+                              onClick={() => startPhotoCaptionEditing(photo)}
+                            >
+                              {photo.caption ? (
+                                <span className="min-w-0 flex-1 truncate">
+                                  {photo.caption}
+                                </span>
+                              ) : null}
+                              <Pencil className="shrink-0" size={14} />
+                            </button>
+                            <button
+                              className="text-xs text-red-500"
+                              disabled={readOnly}
+                              type="button"
+                              onClick={() => deletePhoto(photoId)}
+                            >
+                              ลบ
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

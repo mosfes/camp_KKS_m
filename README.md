@@ -9,9 +9,9 @@ notification even when the application is not currently open. The existing
 in-app popup remains the fallback while the application is open.
 
 While a student page is open, an incoming Web Push message also triggers an
-immediate bus-status refresh. Notification polling is only a fallback: once
-Push is subscribed it runs every five minutes, otherwise every minute, and it
-pauses while the page is hidden. Bus status uses a one-minute idle interval and
+immediate bus-status refresh. While a student page is visible, notification
+polling also runs every five seconds as a reliable in-app fallback and pauses
+while the page is hidden. Bus status uses a one-minute idle interval and
 temporarily increases to every 15 seconds while a reminder is active.
 
 Generate one VAPID key pair and keep it stable across deployments:

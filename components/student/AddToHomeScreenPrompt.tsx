@@ -11,6 +11,7 @@ import { Download, MoreVertical, Share, SquarePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
+  KKS_PWA_INSTALLED_EVENT,
   isAndroidDevice,
   isIosDevice,
   isStandalonePwa,
@@ -62,6 +63,7 @@ export function AddToHomeScreenPrompt() {
     const handleAppInstalled = () => {
       setInstallEvent(null);
       setPlatform(null);
+      window.dispatchEvent(new Event(KKS_PWA_INSTALLED_EVENT));
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);

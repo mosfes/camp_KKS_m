@@ -16,6 +16,7 @@ import { useClerk } from "@clerk/nextjs";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { AddToHomeScreenPrompt } from "@/components/student/AddToHomeScreenPrompt";
 import { StudentNotificationCenter } from "@/components/student/StudentNotificationCenter";
+import { StudentPushPermissionPrompt } from "@/components/student/StudentPushPermissionPrompt";
 import { disconnectCurrentStudentPushSubscription } from "@/lib/client-web-push";
 
 export function AppNavbar() {
@@ -70,6 +71,7 @@ export function AppNavbar() {
   return (
     <>
       <AddToHomeScreenPrompt />
+      <StudentPushPermissionPrompt studentId={student?.students_id ?? null} />
       <Navbar
         className="bg-white border-b border-gray-200"
         classNames={{

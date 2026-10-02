@@ -8,7 +8,7 @@ import {
   clean,
   imageParagraph,
   list,
-  makeDocument,
+  makeDocumentWithSections,
   money,
   numberedParagraphs,
   pageBreak,
@@ -288,7 +288,9 @@ export async function createProjectSummaryDocumentDocx(document: any) {
     pdfMatchedHeading("12", "การประเมินโครงการ"),
   );
   if (clean(document.evaluation_summary))
-    children.push(paragraph(document.evaluation_summary, { indent: 360 }));
+    children.push(
+      paragraph(document.evaluation_summary, { firstLineIndent: 360 }),
+    );
   children.push(
     table(
       [
@@ -383,7 +385,7 @@ export async function createProjectSummaryDocumentDocx(document: any) {
     richParagraph([
       { text: "คำชี้แจง  ", bold: true },
       {
-        text: "โปรดทำเครื่องหมาย (√) หน้าหัวข้อที่กำหนดให้ถูกต้อง และให้เหตุผลในหัวข้อที่ระบุไว้",
+        text: "โปรดทำเครื่องหมาย (☑) หน้าหัวข้อที่กำหนดให้ถูกต้อง และให้เหตุผลในหัวข้อที่ระบุไว้",
       },
     ]),
   );
@@ -488,10 +490,13 @@ export async function createProjectSummaryDocumentDocx(document: any) {
     pageBreak(),
     paragraph(
       "12. โครงการนี้มีความสอดคล้องกับบริบทโรงเรียน และเมื่อพิจารณาถึงประสิทธิภาพและประสิทธิผลในการดำเนินการของโครงการนี้ในปีการศึกษาต่อไปหรือไม่ เพราะเหตุใด",
+      { wordWrap: true, language: "th-TH" },
     ),
     paragraph(clean(document.continuation_reason) || "-", {
-      indent: 360,
+      firstLineIndent: 360,
       spaceAfter: 300,
+      wordWrap: true,
+      language: "th-TH",
     }),
   );
 
@@ -523,20 +528,20 @@ export async function createProjectSummaryDocumentDocx(document: any) {
     );
   });
 
-  children.push(
-    pageBreak(),
+  const appendixTitleChildren = [
     paragraph("ภาคผนวก", {
       bold: true,
       size: 50,
       align: AlignmentType.CENTER,
-      spaceBefore: 3800,
+      spaceBefore: 7000,
     }),
-    pageBreak(),
+  ];
+  const montageTitleChildren = [
     paragraph("ประมวลภาพ", {
       bold: true,
       size: 42,
       align: AlignmentType.CENTER,
-      spaceBefore: 2400,
+      spaceBefore: 6500,
       spaceAfter: 160,
     }),
     paragraph("ประกอบการดำเนินกิจกรรม", {
@@ -544,8 +549,8 @@ export async function createProjectSummaryDocumentDocx(document: any) {
       size: 42,
       align: AlignmentType.CENTER,
     }),
-    pageBreak(),
-  );
+  ];
+  const photoChildren: Array<Paragraph | Table> = [];
 
   const photos = list(document.photos);
 
@@ -560,11 +565,11 @@ export async function createProjectSummaryDocumentDocx(document: any) {
       const info = imageInfo(data, response.headers.get("content-type"));
       const dimensions = scaledImage(info.width, info.height);
 
-      children.push(
+      photoChildren.push(
         imageParagraph(data, info.type, dimensions.width, dimensions.height),
       );
     } catch {
-      children.push(
+      photoChildren.push(
         paragraph("ไม่สามารถแสดงรูปภาพนี้ได้", {
           align: AlignmentType.CENTER,
           spaceBefore: 1000,
@@ -573,18 +578,25 @@ export async function createProjectSummaryDocumentDocx(document: any) {
       );
     }
     if (clean(photo.caption))
-      children.push(
+      photoChildren.push(
         paragraph(photo.caption, {
           align: AlignmentType.CENTER,
           spaceAfter: 180,
         }),
       );
     if (index % 2 === 1 && index < photos.length - 1)
-      children.push(pageBreak());
+      photoChildren.push(pageBreak());
   }
 
-  const file = makeDocument(
-    children,
+  const sections = [
+    { children },
+    { children: appendixTitleChildren },
+    { children: montageTitleChildren },
+  ];
+  if (photoChildren.length) sections.push({ children: photoChildren });
+
+  const file = makeDocumentWithSections(
+    sections,
     `รายงานการดำเนินโครงการ ${clean(document.project_name)}`,
   );
 

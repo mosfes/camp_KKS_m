@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   documentIndicatorText,
+  documentStandardClauses,
   formatStandardReferenceSelection,
   normalizeDocumentStandardOptions,
   readStandardReferenceSelection,
@@ -48,6 +49,41 @@ test("normalizes active standard options and their indicators", () => {
         },
       ],
     },
+  ]);
+});
+
+test("exposes each indicator clause once so summary documents can select it", () => {
+  const [standard] = normalizeDocumentStandardOptions([
+    {
+      document_reference_option_id: 1,
+      category: "STANDARD",
+      label: "มาตรฐานที่ 1 คุณภาพของผู้เรียน",
+      indicators: [
+        {
+          code: "1.1.1",
+          label: "การอ่านและการเขียน",
+          clauseCode: "1.1",
+          clauseLabel: "ผลสัมฤทธิ์ทางวิชาการของผู้เรียน",
+        },
+        {
+          code: "1.1.2",
+          label: "การคิดวิเคราะห์",
+          clauseCode: "1.1",
+          clauseLabel: "ผลสัมฤทธิ์ทางวิชาการของผู้เรียน",
+        },
+        {
+          code: "1.2.1",
+          label: "คุณลักษณะและค่านิยมที่ดี",
+          clauseCode: "1.2",
+          clauseLabel: "คุณลักษณะที่พึงประสงค์ของผู้เรียน",
+        },
+      ],
+    },
+  ]);
+
+  assert.deepEqual(documentStandardClauses(standard), [
+    { code: "1.1", label: "ผลสัมฤทธิ์ทางวิชาการของผู้เรียน" },
+    { code: "1.2", label: "คุณลักษณะที่พึงประสงค์ของผู้เรียน" },
   ]);
 });
 

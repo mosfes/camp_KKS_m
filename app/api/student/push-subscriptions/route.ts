@@ -49,7 +49,7 @@ export async function GET() {
       vapidPublicKey,
       error: vapidPublicKey
         ? null
-        : "ระบบ Web Push ยังไม่ได้ตั้งค่า VAPID keys",
+        : "การตั้งค่า Web Push ไม่ถูกต้อง กรุณาตรวจสอบ VAPID key pair",
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   }
   if (!isWebPushConfigured()) {
     return NextResponse.json(
-      { error: "ระบบ Web Push ยังไม่ได้ตั้งค่า VAPID keys" },
+      { error: "การตั้งค่า Web Push ไม่ถูกต้อง กรุณาตรวจสอบ VAPID key pair" },
       { status: 503 },
     );
   }

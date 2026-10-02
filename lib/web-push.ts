@@ -1,7 +1,14 @@
+import { createECDH } from "node:crypto";
+
 import webPush from "web-push";
 
 import { getBusReminderContent } from "@/lib/camp-bus-reminder";
 import { prisma } from "@/lib/db";
+import {
+  normalizeEnvironmentUrl,
+  normalizeVapidPrivateKey,
+  normalizeVapidPublicKey,
+} from "@/lib/vapid-key";
 
 type BusPushInput = {
   action: "board" | "alight";
@@ -19,12 +26,16 @@ type WebPushConfig = {
 };
 
 function getWebPushConfig(): WebPushConfig | null {
-  const publicKey = process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY?.trim();
-  const privateKey = process.env.WEB_PUSH_VAPID_PRIVATE_KEY?.trim();
+  const publicKey = normalizeVapidPublicKey(
+    process.env.NEXT_PUBLIC_WEB_PUSH_VAPID_PUBLIC_KEY,
+  );
+  const privateKey = normalizeVapidPrivateKey(
+    process.env.WEB_PUSH_VAPID_PRIVATE_KEY,
+  );
   const subject =
-    process.env.WEB_PUSH_VAPID_SUBJECT?.trim() ||
-    process.env.CAMP_APP_URL?.trim() ||
-    process.env.NEXT_PUBLIC_APP_URL?.trim();
+    normalizeEnvironmentUrl(process.env.WEB_PUSH_VAPID_SUBJECT) ||
+    normalizeEnvironmentUrl(process.env.CAMP_APP_URL) ||
+    normalizeEnvironmentUrl(process.env.NEXT_PUBLIC_APP_URL);
 
   if (
     !publicKey ||
@@ -32,6 +43,16 @@ function getWebPushConfig(): WebPushConfig | null {
     !subject ||
     (!subject.startsWith("mailto:") && !subject.startsWith("https://"))
   ) {
+    return null;
+  }
+
+  try {
+    const keyPair = createECDH("prime256v1");
+
+    keyPair.setPrivateKey(privateKey, "base64url");
+
+    if (keyPair.getPublicKey().toString("base64url") !== publicKey) return null;
+  } catch {
     return null;
   }
 

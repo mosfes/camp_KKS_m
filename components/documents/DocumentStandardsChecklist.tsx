@@ -7,6 +7,11 @@ export type DocumentStandardIndicator = {
   clauseLabel?: string;
 };
 
+export type DocumentStandardClause = {
+  code: string;
+  label: string;
+};
+
 export type DocumentStandardOption = {
   document_reference_option_id: number;
   label: string;
@@ -53,6 +58,20 @@ export function normalizeDocumentStandardOptions(
 
 export function documentIndicatorText(indicator: DocumentStandardIndicator) {
   return [indicator.code, indicator.label].filter(Boolean).join(" ");
+}
+
+export function documentStandardClauses(
+  standard: DocumentStandardOption,
+): DocumentStandardClause[] {
+  const clauses = new Map<string, DocumentStandardClause>();
+
+  for (const indicator of standard.indicators) {
+    const code = clean(indicator.clauseCode);
+    if (!code || clauses.has(code)) continue;
+    clauses.set(code, { code, label: clean(indicator.clauseLabel) });
+  }
+
+  return Array.from(clauses.values());
 }
 
 export function documentStandardCode(standard: DocumentStandardOption) {
@@ -215,13 +234,19 @@ export function updateStandardReferenceText(
 export function DocumentStandardsChecklist({
   standards,
   disabled,
+  isClauseSelected,
   isStandardSelected,
   isIndicatorSelected,
+  onToggleClause,
   onToggleStandard,
   onToggleIndicator,
 }: {
   standards: DocumentStandardOption[];
   disabled?: boolean;
+  isClauseSelected?: (
+    standard: DocumentStandardOption,
+    clause: DocumentStandardClause,
+  ) => boolean;
   isStandardSelected: (standard: DocumentStandardOption) => boolean;
   isIndicatorSelected: (
     standard: DocumentStandardOption,
@@ -229,6 +254,11 @@ export function DocumentStandardsChecklist({
   ) => boolean;
   onToggleStandard: (
     standard: DocumentStandardOption,
+    selected: boolean,
+  ) => void;
+  onToggleClause?: (
+    standard: DocumentStandardOption,
+    clause: DocumentStandardClause,
     selected: boolean,
   ) => void;
   onToggleIndicator: (
@@ -274,15 +304,42 @@ export function DocumentStandardsChecklist({
                 const showClause =
                   indicator.clauseCode &&
                   indicator.clauseCode !== previousClause;
+                const clause = {
+                  code: clean(indicator.clauseCode),
+                  label: clean(indicator.clauseLabel),
+                };
 
                 return (
                   <div key={`${indicator.code}-${indicator.label}-${index}`}>
                     {showClause ? (
-                      <p className="mb-2 mt-3 text-sm font-medium text-gray-700 first:mt-0">
-                        {[indicator.clauseCode, indicator.clauseLabel]
-                          .filter(Boolean)
-                          .join(" ")}
-                      </p>
+                      isClauseSelected && onToggleClause ? (
+                        <label className="mb-2 mt-3 flex cursor-pointer items-start gap-3 text-sm font-medium text-gray-700 first:mt-0">
+                          <input
+                            checked={isClauseSelected(standard, clause)}
+                            className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
+                            disabled={disabled}
+                            type="checkbox"
+                            onChange={(event) =>
+                              onToggleClause(
+                                standard,
+                                clause,
+                                event.target.checked,
+                              )
+                            }
+                          />
+                          <span>
+                            {[clause.code, clause.label]
+                              .filter(Boolean)
+                              .join(" ")}
+                          </span>
+                        </label>
+                      ) : (
+                        <p className="mb-2 mt-3 text-sm font-medium text-gray-700 first:mt-0">
+                          {[clause.code, clause.label]
+                            .filter(Boolean)
+                            .join(" ")}
+                        </p>
+                      )
                     ) : null}
                     <label className="flex cursor-pointer items-start gap-3 text-sm text-gray-600">
                       <input

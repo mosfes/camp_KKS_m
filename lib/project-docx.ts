@@ -5,6 +5,7 @@ import {
   ImageRun,
   PageBreak,
   Paragraph,
+  SectionType,
   Table,
   TableCell,
   TableLayoutType,
@@ -62,6 +63,7 @@ export function textRuns(
     size?: number;
     italics?: boolean;
     preserveWhitespace?: boolean;
+    language?: string;
   } = {},
 ) {
   const text = options.preserveWhitespace
@@ -77,7 +79,16 @@ export function textRuns(
         bold: options.bold,
         italics: options.italics,
         size: options.size ?? BODY_SIZE,
-        font: DOCX_FONT_FAMILY,
+        font: options.language
+          ? { ...DOCX_FONT_FAMILY, hint: "cs" }
+          : DOCX_FONT_FAMILY,
+        language: options.language
+          ? {
+              value: options.language,
+              eastAsia: options.language,
+              bidirectional: options.language,
+            }
+          : undefined,
         sizeComplexScript: options.size ?? BODY_SIZE,
         color: "000000",
       }),
@@ -96,10 +107,16 @@ export function paragraph(
     spaceAfter?: number;
     keepNext?: boolean;
     pageBreakBefore?: boolean;
+    wordWrap?: boolean;
+    language?: string;
   } = {},
 ) {
   return new Paragraph({
-    children: textRuns(value, { bold: options.bold, size: options.size }),
+    children: textRuns(value, {
+      bold: options.bold,
+      size: options.size,
+      language: options.language,
+    }),
     alignment: options.align,
     indent:
       options.indent || options.firstLineIndent
@@ -115,6 +132,7 @@ export function paragraph(
     },
     keepNext: options.keepNext,
     pageBreakBefore: options.pageBreakBefore,
+    wordWrap: options.wordWrap,
   });
 }
 
@@ -271,6 +289,13 @@ export function makeDocument(
   children: Array<Paragraph | Table>,
   titleText: string,
 ) {
+  return makeDocumentWithSections([{ children }], titleText);
+}
+
+export function makeDocumentWithSections(
+  sections: Array<{ children: Array<Paragraph | Table> }>,
+  titleText: string,
+) {
   return new Document({
     creator: "โรงเรียนขุขันธ์",
     title: titleText,
@@ -290,21 +315,21 @@ export function makeDocument(
         },
       },
     },
-    sections: [
-      {
-        properties: {
-          page: {
-            size: { width: PAGE_WIDTH, height: PAGE_HEIGHT },
-            margin: {
-              top: PAGE_MARGIN,
-              bottom: PAGE_MARGIN,
-              left: PAGE_MARGIN,
-              right: PAGE_MARGIN,
-            },
+    sections: sections.map((section, index) => ({
+      properties: {
+        type:
+          index < sections.length - 1 ? SectionType.NEXT_PAGE : undefined,
+        page: {
+          size: { width: PAGE_WIDTH, height: PAGE_HEIGHT },
+          margin: {
+            top: PAGE_MARGIN,
+            bottom: PAGE_MARGIN,
+            left: PAGE_MARGIN,
+            right: PAGE_MARGIN,
           },
         },
-        children,
       },
-    ],
+      children: section.children,
+    })),
   });
 }
