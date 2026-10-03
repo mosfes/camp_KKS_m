@@ -9,10 +9,7 @@ import {
 
 export default function ProfileLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="min-h-screen bg-[#f5f5f2]"
-      style={{ fontFamily: 'Arial, "Noto Sans Thai", Tahoma, sans-serif' }}
-    >
+    <div className="min-h-screen bg-[#f5f5f2] font-sans">
       <Suspense fallback={<StudentNavbarFallback />}>
         <StudentNavbarServer />
       </Suspense>

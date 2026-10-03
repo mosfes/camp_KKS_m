@@ -8,11 +8,10 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    // Bypass Vercel's image optimizer (quota-limited on the free plan) and
-    // let Cloudinary resize/compress via URL transformations instead.
-    loader: "custom",
-    loaderFile: "./lib/cloudinary-image-loader.ts",
+    // Use Next.js/Vercel Image Optimization for responsive Cloudinary images.
+    // A long TTL keeps repeat transformations and Vercel image usage low.
     deviceSizes: [384, 480, 640, 750, 828, 1080, 1200, 1920],
+    minimumCacheTTL: 60 * 60 * 24 * 30,
     remotePatterns: [
       {
         protocol: "https",

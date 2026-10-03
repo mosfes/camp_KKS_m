@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  Children,
-  isValidElement,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactElement,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Card, CardBody } from "@heroui/card";
+import { Tab, Tabs } from "@heroui/tabs";
 import {
   Modal,
   ModalBody,
@@ -115,83 +108,6 @@ const formatBusSeat = (assignment: any) => {
   return `${floorLabel}${position.label} · ${getBusSeatSideLabel(position.label, position.seatIndex)}`;
 };
 
-function CampTab({
-  children,
-}: {
-  tabKey: string;
-  title: ReactNode;
-  children: ReactNode;
-}) {
-  return children;
-}
-
-function CampTabs({
-  activeKey,
-  children,
-  onSelectionChange,
-}: {
-  activeKey: string;
-  children: ReactNode;
-  onSelectionChange: (key: string) => void;
-}) {
-  const tabs = Children.toArray(children).filter(
-    (
-      child,
-    ): child is ReactElement<{
-      tabKey: string;
-      title: ReactNode;
-      children: ReactNode;
-    }> => isValidElement(child),
-  );
-  const activeTab =
-    tabs.find((tab) => tab.props.tabKey === activeKey) ?? tabs[0];
-
-  return (
-    <>
-      <div
-        aria-label="ตัวเลือกค่าย"
-        className="flex w-full gap-6 overflow-x-auto border-b border-gray-200/80"
-        role="tablist"
-      >
-        {tabs.map((tab) => {
-          const selected = tab.props.tabKey === activeKey;
-
-          return (
-            <button
-              key={tab.props.tabKey}
-              aria-controls={`camp-panel-${tab.props.tabKey}`}
-              aria-selected={selected}
-              className={`relative flex h-12 shrink-0 items-center px-1 text-sm font-semibold transition-colors sm:text-base ${
-                selected
-                  ? "text-[#5d7c6f]"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-              id={`camp-tab-${tab.props.tabKey}`}
-              role="tab"
-              type="button"
-              onClick={() => onSelectionChange(tab.props.tabKey)}
-            >
-              {tab.props.title}
-              {selected && (
-                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-[#5d7c6f]" />
-              )}
-            </button>
-          );
-        })}
-      </div>
-      {activeTab && (
-        <div
-          aria-labelledby={`camp-tab-${activeTab.props.tabKey}`}
-          id={`camp-panel-${activeTab.props.tabKey}`}
-          role="tabpanel"
-        >
-          {activeTab.props.children}
-        </div>
-      )}
-    </>
-  );
-}
-
 export default function StudentDashboard({
   initialCamps,
   initialStudent,
@@ -219,7 +135,6 @@ export default function StudentDashboard({
     useState<any>(null);
   const [navigatingTo, setNavigatingTo] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [selectedCampTab, setSelectedCampTab] = useState<string | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(
     Boolean(initialStudent && !initialStudent.nickname?.trim()),
   );
@@ -533,7 +448,6 @@ export default function StudentDashboard({
   }
 
   const defaultCampTab = availableCamps.length > 0 ? "available" : "mycamps";
-  const activeCampTab = selectedCampTab ?? defaultCampTab;
 
   const uniqueYears = Array.from(
     new Set(camps.map((c: any) => c.academicYear).filter(Boolean)),
@@ -930,13 +844,22 @@ export default function StudentDashboard({
 
         {/* Camp Tabs Section */}
         <div className="space-y-4">
-          <CampTabs
-            activeKey={activeCampTab}
-            onSelectionChange={setSelectedCampTab}
+          <Tabs
+            aria-label="Camp Options"
+            classNames={{
+              tabList: "gap-6 w-full border-b border-gray-200/80 p-0",
+              cursor: "w-full bg-[#5d7c6f] h-[2px]",
+              tab: "max-w-fit px-1 h-12 justify-start",
+              tabContent:
+                "group-data-[selected=true]:text-[#5d7c6f] font-semibold text-sm sm:text-base text-gray-500",
+            }}
+            color="primary"
+            defaultSelectedKey={defaultCampTab}
+            variant="underlined"
           >
             {/* ----- Tab 1: Available ----- */}
-            <CampTab
-              tabKey="available"
+            <Tab
+              key="available"
               title={
                 <div className="flex items-center gap-2 whitespace-nowrap">
                   <span>ค่ายที่เปิดรับสมัคร</span>
@@ -973,11 +896,11 @@ export default function StudentDashboard({
                   </div>
                 )}
               </div>
-            </CampTab>
+            </Tab>
 
             {/* ----- Tab 2: My Camps ----- */}
-            <CampTab
-              tabKey="mycamps"
+            <Tab
+              key="mycamps"
               title={
                 <div className="flex items-center gap-2 whitespace-nowrap">
                   <span>ค่ายของฉัน</span>
@@ -1015,11 +938,11 @@ export default function StudentDashboard({
                   </div>
                 )}
               </div>
-            </CampTab>
+            </Tab>
 
             {/* ----- Tab 3: Ended ----- */}
-            <CampTab
-              tabKey="ended"
+            <Tab
+              key="ended"
               title={
                 <div className="flex items-center gap-2 whitespace-nowrap">
                   <span>ประวัติค่าย</span>
@@ -1083,8 +1006,8 @@ export default function StudentDashboard({
                   </div>
                 )}
               </div>
-            </CampTab>
-          </CampTabs>
+            </Tab>
+          </Tabs>
         </div>
       </div>
     </div>
@@ -1127,17 +1050,16 @@ function CampCard({
   }
 
   return (
-    <button
-      className={`relative block w-full border border-gray-200/70 text-left shadow-sm hover:shadow-xl transition-all duration-300 bg-white rounded-2xl overflow-hidden group flex flex-col h-full disabled:text-inherit ${
+    <Card
+      className={`border border-gray-200/70 shadow-sm hover:shadow-xl transition-all duration-300 bg-white rounded-2xl overflow-hidden group flex flex-col h-full ${
         navigatingTo === camp.id
           ? "scale-[0.98] opacity-60"
           : "hover:-translate-y-1"
       } ${
         isEnded ? "grayscale-[0.35] opacity-90" : ""
       } ${isUpcomingRegis ? "cursor-not-allowed" : ""}`}
-      disabled={navigatingTo !== null || Boolean(isUpcomingRegis)}
-      type="button"
-      onClick={onPress}
+      isPressable={navigatingTo === null && !isUpcomingRegis}
+      onPress={isUpcomingRegis ? undefined : onPress}
     >
       {isUpcomingRegis && (
         <div className="absolute inset-0 z-20 bg-gray-900/65 backdrop-blur-[3px] flex flex-col items-center justify-center text-white p-6 text-center">
@@ -1158,7 +1080,7 @@ function CampCard({
       )}
 
       {/* Cover Image */}
-      <div className="relative hidden w-full shrink-0 overflow-hidden bg-gray-100 sm:block sm:aspect-[16/9]">
+      <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden bg-gray-100">
         {camp.img_camp_url ? (
           <Image
             fill
@@ -1198,17 +1120,8 @@ function CampCard({
       </div>
 
       {/* Card Content */}
-      <div className="flex flex-1 flex-col justify-between gap-3 p-4 sm:p-5">
+      <CardBody className="flex flex-1 flex-col justify-between gap-3 p-4 sm:p-5">
         <div className="space-y-2">
-          <span className="inline-flex rounded-full bg-[#e8f0ee] px-2.5 py-1 text-[10px] font-semibold text-[#3d6357] sm:hidden">
-            {isEnded
-              ? "ค่ายจบแล้ว"
-              : camp.isRegistered
-                ? "ลงทะเบียนแล้ว"
-                : isUpcomingRegis
-                  ? countdownText
-                  : "เปิดรับสมัคร"}
-          </span>
           <h3 className="font-bold text-base text-gray-800 line-clamp-2 leading-snug group-hover:text-[#5d7c6f] transition-colors min-h-[2.75rem]">
             {camp.title}
           </h3>
@@ -1240,8 +1153,8 @@ function CampCard({
             {isEnded ? <History size={14} /> : <ChevronRight size={14} />}
           </div>
         </div>
-      </div>
-    </button>
+      </CardBody>
+    </Card>
   );
 }
 

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     title: "KKS Camp",
   },
   icons: {
-    icon: "/icons/favicon-64.png",
+    icon: "/images/logoKKS.png",
     apple: "/apple-icon.png",
   },
 };

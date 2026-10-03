@@ -31,10 +31,21 @@ export function AppNavbar({
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await disconnectCurrentStudentPushSubscription();
-      await fetch("/api/auth/student/logout", { method: "POST" });
+      await Promise.race([
+        disconnectCurrentStudentPushSubscription(),
+        new Promise((resolve) => window.setTimeout(resolve, 1_500)),
+      ]);
     } catch {}
-    window.location.href = "/";
+    try {
+      await Promise.race([
+        fetch("/api/auth/student/logout", { method: "POST" }),
+        new Promise((resolve) => window.setTimeout(resolve, 3_000)),
+      ]);
+    } finally {
+      // Clerk is intentionally not loaded on student routes. Complete its
+      // client-side sign-out on a tiny route that is inside ClerkProvider.
+      window.location.replace("/logout/student");
+    }
   };
 
   const displayName = student

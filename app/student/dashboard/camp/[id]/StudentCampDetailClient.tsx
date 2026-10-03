@@ -840,7 +840,7 @@ export default function StudentCampDetailPage({
       className={`student-camp-page min-h-screen bg-[#F5F5F3] transition-[padding] duration-300 pb-28 lg:pb-16`}
     >
       {/* Hero Section */}
-      <div className="relative h-44 overflow-hidden bg-gray-200 sm:h-80 lg:h-96">
+      <div className="relative h-64 overflow-hidden bg-gray-200 sm:h-80 lg:h-96">
         {camp.img_camp_url ? (
           <Image
             fill
@@ -870,7 +870,7 @@ export default function StudentCampDetailPage({
         </div>
       </div>
 
-      <div className="relative z-20 mx-auto -mt-10 max-w-6xl px-4 sm:-mt-16 sm:px-6 lg:px-8">
+      <div className="relative z-20 mx-auto -mt-14 max-w-6xl px-4 sm:-mt-16 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Main Content Column (8 cols on desktop) */}
           <div className="lg:col-span-8 space-y-6">
