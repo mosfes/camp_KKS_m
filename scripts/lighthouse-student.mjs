@@ -26,6 +26,7 @@ const METRIC_IDS = [
   "cumulative-layout-shift",
   "speed-index",
 ];
+const AUTH_COOKIE_FILE = "auth-cookies.json";
 
 function parseArgs(argv) {
   const options = {
@@ -143,6 +144,37 @@ function routeSlug(name) {
     .toLowerCase();
 }
 
+function authCookiePath(options) {
+  return path.join(options.profileDir, AUTH_COOKIE_FILE);
+}
+
+async function saveAuthCookies(page, options) {
+  const cookies = await page.cookies(options.baseUrl);
+  const cookieFile = authCookiePath(options);
+
+  await fs.writeFile(cookieFile, JSON.stringify(cookies, null, 2), {
+    mode: 0o600,
+  });
+  await fs.chmod(cookieFile, 0o600);
+}
+
+async function restoreAuthCookies(page, options) {
+  try {
+    const serialized = await fs.readFile(authCookiePath(options), "utf8");
+    const now = Date.now() / 1_000;
+    const cookies = JSON.parse(serialized).filter(
+      (cookie) =>
+        cookie?.name && (cookie.expires === -1 || cookie.expires > now),
+    );
+
+    if (cookies.length > 0) {
+      await page.setCookie(...cookies);
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
+
 function getLowAudits(lhr, categoryKey, limit = 5) {
   const category = lhr.categories[categoryKey];
   if (!category) return [];
@@ -243,6 +275,7 @@ async function setupAuth(options) {
       );
     }
 
+    await saveAuthCookies(page, options);
     console.log(`บันทึก session นักเรียนแล้วที่ ${options.profileDir}`);
   } finally {
     await browser.disconnect();
@@ -454,6 +487,8 @@ async function runAudits(options) {
 
   try {
     const discoveryPage = await browser.newPage();
+
+    await restoreAuthCookies(discoveryPage, options);
 
     // CI/local preview can provide the app's signed student cookie without an
     // interactive login. The value is intentionally accepted only via env so

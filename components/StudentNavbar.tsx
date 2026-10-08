@@ -29,6 +29,8 @@ export function AppNavbar({
   const student = initialStudent;
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
+
     setIsLoggingOut(true);
     try {
       await Promise.race([
@@ -36,16 +38,11 @@ export function AppNavbar({
         new Promise((resolve) => window.setTimeout(resolve, 1_500)),
       ]);
     } catch {}
-    try {
-      await Promise.race([
-        fetch("/api/auth/student/logout", { method: "POST" }),
-        new Promise((resolve) => window.setTimeout(resolve, 3_000)),
-      ]);
-    } finally {
-      // Clerk is intentionally not loaded on student routes. Complete its
-      // client-side sign-out on a tiny route that is inside ClerkProvider.
-      window.location.replace("/logout/student");
-    }
+
+    // Keep the cookie and Clerk sign-out work on a dedicated page. Navigating
+    // there first prevents Vercel cold starts from racing against this page
+    // being unloaded and aborting the logout request.
+    window.location.assign("/logout/student");
   };
 
   const displayName = student
@@ -133,7 +130,8 @@ export function AppNavbar({
                   ตั้งค่าโปรไฟล์
                 </button>
                 <button
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-60"
+                  disabled={isLoggingOut}
                   type="button"
                   onClick={() => void handleLogout()}
                 >

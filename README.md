@@ -42,15 +42,16 @@ the private VAPID key to source control.
 
 ## Camp reminder emails with Resend
 
-The production app sends two transactional reminders. Seven days before a
+The production app sends three transactional reminders. Seven days before a
 camp, eligible students who have not joined yet receive an invitation. Three
 days before the camp, confirmed students and camp staff receive a preparation
-reminder. The job reads the existing Prisma roster, so multiple camps starting
-on the same date are handled together and a recipient can receive a separate
-message for each camp.
+reminder. One day before the camp, confirmed students and camp staff receive a
+final reminder that the camp starts tomorrow. The job reads the existing
+Prisma roster, so multiple camps starting on the same date are handled together
+and a recipient can receive a separate message for each camp.
 
 Create a Resend API key and verify the sender domain before enabling the Cron
-job. The two responsive Thai email templates are rendered by the application,
+job. The responsive Thai email templates are rendered by the application,
 so no hosted template IDs are required.
 
 Set these production environment variables:
@@ -74,9 +75,10 @@ short-lived database lock also prevents overlapping Cron executions.
 The daily job reconciles every camp starting within the next seven days, rather
 than relying on one exact run. This means a missed Cron invocation is caught up:
 unenrolled students receive the join reminder while the camp is D-7 through
-D-1, and enrolled students plus camp staff receive the starting reminder while
-the camp is D-3 through D-1. Queue uniqueness prevents the same reminder from
-being sent twice, including when multiple camps start on the same day.
+D-1, enrolled students plus camp staff receive the preparation reminder while
+the camp is D-3 through D-1, and they receive a separate final reminder at D-1.
+Queue uniqueness prevents the same reminder from being sent twice, including
+when multiple camps start on the same day.
 
 Definite Resend rejections are retried up to three times. A network timeout or
 other result where Resend may already have accepted the batch is stored as
@@ -93,7 +95,7 @@ npm run test:camp-reminders
 npm run build
 ```
 
-Vercel invokes `/api/cron/camp-reminders` once per day at 07:10 UTC (14:10 in
+Vercel invokes `/api/cron/camp-reminders` once per day at 09:00 UTC (16:00 in
 Thailand). The endpoint requires the `CRON_SECRET` bearer token and is not
 intended to be called from the browser.
 

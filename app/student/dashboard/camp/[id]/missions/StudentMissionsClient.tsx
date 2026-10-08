@@ -1,28 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@heroui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { toast } from "react-hot-toast";
 
-import StudentMissionsSkeleton from "./components/StudentMissionsSkeleton";
-
-import { isBangkokDateBefore } from "@/lib/bangkok-date";
-
-// Helper to calculate progress
-function calculateProgress(station: any) {
-  if (!station.mission || station.mission.length === 0) return 0;
-
-  // Mock logic: assume some are completed for demo or use real data if available
-  // Since we don't have mission_result populated yet, we'll return 0 or random for demo?
-  // Let's return 0 for now as specified in "Not started" logic
-  return 0; // Placeholder
-}
-
-function getMissionCount(station: any) {
-  return station.mission?.length || 0;
-}
+const StudentMissionsRecovery = dynamic(
+  () => import("./components/StudentMissionsRecovery"),
+);
 
 export default function StudentMissionsPage({
   initialCamp,
@@ -32,10 +18,8 @@ export default function StudentMissionsPage({
   const params = useParams();
   const router = useRouter();
   const { id } = params;
-  const hasInitialCampRef = useRef(initialCamp !== null);
 
   const [camp, setCamp] = useState<any>(initialCamp);
-  const [loading, setLoading] = useState(initialCamp === null);
   const [navigatingTo, setNavigatingTo] = useState<number | null>(null);
 
   const goToStation = (stationId: number) => {
@@ -44,71 +28,13 @@ export default function StudentMissionsPage({
     router.push(`/student/dashboard/camp/${id}/missions/${stationId}`);
   };
 
-  const fetchCamp = async () => {
-    try {
-      const campRes = await fetch(`/api/student/camps/${id}/missions`, {
-        cache: "no-store",
-        headers: {
-          "Cache-Control": "no-cache",
-          Pragma: "no-cache",
-        },
-      });
-
-      if (campRes.ok) {
-        const found = await campRes.json();
-
-        if (found) {
-          if (!found.isRegistered) {
-            toast.error("กรุณาลงทะเบียนเข้าร่วมค่ายก่อนเข้าถึงหน้าภารกิจ");
-            router.replace(`/student/dashboard/camp/${id}`);
-
-            return;
-          }
-          // ตรวจสอบว่าค่ายเริ่มแล้วหรือยัง
-          const startDate = found.rawStartDate
-            ? new Date(found.rawStartDate)
-            : null;
-
-          if (startDate && isBangkokDateBefore(new Date(), startDate)) {
-            toast.error("ค่ายยังไม่เริ่ม ไม่สามารถทำภารกิจได้");
-            router.replace(`/student/dashboard/camp/${id}`);
-
-            return;
-          }
-          setCamp(found);
-        } else {
-          toast.error("ไม่พบค่าย");
-        }
-      } else if (campRes.status === 403) {
-        const errorData = await campRes.json().catch(() => null);
-
-        toast.error(errorData?.error || "ค่ายยังไม่เริ่ม ไม่สามารถทำภารกิจได้");
-        router.replace(`/student/dashboard/camp/${id}`);
-      }
-    } catch (error) {
-      console.error("Failed to fetch camp", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     window.scrollTo(0, 0);
-    if (hasInitialCampRef.current) {
-      hasInitialCampRef.current = false;
+  }, []);
 
-      return;
-    }
-
-    fetchCamp();
-  }, [id]);
-
-  if (loading) return <StudentMissionsSkeleton />;
   if (!camp)
     return (
-      <div className="p-8 text-center bg-[#f5f5f2] min-h-screen flex items-center justify-center">
-        <div className="text-gray-400 font-medium">ไม่พบค่าย</div>
-      </div>
+      <StudentMissionsRecovery campId={String(id)} onRecovered={setCamp} />
     );
 
   // Derived Metrics

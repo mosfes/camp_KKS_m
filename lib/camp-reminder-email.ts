@@ -5,7 +5,7 @@ type CampReminderEmailInput = {
   location: string;
   action: string;
   campUrl: string;
-  kind: "join" | "starting";
+  kind: "join" | "starting" | "tomorrow";
 };
 
 function escapeHtml(value: string): string {
@@ -21,11 +21,15 @@ export function createCampReminderEmail(input: CampReminderEmailInput) {
   const heading =
     input.kind === "join"
       ? `อย่าลืมเข้าร่วมค่าย ${input.campName}`
-      : `ค่าย ${input.campName} ใกล้เริ่มแล้ว`;
+      : input.kind === "tomorrow"
+        ? `ค่าย ${input.campName} เริ่มพรุ่งนี้แล้ว`
+        : `ค่าย ${input.campName} ใกล้เริ่มแล้ว`;
   const intro =
     input.kind === "join"
       ? "ขณะนี้คุณยังไม่ได้ยืนยันเข้าร่วมค่าย กรุณาเข้าร่วมผ่านระบบก่อนค่ายเริ่ม"
-      : "เตรียมตัวให้พร้อมสำหรับค่ายที่กำลังจะเริ่ม และตรวจสอบรายละเอียดล่าสุดได้จากระบบ";
+      : input.kind === "tomorrow"
+        ? "ค่ายจะเริ่มในวันพรุ่งนี้ กรุณาตรวจสอบเวลา สถานที่ และสิ่งที่ต้องเตรียมให้เรียบร้อย"
+        : "เตรียมตัวให้พร้อมสำหรับค่ายที่กำลังจะเริ่ม และตรวจสอบรายละเอียดล่าสุดได้จากระบบ";
   const buttonLabel =
     input.kind === "join" ? "เข้าร่วมค่าย" : "ดูรายละเอียดค่าย";
   const safe = {

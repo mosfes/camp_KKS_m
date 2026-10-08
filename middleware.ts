@@ -87,18 +87,7 @@ const isProtectedApiRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  const authObject = await auth();
-
-  if (
-    !authObject.userId &&
-    (isAdminRoute(req) || isTeacherRoute(req) || isStudentRoute(req))
-  ) {
-    await auth.protect();
-  }
-
-  let role: string | undefined = undefined;
-  let parentMustChangePassword = false;
-
+  const pathname = req.nextUrl.pathname;
   const teacherCookie = req.cookies.get("teacher_session")?.value;
   const studentCookie = req.cookies.get("student_session")?.value;
   const parentCookie = req.cookies.get("parent_session")?.value;
@@ -118,11 +107,24 @@ export default clerkMiddleware(async (auth, req) => {
     verifyCookie(studentCookie),
     verifyCookie(parentCookie),
   ]);
-  const pathname = req.nextUrl.pathname;
   const targetsParent =
     isParentRoute(req) || pathname.startsWith("/api/parent/");
   const targetsStudent =
     isStudentRoute(req) || pathname.startsWith("/api/student/");
+  const canUseStudentCookieOnly = targetsStudent && studentPayload !== null;
+  const authObject = canUseStudentCookieOnly ? null : await auth();
+
+  if (
+    !authObject?.userId &&
+    (isAdminRoute(req) ||
+      isTeacherRoute(req) ||
+      (isStudentRoute(req) && !studentPayload))
+  ) {
+    await auth.protect();
+  }
+
+  let role: string | undefined = undefined;
+  let parentMustChangePassword = false;
 
   // Prefer the session that matches the requested application area. This
   // keeps a stale cookie from another role from shadowing a valid session.
@@ -140,7 +142,7 @@ export default clerkMiddleware(async (auth, req) => {
     parentMustChangePassword = parentPayload.mustChangePassword === true;
   }
 
-  if (!role && authObject.userId) {
+  if (!role && authObject?.userId) {
     role = (
       (authObject.sessionClaims?.metadata as any)?.role as string | undefined
     )?.toLowerCase();
@@ -217,7 +219,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  if (authObject.userId) {
+  if (authObject?.userId) {
     if (isAdminRoute(req) && role !== "admin") {
       if (isTeacherRole(role)) {
         return NextResponse.redirect(

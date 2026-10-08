@@ -20,6 +20,22 @@ test("renders the starting reminder with camp details and a link", () => {
   assert.match(email.text, /SC09/);
 });
 
+test("renders the final reminder for the day before camp", () => {
+  const email = createCampReminderEmail({
+    recipientName: "คุณครู",
+    campName: "ค่ายวิทยาศาสตร์",
+    campDate: "12 กันยายน 2569",
+    location: "SC09",
+    action: "ตรวจสอบรายละเอียดและเตรียมตัวสำหรับวันพรุ่งนี้",
+    campUrl: "https://camp.example/headteacher/dashboard/camp/1",
+    kind: "tomorrow",
+  });
+
+  assert.match(email.subject, /เริ่มพรุ่งนี้แล้ว/);
+  assert.match(email.html, /ค่ายจะเริ่มในวันพรุ่งนี้/);
+  assert.match(email.text, /เตรียมตัวสำหรับวันพรุ่งนี้/);
+});
+
 test("escapes database content before placing it in HTML", () => {
   const email = createCampReminderEmail({
     recipientName: '<script>alert("x")</script>',

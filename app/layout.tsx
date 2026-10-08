@@ -6,7 +6,7 @@ import { Providers } from "./providers";
 
 import AppAuthProvider from "@/components/AppAuthProvider";
 import { siteConfig } from "@/config/site";
-import { fontSans } from "@/config/fonts";
+import { fontSans, fontSansLight } from "@/config/fonts";
 
 export const metadata: Metadata = {
   applicationName: "KKS Camp",
@@ -22,7 +22,11 @@ export const metadata: Metadata = {
     title: "KKS Camp",
   },
   icons: {
-    icon: "/images/logoKKS.png",
+    icon: {
+      url: "/icons/favicon-64.png",
+      sizes: "64x64",
+      type: "image/png",
+    },
     apple: "/apple-icon.png",
   },
 };
@@ -48,6 +52,7 @@ export default function LoginLayout({
         className={clsx(
           "min-h-screen text-foreground bg-[#f5f5f2] font-sans antialiased",
           fontSans.variable,
+          fontSansLight.variable,
         )}
       >
         <AppAuthProvider>

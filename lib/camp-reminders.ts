@@ -19,6 +19,8 @@ import {
   JOIN_REMINDER_TYPE,
   STARTING_DAYS_BEFORE,
   STARTING_REMINDER_TYPE,
+  TOMORROW_DAYS_BEFORE,
+  TOMORROW_REMINDER_TYPE,
   type ReminderType,
 } from "@/lib/camp-reminder-policy";
 
@@ -37,7 +39,11 @@ class DailyQuotaUnavailableError extends Error {
 }
 
 function isReminderType(value: string): value is ReminderType {
-  return value === JOIN_REMINDER_TYPE || value === STARTING_REMINDER_TYPE;
+  return (
+    value === JOIN_REMINDER_TYPE ||
+    value === STARTING_REMINDER_TYPE ||
+    value === TOMORROW_REMINDER_TYPE
+  );
 }
 
 type Recipient = {
@@ -241,7 +247,7 @@ async function loadCampRecipients(campId: number, reminderType: ReminderType) {
 
       if (
         (reminderType === JOIN_REMINDER_TYPE && isEnrolled) ||
-        (reminderType === STARTING_REMINDER_TYPE && !isEnrolled)
+        (reminderType !== JOIN_REMINDER_TYPE && !isEnrolled)
       ) {
         continue;
       }
@@ -267,7 +273,7 @@ async function loadCampRecipients(campId: number, reminderType: ReminderType) {
 
   // Include all staff sources used by the current camp UI. The creator and
   // primary homeroom teachers are not always present in teacher_enrollment.
-  if (reminderType === STARTING_REMINDER_TYPE) {
+  if (reminderType !== JOIN_REMINDER_TYPE) {
     addTeacher(camp.created_by);
     for (const enrollment of camp.teacher_enrollment)
       addTeacher(enrollment.teacher);
@@ -588,17 +594,24 @@ function messagesFor(
       ? `/headteacher/dashboard/camp/${row.camp.camp_id}`
       : `/student/dashboard/camp/${row.camp.camp_id}`;
 
+    const isJoinReminder = row.reminder_type === JOIN_REMINDER_TYPE;
+    const isTomorrowReminder = row.reminder_type === TOMORROW_REMINDER_TYPE;
     const email = createCampReminderEmail({
       recipientName: row.recipient_name,
       campName: row.camp.name,
       campDate: formatThaiDate(row.camp.start_date),
       location: row.camp.location,
-      action:
-        row.reminder_type === JOIN_REMINDER_TYPE
-          ? "กดเข้าร่วมค่ายในระบบ"
+      action: isJoinReminder
+        ? "กดเข้าร่วมค่ายในระบบ"
+        : isTomorrowReminder
+          ? "ตรวจสอบรายละเอียดและเตรียมตัวสำหรับวันพรุ่งนี้"
           : "เตรียมตัวเข้าค่าย",
       campUrl: baseUrl ? `${baseUrl}${campPath}` : "",
-      kind: row.reminder_type === JOIN_REMINDER_TYPE ? "join" : "starting",
+      kind: isJoinReminder
+        ? "join"
+        : isTomorrowReminder
+          ? "tomorrow"
+          : "starting",
     });
 
     return { to: row.recipient_email, ...email };
@@ -761,6 +774,7 @@ export async function runCampReminderJob() {
   const todayKey = getBangkokDateKey(new Date());
   const joinTargetKey = addDays(todayKey, JOIN_DAYS_BEFORE);
   const startingTargetKey = addDays(todayKey, STARTING_DAYS_BEFORE);
+  const tomorrowTargetKey = addDays(todayKey, TOMORROW_DAYS_BEFORE);
   const windowStartKey = addDays(todayKey, 1);
   const windowEndKey = joinTargetKey;
   const upcomingRange = dateRange(windowStartKey, windowEndKey);
@@ -823,7 +837,11 @@ export async function runCampReminderJob() {
       orderBy: [{ start_date: "asc" }, { camp_id: "asc" }],
     });
 
-    const eligibleRecipients = { joinCamp: 0, startingSoon: 0 };
+    const eligibleRecipients = {
+      joinCamp: 0,
+      startingSoon: 0,
+      startingTomorrow: 0,
+    };
     const refreshed = new Set<string>();
 
     for (const camp of upcomingCamps) {
@@ -837,8 +855,10 @@ export async function runCampReminderJob() {
 
         if (reminderType === JOIN_REMINDER_TYPE) {
           eligibleRecipients.joinCamp += loaded.recipients.length;
-        } else {
+        } else if (reminderType === STARTING_REMINDER_TYPE) {
           eligibleRecipients.startingSoon += loaded.recipients.length;
+        } else {
+          eligibleRecipients.startingTomorrow += loaded.recipients.length;
         }
 
         await ensureReminderRows(loaded.camp, loaded.recipients, reminderType);
@@ -867,6 +887,7 @@ export async function runCampReminderJob() {
       // Starting-soon reminders have the nearer deadline; retry those before
       // the less urgent join-camp reminders when the account quota is tight.
       for (const candidateType of [
+        TOMORROW_REMINDER_TYPE,
         STARTING_REMINDER_TYPE,
         JOIN_REMINDER_TYPE,
       ] as const) {
@@ -951,7 +972,11 @@ export async function runCampReminderJob() {
     return {
       today: todayKey,
       locked: false,
-      targets: { joinCamp: joinTargetKey, startingSoon: startingTargetKey },
+      targets: {
+        joinCamp: joinTargetKey,
+        startingSoon: startingTargetKey,
+        startingTomorrow: tomorrowTargetKey,
+      },
       camps: upcomingCamps.length,
       eligibleRecipients,
       dailyLimit: limit,

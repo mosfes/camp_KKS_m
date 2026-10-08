@@ -6,6 +6,7 @@ import {
   dueReminderTypes,
   JOIN_REMINDER_TYPE,
   STARTING_REMINDER_TYPE,
+  TOMORROW_REMINDER_TYPE,
 } from "../lib/camp-reminder-policy";
 
 const today = "2026-09-09";
@@ -21,10 +22,18 @@ test("queues both reminders at D-3 so a missed D-7 run is caught up", () => {
   ]);
 });
 
-test("continues catch-up through the day before camp", () => {
+test("does not queue the final reminder two days before camp", () => {
+  assert.deepEqual(dueReminderTypes(today, "2026-09-11"), [
+    JOIN_REMINDER_TYPE,
+    STARTING_REMINDER_TYPE,
+  ]);
+});
+
+test("queues the final reminder on the day before camp", () => {
   assert.deepEqual(dueReminderTypes(today, "2026-09-10"), [
     JOIN_REMINDER_TYPE,
     STARTING_REMINDER_TYPE,
+    TOMORROW_REMINDER_TYPE,
   ]);
 });
 
