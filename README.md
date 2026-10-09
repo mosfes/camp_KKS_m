@@ -95,7 +95,7 @@ npm run test:camp-reminders
 npm run build
 ```
 
-Vercel invokes `/api/cron/camp-reminders` once per day at 09:00 UTC (16:00 in
+Vercel invokes `/api/cron/camp-reminders` once per day at 00:00 UTC (07:00 in
 Thailand). The endpoint requires the `CRON_SECRET` bearer token and is not
 intended to be called from the browser.
 
