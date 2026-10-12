@@ -2,7 +2,8 @@ export type SiteConfig = typeof siteConfig;
 
 export const siteConfig = {
   name: "KKS Camp",
-  description: "Make beautiful websites regardless of your design experience.",
+  description:
+    "ระบบจัดการค่ายของโรงเรียนกัลยาณวัตร สำหรับครู นักเรียน และผู้ปกครอง ติดตามกิจกรรม เช็คชื่อ และข้อมูลค่ายได้ในที่เดียว",
   navItems: [
     {
       label: "Home",

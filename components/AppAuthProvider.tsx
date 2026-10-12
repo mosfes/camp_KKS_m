@@ -21,5 +21,11 @@ export default function AppAuthProvider({
     return children;
   }
 
+  // The home page only needs Clerk once the visitor presses the Google
+  // sign-in button, so it mounts its own provider on demand.
+  if (pathname === "/") {
+    return children;
+  }
+
   return <ConfiguredClerkProvider>{children}</ConfiguredClerkProvider>;
 }

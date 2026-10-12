@@ -1,39 +1,57 @@
 "use client";
 
-import { useState } from "react";
-import { useSignIn } from "@clerk/nextjs";
+import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+
+const GoogleSignInRunner = dynamic(
+  () => import("@/components/GoogleSignInRunner"),
+  { ssr: false },
+);
+
+// How long to wait for Clerk to load before letting the visitor retry.
+const SIGN_IN_TIMEOUT_MS = 15_000;
 
 export default function GoogleSignInButton() {
-  const { isLoaded, signIn } = useSignIn();
+  // Mount Clerk as soon as the visitor shows intent (hover, focus, touch) so
+  // it is usually ready by the time the click lands.
+  const [warm, setWarm] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState("");
 
-  const signInWithGoogle = async () => {
-    if (!isLoaded || !signIn || isRedirecting) return;
+  const warmUp = () => setWarm(true);
+
+  const signInWithGoogle = () => {
+    if (isRedirecting) return;
 
     setError("");
+    setWarm(true);
     setIsRedirecting(true);
-
-    try {
-      await signIn.authenticateWithRedirect({
-        strategy: "oauth_google",
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/api/auth/sync-session",
-      });
-    } catch {
-      setError("ไม่สามารถเปิดหน้าล็อกอินได้ กรุณาลองอีกครั้ง");
-      setIsRedirecting(false);
-    }
   };
+
+  const handleError = useCallback(() => {
+    setError("ไม่สามารถเปิดหน้าล็อกอินได้ กรุณาลองอีกครั้ง");
+    setIsRedirecting(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isRedirecting) return;
+
+    const timer = window.setTimeout(handleError, SIGN_IN_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [isRedirecting, handleError]);
 
   return (
     <>
       <button
         aria-busy={isRedirecting}
         className="mt-8 flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6b857a] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
-        disabled={!isLoaded || isRedirecting}
+        disabled={isRedirecting}
         type="button"
         onClick={signInWithGoogle}
+        onFocus={warmUp}
+        onPointerEnter={warmUp}
+        onTouchStart={warmUp}
       >
         <svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24">
           <path
@@ -55,6 +73,10 @@ export default function GoogleSignInButton() {
         </svg>
         เข้าสู่ระบบด้วย Google
       </button>
+
+      {warm && (
+        <GoogleSignInRunner requested={isRedirecting} onError={handleError} />
+      )}
 
       {error && (
         <p className="mt-3 text-sm text-red-600" role="alert">

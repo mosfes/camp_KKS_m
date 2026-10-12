@@ -25,6 +25,9 @@ const nextConfig = {
   turbopack: {
     root: projectRoot,
   },
+  // Render metadata in <head> for every user agent instead of streaming it
+  // into <body>, so crawlers and Lighthouse always see the description.
+  htmlLimitedBots: /.*/,
   // Keep Prisma Client working in serverless environments
   serverExternalPackages: ["@prisma/client"],
   async headers() {

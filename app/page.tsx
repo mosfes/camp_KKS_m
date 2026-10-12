@@ -5,6 +5,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 
 import { prisma } from "@/lib/db";
 import AutoLogout from "@/components/AutoLogout";
+import ConfiguredClerkProvider from "@/components/ConfiguredClerkProvider";
 import GoogleSignInButton from "@/components/GoogleSignInButton";
 import InAppBrowserGuard from "@/components/InAppBrowserGuard";
 
@@ -39,7 +40,11 @@ export default async function Home() {
       redirect("/api/auth/sync-session?to=/student/dashboard");
     }
 
-    return <AutoLogout email={email} />;
+    return (
+      <ConfiguredClerkProvider>
+        <AutoLogout email={email} />
+      </ConfiguredClerkProvider>
+    );
   }
 
   const userAgent = (await headers()).get("user-agent") ?? "";
@@ -53,6 +58,7 @@ export default async function Home() {
             unoptimized
             alt="ตราโรงเรียนกัลยาณวัตร"
             className="mx-auto mb-4 h-[84px] w-[84px] object-contain"
+            fetchPriority="high"
             height={84}
             src="/images/logoKKS-login.webp"
             width={84}
