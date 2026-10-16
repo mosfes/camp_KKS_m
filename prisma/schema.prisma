@@ -70,6 +70,7 @@ model students {
   deletedAt         DateTime?
 
   parents                   parents[]
+  parent_links              parent_student_links[]
   classroom_students        classroom_students[]
   student_enrollment        student_enrollment[]
   attendance_record_student attendance_record_student[]
@@ -110,8 +111,21 @@ model parents {
   username_student_id Int
   student             students             @relation(fields: [username_student_id], references: [students_id])
   auth_tokens         parent_auth_tokens[]
+  linked_students     parent_student_links[]
 
   @@index([email])
+}
+
+model parent_student_links {
+  parents_id  Int
+  students_id Int
+  created_at  DateTime @default(now())
+
+  parent  parents  @relation(fields: [parents_id], references: [parents_id], onDelete: Cascade)
+  student students @relation(fields: [students_id], references: [students_id], onDelete: Cascade)
+
+  @@id([parents_id, students_id])
+  @@index([students_id])
 }
 
 enum ParentAuthTokenType {

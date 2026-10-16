@@ -11,11 +11,11 @@ export async function GET() {
   try {
     const auth = await requireParentSession();
     if (auth.error) return auth.error;
-    const { studentId } = auth.session;
+    const { studentId, parentId } = auth.session;
 
     // ตรวจสอบว่ามีข้อมูลผู้ปกครองแล้วหรือยัง
     const parentRecord = await prisma.parents.findFirst({
-      where: { username_student_id: studentId },
+      where: { parents_id: parentId },
       select: { parents_id: true, firstname: true, lastname: true, tel: true },
     });
 

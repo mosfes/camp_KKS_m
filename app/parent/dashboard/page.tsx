@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody } from "@heroui/card";
 import { Tabs, Tab } from "@heroui/tabs";
@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { ParentNavbar } from "@/components/ParentNavbar";
+import { ParentStudentPicker, type LinkedStudent } from "./ParentStudentPicker";
 import {
   BANGKOK_TIME_ZONE,
   getBangkokDaysUntil,
@@ -106,40 +107,82 @@ export default function ParentDashboard() {
     null,
   );
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [linkedStudents, setLinkedStudents] = useState<LinkedStudent[]>([]);
+  const [needsSelection, setNeedsSelection] = useState(false);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [meRes, campsRes] = await Promise.all([
-          fetch("/api/auth/parent/me"),
-          fetch("/api/parent/camps"),
-        ]);
+  const fetchData = useCallback(async () => {
+    try {
+      const [meRes, campsRes] = await Promise.all([
+        fetch("/api/auth/parent/me", { cache: "no-store" }),
+        fetch("/api/parent/camps", { cache: "no-store" }),
+      ]);
 
-        if (meRes.ok) {
-          const meData = await meRes.json();
+      if (meRes.ok) {
+        const meData = await meRes.json();
 
-          if (meData.student) {
-            setStudent(meData.student);
-            setParentProfile(meData.parentProfile ?? null);
-            if (!meData.hasParentProfile) setShowProfileModal(true);
-          } else {
-            setError("ไม่สามารถโหลดข้อมูลได้");
-          }
+        if (meData.student) {
+          setStudent(meData.student);
+          setParentProfile(meData.parentProfile ?? null);
+          if (!meData.hasParentProfile) setShowProfileModal(true);
         } else {
           setError("ไม่สามารถโหลดข้อมูลได้");
         }
+      } else {
+        setError("ไม่สามารถโหลดข้อมูลได้");
+      }
 
-        if (campsRes.ok) {
-          setCamps(await campsRes.json());
+      if (campsRes.ok) {
+        setCamps(await campsRes.json());
+      }
+    } catch {
+      setError("เกิดข้อผิดพลาด");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const refreshStudents = useCallback(async () => {
+    const response = await fetch("/api/parent/students", { cache: "no-store" });
+    const data = await response.json();
+    if (!response.ok)
+      throw new Error(data.error || "ไม่สามารถโหลดรายชื่อนักเรียนได้");
+    setLinkedStudents(data.students);
+    if (data.students.length > 1) setNeedsSelection(true);
+    return data.students as LinkedStudent[];
+  }, []);
+
+  useEffect(() => {
+    async function initialize() {
+      try {
+        const students = await refreshStudents();
+        if (students.length > 1) {
+          setLoading(false);
+        } else {
+          await fetchData();
         }
-      } catch {
-        setError("เกิดข้อผิดพลาด");
-      } finally {
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : "เกิดข้อผิดพลาด");
         setLoading(false);
       }
     }
-    fetchData();
-  }, []);
+    void initialize();
+  }, [fetchData, refreshStudents]);
+
+  const selectStudent = async (studentId: number) => {
+    const response = await fetch("/api/parent/students/select", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ studentId }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "เลือกนักเรียนไม่สำเร็จ");
+    setNeedsSelection(false);
+    setLoading(true);
+    setStudent(null);
+    setCamps([]);
+    setError("");
+    await fetchData();
+  };
 
   const goToCamp = (campId: number) => {
     if (navigatingTo !== null) return;
@@ -186,6 +229,21 @@ export default function ParentDashboard() {
             </div>
           </div>
         </main>
+      </div>
+    );
+  }
+
+  if (needsSelection) {
+    return (
+      <div className="min-h-screen bg-[#f5f5f2]">
+        <ParentNavbar />
+        <ParentStudentPicker
+          students={linkedStudents}
+          onSelect={selectStudent}
+          onLinked={async () => {
+            await refreshStudents();
+          }}
+        />
       </div>
     );
   }
@@ -310,6 +368,15 @@ export default function ParentDashboard() {
             </div>
           </div>
         </div>
+
+        <ParentStudentPicker
+          compact
+          students={linkedStudents}
+          onSelect={selectStudent}
+          onLinked={async () => {
+            await refreshStudents();
+          }}
+        />
 
         {/* ──────── Parent workspace ──────── */}
         <div className="space-y-4">

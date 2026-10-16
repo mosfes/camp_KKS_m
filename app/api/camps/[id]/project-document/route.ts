@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { normalizeProjectEvaluationMethod } from "@/lib/project-evaluation-method";
 
 const stringList = z.array(z.string().trim().max(5000)).max(30);
 
@@ -146,6 +147,12 @@ export async function GET(
   if (camp.project_document) {
     return NextResponse.json({
       ...camp.project_document,
+      evaluations: Array.isArray(camp.project_document.evaluations)
+        ? camp.project_document.evaluations.map((row: any) => ({
+            ...row,
+            method: normalizeProjectEvaluationMethod(row.method),
+          }))
+        : [],
       fiscal_year: camp.project_document.fiscal_year || campSource.fiscal_year,
       project_name:
         camp.project_document.project_name || campSource.project_name,
@@ -184,28 +191,28 @@ export async function GET(
     qualitative_targets: [""],
     procedures: [
       {
-        step: "1. วางแผน (Plan)",
+        step: "วางแผน (Plan)",
         method: "ประชุมวางแผนและแต่งตั้งคณะทำงาน",
         period: "",
         budget: 0,
         responsible: ownerName,
       },
       {
-        step: "2. ดำเนินการ (Do)",
+        step: "ดำเนินการ (Do)",
         method: "ดำเนินกิจกรรมตามโครงการ",
         period: "",
         budget: 0,
         responsible: ownerName,
       },
       {
-        step: "3. ตรวจสอบ (Check)",
+        step: "ตรวจสอบ (Check)",
         method: "ติดตามและตรวจสอบผลการดำเนินงาน",
         period: "",
         budget: 0,
         responsible: ownerName,
       },
       {
-        step: "4. ประเมินผล (Action)",
+        step: "ประเมินผลและรายงาน (Action)",
         method: "ประเมิน สรุป และรายงานโครงการ",
         period: "",
         budget: 0,
@@ -225,7 +232,7 @@ export async function GET(
         responsible: ownerName,
       },
     ],
-    evaluations: [{ indicator: "", method: "แบบสอบถาม", tool: "แบบสอบถาม" }],
+    evaluations: [{ indicator: "", method: "สอบถาม", tool: "แบบสอบถาม" }],
     expected_results: [""],
     signatories: [],
     status: "DRAFT",
@@ -303,6 +310,11 @@ export async function PUT(
 
   const status = parsed.data.status;
   const documentData: any = { ...parsed.data };
+
+  documentData.evaluations = parsed.data.evaluations.map((row) => ({
+    ...row,
+    method: normalizeProjectEvaluationMethod(row.method),
+  }));
 
   delete documentData.signatories;
   delete documentData.creator_name;

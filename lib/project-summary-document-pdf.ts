@@ -316,14 +316,26 @@ export async function createProjectSummaryDocumentPdf(document: any) {
     };
 
     const headerHeight = 34;
-    ensure(headerHeight);
-    drawRow(headers, headerHeight, true);
-    rows.forEach((row) => {
+    const rowHeights = rows.map((row) => {
       const lineCounts = row.map(
         (cell, index) =>
           wrap(cell.text || "-", widths[index] - 8, 12.5).length,
       );
-      const height = Math.max(27, Math.max(...lineCounts) * 15 + 9);
+
+      return Math.max(27, Math.max(...lineCounts) * 15 + 9);
+    });
+
+    if (
+      rowHeights.length &&
+      y + headerHeight + rowHeights[0] > PAGE_HEIGHT - BOTTOM
+    ) {
+      addPage();
+    }
+    ensure(headerHeight);
+    drawRow(headers, headerHeight, true);
+    rows.forEach((row, index) => {
+      const height = rowHeights[index];
+
       if (y + height > PAGE_HEIGHT - BOTTOM) {
         addPage();
         drawRow(headers, headerHeight, true);

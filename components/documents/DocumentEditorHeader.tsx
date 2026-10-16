@@ -1,14 +1,17 @@
 "use client";
 
 import type { MouseEvent, ReactNode } from "react";
+import type { DocumentSaveStatus } from "./useDocumentAutoSave";
 
 import {
+  AlertCircle,
+  CheckCircle2,
   ChevronDown,
   Download,
   FileCheck2,
   FileText,
   FileType2,
-  Save,
+  Loader2,
   UnlockKeyhole,
 } from "lucide-react";
 
@@ -18,10 +21,11 @@ interface DocumentEditorHeaderProps {
   description: string;
   icon: ReactNode;
   isFinalized: boolean;
+  saveStatus: DocumentSaveStatus;
   title: string;
   onDownload: (format: DownloadFormat) => void | Promise<void>;
   onFinalize: () => void | Promise<unknown>;
-  onSaveDraft: () => void | Promise<unknown>;
+  onRetrySave: () => void | Promise<unknown>;
   onUnlock: () => void;
 }
 
@@ -29,10 +33,11 @@ export default function DocumentEditorHeader({
   description,
   icon,
   isFinalized,
+  saveStatus,
   title,
   onDownload,
   onFinalize,
-  onSaveDraft,
+  onRetrySave,
   onUnlock,
 }: DocumentEditorHeaderProps) {
   const downloadAndClose = (
@@ -86,13 +91,41 @@ export default function DocumentEditorHeader({
             </button>
           ) : (
             <>
-              <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:border-[#aebfb8] hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/30"
-                type="button"
-                onClick={() => void onSaveDraft()}
-              >
-                <Save size={16} /> บันทึก
-              </button>
+              {saveStatus === "error" ? (
+                <button
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-medium text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/30"
+                  type="button"
+                  onClick={() => void onRetrySave()}
+                >
+                  <AlertCircle size={16} /> บันทึกไม่สำเร็จ · ลองอีกครั้ง
+                </button>
+              ) : (
+                <span
+                  aria-live="polite"
+                  className={`inline-flex min-h-10 items-center justify-center ${
+                    saveStatus === "saved"
+                      ? "gap-1.5 text-xs font-normal text-gray-400"
+                      : "gap-2 text-sm font-medium text-gray-600"
+                  }`}
+                  role="status"
+                >
+                  {saveStatus === "saved" ? (
+                    <>
+                      <CheckCircle2 size={14} />
+                      เป็นปัจจุบันแล้ว
+                    </>
+                  ) : saveStatus === "saving" ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} />{" "}
+                      กำลังบันทึก...
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 size={16} /> รอบันทึก...
+                    </>
+                  )}
+                </span>
+              )}
               <button
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#5d7c6f] px-4 text-sm font-semibold text-white transition hover:bg-[#4b685c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/30"
                 type="button"

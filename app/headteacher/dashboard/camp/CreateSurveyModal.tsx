@@ -8,14 +8,12 @@ import {
   Button,
   Select,
   SelectItem,
-  Switch,
 } from "@heroui/react";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import {
   Plus,
   Trash2,
   FileText,
-  BookTemplate,
   ChevronDown,
   ChevronUp,
   CircleDot,
@@ -28,6 +26,9 @@ import {
 import CampBreadcrumb from "./CampBreadcrumb";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
+import SurveyTemplatePanel, {
+  type SurveyTemplate,
+} from "@/components/surveys/SurveyTemplatePanel";
 
 interface Question {
   id?: number;
@@ -35,19 +36,6 @@ interface Question {
   type: "text" | "scale" | "header" | "grid" | "checkbox";
   scaleMax: number;
   options?: string[];
-}
-
-interface Template {
-  template_id: number;
-  title: string;
-  description?: string;
-  survey_template_question: {
-    question_id: number;
-    question_text: string;
-    question_type: "text" | "scale" | "header" | "grid" | "checkbox";
-    scale_max?: number;
-    options?: string;
-  }[];
 }
 
 interface CreateSurveyModalProps {
@@ -109,7 +97,7 @@ export default function CreateSurveyModal({
   initialData,
   pageMode = false,
 }: CreateSurveyModalProps) {
-  const { showError, showSuccess, showConfirm } = useStatusModal();
+  const { showError, showSuccess } = useStatusModal();
 
   const isEditing = !!initialData;
 
@@ -119,8 +107,6 @@ export default function CreateSurveyModal({
     { text: "", type: "scale", scaleMax: 5 },
     { text: "", type: "text", scaleMax: 5 },
   ]);
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
-  const [templateTitle, setTemplateTitle] = useState("");
   const [loading, setLoading] = useState(false);
   const submitInFlightRef = useRef(false);
   const [globalScaleMax, setGlobalScaleMax] = useState<number>(5);
@@ -163,43 +149,10 @@ export default function CreateSurveyModal({
         ]);
         setGlobalScaleMax(5);
       }
-      setSaveAsTemplate(false);
-      setTemplateTitle("");
-      setShowTemplates(false);
-      setTemplates([]);
     }
   }, [isOpen, initialData, isEditing]);
 
-  // Template picker
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
-
-  useEffect(() => {
-    if (showTemplates && templates.length === 0) {
-      fetchTemplates();
-    }
-  }, [showTemplates]);
-
-  const fetchTemplates = async () => {
-    setLoadingTemplates(true);
-    try {
-      const res = await fetch(`/api/surveys/templates`);
-      const data = await res.json();
-
-      if (Array.isArray(data)) {
-        setTemplates(data);
-      } else {
-        setTemplates([]);
-      }
-    } catch {
-      /* ignore */
-    } finally {
-      setLoadingTemplates(false);
-    }
-  };
-
-  const applyTemplate = (tpl: Template) => {
+  const applyTemplate = (tpl: SurveyTemplate) => {
     setTitle(tpl.title);
     setDescription(tpl.description || "");
     setQuestions(
@@ -219,36 +172,6 @@ export default function CreateSurveyModal({
     } else {
       setGlobalScaleMax(5);
     }
-    setShowTemplates(false);
-  };
-
-  const deleteTemplate = (templateId: number) => {
-    showConfirm(
-      "ยืนยันการลบเทมเพลต",
-      "คุณต้องการลบเทมเพลตนี้ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้",
-      async () => {
-        try {
-          const res = await fetch(
-            `/api/surveys/templates?templateId=${templateId}`,
-            {
-              method: "DELETE",
-            },
-          );
-
-          if (res.ok) {
-            setTemplates((prev) =>
-              prev.filter((t) => t.template_id !== templateId),
-            );
-            showSuccess("สำเร็จ", "ลบเทมเพลตเรียบร้อยแล้ว");
-          } else {
-            showError("ข้อผิดพลาด", "ไม่สามารถลบเทมเพลตได้");
-          }
-        } catch {
-          showError("ข้อผิดพลาด", "ไม่สามารถลบเทมเพลตได้");
-        }
-      },
-      "ลบเทมเพลต",
-    );
   };
 
   const addQuestion = (
@@ -381,8 +304,6 @@ export default function CreateSurveyModal({
           title: finalTitle,
           description,
           questions: finalQuestions,
-          saveAsTemplate,
-          templateTitle: templateTitle || finalTitle,
           teacherId,
         }),
       });
@@ -511,62 +432,13 @@ export default function CreateSurveyModal({
               </div>
             </div>
 
-            {/* ── Template Banner ── */}
-            <div
-              className={`group flex flex-col justify-between gap-4 rounded-xl border border-[#6b857a]/20 bg-gradient-to-r from-[#6b857a]/10 to-transparent transition-all hover:border-[#6b857a]/50 sm:flex-row sm:items-center ${pageMode ? "p-4 sm:p-5" : "p-4 sm:p-6"}`}
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-[#6b857a] p-3 rounded-xl text-white shadow-sm group-hover:scale-105 transition-transform">
-                  <BookTemplate size={24} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-800 group-hover:text-[#6b857a] transition-colors text-base sm:text-lg">
-                    เลือกจากเทมเพลตแบบสอบถาม
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    ใช้โครงสร้างและคำถามที่เคยบันทึกไว้
-                    เพื่อความรวดเร็วในการสร้างแบบสอบถาม
-                  </p>
-                </div>
-              </div>
-              <Button
-                className="bg-white text-[#6b857a] font-medium shadow-sm hover:bg-gray-50 shrink-0 border border-gray-200"
-                variant="flat"
-                onPress={() => setShowTemplates(true)}
-              >
-                เลือกเทมเพลต
-              </Button>
-            </div>
-
-            {/* ── Settings Card ── */}
-            <div
-              className={`space-y-4 rounded-xl border border-gray-200 bg-white shadow-sm ${pageMode ? "p-5" : "p-6"}`}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
-                <div className="flex items-center justify-between w-full">
-                  <p className="text-sm font-medium text-gray-700">
-                    บันทึกเป็นเทมเพลตสำหรับใช้ในครั้งต่อไป
-                  </p>
-                  <Switch
-                    color="success"
-                    isSelected={saveAsTemplate}
-                    size="sm"
-                    onValueChange={setSaveAsTemplate}
-                  />
-                </div>
-              </div>
-
-              {saveAsTemplate && (
-                <div className="pt-2 border-t border-gray-100">
-                  <input
-                    className="w-full sm:w-1/2 text-sm bg-gray-50 border border-gray-200 focus:bg-white focus:border-[#6b857a] outline-none px-4 py-2.5 rounded-lg transition-all"
-                    placeholder="ชื่อเทมเพลต (ค่าเริ่มต้นจะใช้ชื่อฟอร์ม)"
-                    value={templateTitle}
-                    onChange={(e) => setTemplateTitle(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
+            <SurveyTemplatePanel
+              description={description}
+              enabled={isOpen}
+              globalScaleMax={globalScaleMax}
+              onApply={applyTemplate}
+              questions={questions}
+            />
 
             {/* ── Questions List ── */}
             <div className="space-y-4 pb-4">
@@ -892,65 +764,6 @@ export default function CreateSurveyModal({
           </Body>
         </>
       </CreateSurveyShell>
-
-      {/* Template Selection Modal */}
-      <Modal isOpen={showTemplates} onOpenChange={setShowTemplates}>
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1 text-lg font-medium">
-                เลือกเทมเพลต
-              </ModalHeader>
-              <ModalBody className="pb-6">
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                  {loadingTemplates ? (
-                    <p className="text-sm text-gray-400 p-4 text-center">
-                      กำลังโหลด...
-                    </p>
-                  ) : templates.length === 0 ? (
-                    <p className="text-sm text-gray-400 p-4 text-center">
-                      ยังไม่มีเทมเพลต
-                    </p>
-                  ) : (
-                    templates.map((tpl) => (
-                      <div
-                        key={tpl.template_id}
-                        className="flex items-center justify-between border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50 group"
-                      >
-                        <button
-                          className="flex-1 px-6 py-4 text-left"
-                          type="button"
-                          onClick={() => {
-                            applyTemplate(tpl);
-                            onClose();
-                          }}
-                        >
-                          <p className="text-sm font-medium text-gray-900">
-                            {tpl.title}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {tpl.survey_template_question.length} รายการ
-                          </p>
-                        </button>
-                        <button
-                          className="p-2 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
-                          title="ลบเทมเพลต"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteTemplate(tpl.template_id);
-                          }}
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </ModalBody>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
     </>
   );
 }

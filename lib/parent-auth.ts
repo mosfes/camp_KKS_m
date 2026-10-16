@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 export type ParentSession = {
   parentId: number;
   studentId: number;
+  primaryStudentId: number;
   mustChangePassword: boolean;
 };
 
@@ -24,17 +25,18 @@ export async function getParentSession(): Promise<ParentSession | null> {
 
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const { payload } = await jwtVerify(value, secret);
-    const studentId = Number(payload.students_id);
+    const primaryStudentId = Number(payload.students_id);
     const tokenParentId = Number(payload.parents_id);
 
-    if (!Number.isInteger(studentId) || studentId <= 0) return null;
+    if (!Number.isSafeInteger(primaryStudentId) || primaryStudentId <= 0)
+      return null;
 
     const parent = await prisma.parents.findFirst({
       where: {
         ...(Number.isInteger(tokenParentId) && tokenParentId > 0
           ? { parents_id: tokenParentId }
           : {}),
-        username_student_id: studentId,
+        username_student_id: primaryStudentId,
         student: { deletedAt: null },
       },
       select: { parents_id: true, session_version: true },
@@ -45,9 +47,31 @@ export async function getParentSession(): Promise<ParentSession | null> {
       return null;
     }
 
+    let studentId = primaryStudentId;
+    const selectedId = Number(
+      cookieStore.get("parent_selected_student")?.value,
+    );
+    if (
+      Number.isSafeInteger(selectedId) &&
+      selectedId > 0 &&
+      selectedId !== primaryStudentId
+    ) {
+      const link = await prisma.parent_student_links.findUnique({
+        where: {
+          parents_id_students_id: {
+            parents_id: parent.parents_id,
+            students_id: selectedId,
+          },
+        },
+        select: { student: { select: { deletedAt: true } } },
+      });
+      if (link?.student.deletedAt === null) studentId = selectedId;
+    }
+
     return {
       parentId: parent.parents_id,
       studentId,
+      primaryStudentId,
       mustChangePassword: payload.mustChangePassword === true,
     };
   } catch {

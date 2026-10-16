@@ -2,23 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import {
-  Button,
-  Select,
-  SelectItem,
-  Switch,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-} from "@heroui/react";
+import { Button, Select, SelectItem, Switch } from "@heroui/react";
 import toast from "react-hot-toast";
 import {
   FileText,
   BarChart3,
   Plus,
   Trash2,
-  BookTemplate,
   ChevronDown,
   ChevronUp,
   CircleDot,
@@ -57,6 +47,9 @@ import {
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
+import SurveyTemplatePanel, {
+  type SurveyTemplate,
+} from "@/components/surveys/SurveyTemplatePanel";
 import { getCleanCampPath } from "@/lib/client-active-camp";
 
 interface Question {
@@ -65,19 +58,6 @@ interface Question {
   type: "text" | "scale" | "header" | "grid" | "checkbox";
   scaleMax: number;
   options?: string[];
-}
-
-interface Template {
-  template_id: number;
-  title: string;
-  description?: string;
-  survey_template_question: {
-    question_id: number;
-    question_text: string;
-    question_type: "text" | "scale" | "header" | "grid" | "checkbox";
-    scale_max?: number;
-    options?: string;
-  }[];
 }
 
 interface QuestionSummary {
@@ -295,7 +275,7 @@ export default function SurveyPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const campId = Number(params.id);
-  const { showError, showSuccess, showConfirm } = useStatusModal();
+  const { showError } = useStatusModal();
 
   // Tab State: 'questions' | 'responses'
   const initialTab =
@@ -317,15 +297,9 @@ export default function SurveyPage() {
     { text: "", type: "text", scaleMax: 5 },
   ]);
   const [globalScaleMax, setGlobalScaleMax] = useState<number>(5);
-  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
-  const [templateTitle, setTemplateTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const submitInFlightRef = useRef(false);
 
-  // Template Modal State
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [loadingTemplates, setLoadingTemplates] = useState(false);
 
   // Responses State
   const [resultsData, setResultsData] = useState<SurveySummary | null>(null);
@@ -430,28 +404,7 @@ export default function SurveyPage() {
     }
   };
 
-  // Template Fetching
-  const fetchTemplates = async () => {
-    setLoadingTemplates(true);
-    try {
-      const res = await fetch(`/api/surveys/templates`);
-      const data = await res.json();
-
-      setTemplates(Array.isArray(data) ? data : []);
-    } catch {
-      setTemplates([]);
-    } finally {
-      setLoadingTemplates(false);
-    }
-  };
-
-  useEffect(() => {
-    if (showTemplates && templates.length === 0) {
-      fetchTemplates();
-    }
-  }, [showTemplates]);
-
-  const applyTemplate = (tpl: Template) => {
+  const applyTemplate = (tpl: SurveyTemplate) => {
     setTitle(tpl.title);
     setDescription(tpl.description || "");
     setQuestions(
@@ -471,35 +424,7 @@ export default function SurveyPage() {
     } else {
       setGlobalScaleMax(5);
     }
-    setShowTemplates(false);
     toast.success("นำเข้าเทมเพลตเรียบร้อยแล้ว");
-  };
-
-  const deleteTemplate = (templateId: number) => {
-    showConfirm(
-      "ยืนยันการลบเทมเพลต",
-      "คุณต้องการลบเทมเพลตนี้ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้",
-      async () => {
-        try {
-          const res = await fetch(
-            `/api/surveys/templates?templateId=${templateId}`,
-            { method: "DELETE" },
-          );
-
-          if (res.ok) {
-            setTemplates((prev) =>
-              prev.filter((t) => t.template_id !== templateId),
-            );
-            showSuccess("สำเร็จ", "ลบเทมเพลตเรียบร้อยแล้ว");
-          } else {
-            showError("ข้อผิดพลาด", "ไม่สามารถลบเทมเพลตได้");
-          }
-        } catch {
-          showError("ข้อผิดพลาด", "ไม่สามารถลบเทมเพลตได้");
-        }
-      },
-      "ลบเทมเพลต",
-    );
   };
 
   // Question Management Handlers
@@ -631,8 +556,6 @@ export default function SurveyPage() {
           title: finalTitle,
           description,
           questions: finalQuestions,
-          saveAsTemplate,
-          templateTitle: templateTitle.trim() || finalTitle,
         }),
       });
 
@@ -803,15 +726,6 @@ export default function SurveyPage() {
               {activeTab === "questions" ? (
                 <>
                   <Button
-                    className="border border-gray-200 bg-white font-medium text-gray-700 hover:bg-gray-50"
-                    size="sm"
-                    startContent={<BookTemplate size={16} />}
-                    variant="flat"
-                    onPress={() => setShowTemplates(true)}
-                  >
-                    เทมเพลต
-                  </Button>
-                  <Button
                     className="bg-[#6b857a] font-medium text-white shadow-sm hover:bg-[#5a7268]"
                     isLoading={saving}
                     isDisabled={saving}
@@ -914,66 +828,12 @@ export default function SurveyPage() {
               </div>
             </div>
 
-            {/* Template Banner */}
-            <div
-              className="group flex flex-col justify-between gap-4 rounded-2xl border border-[#6b857a]/20 bg-gradient-to-r from-[#6b857a]/10 to-transparent p-4 sm:p-5 transition-all hover:border-[#6b857a]/50 sm:flex-row sm:items-center"
-            >
-              <div className="flex items-center gap-4">
-                <div className="bg-[#6b857a] p-3 rounded-xl text-white shadow-sm group-hover:scale-105 transition-transform">
-                  <BookTemplate size={22} />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-800 group-hover:text-[#6b857a] transition-colors text-sm sm:text-base">
-                    เลือกจากเทมเพลตแบบสอบถาม
-                  </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    เลือกโครงสร้างคำถามมาตรฐานหรือที่เคยบันทึกไว้
-                    เพื่อความรวดเร็ว
-                  </p>
-                </div>
-              </div>
-              <Button
-                className="bg-white text-[#6b857a] font-medium shadow-sm hover:bg-gray-50 shrink-0 border border-gray-200"
-                size="sm"
-                variant="flat"
-                onPress={() => setShowTemplates(true)}
-              >
-                เลือกเทมเพลต
-              </Button>
-            </div>
-
-            {/* Settings Card */}
-            <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center justify-between w-full">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">
-                      บันทึกเป็นเทมเพลตสำหรับใช้ในค่ายอื่น
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      แบบฟอร์มนี้จะถูกเพิ่มเข้าไปในรายการเทมเพลตของคุณ
-                    </p>
-                  </div>
-                  <Switch
-                    color="success"
-                    isSelected={saveAsTemplate}
-                    size="sm"
-                    onValueChange={setSaveAsTemplate}
-                  />
-                </div>
-              </div>
-
-              {saveAsTemplate && (
-                <div className="pt-2 border-t border-gray-100">
-                  <input
-                    className="w-full sm:w-1/2 text-sm bg-gray-50 border border-gray-200 focus:bg-white focus:border-[#6b857a] outline-none px-4 py-2.5 rounded-lg transition-all"
-                    placeholder="ชื่อเทมเพลต (ค่าเริ่มต้นจะใช้ชื่อฟอร์ม)"
-                    value={templateTitle}
-                    onChange={(e) => setTemplateTitle(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
+            <SurveyTemplatePanel
+              description={description}
+              globalScaleMax={globalScaleMax}
+              onApply={applyTemplate}
+              questions={questions}
+            />
 
             {/* Questions List */}
             <div className="space-y-4 pb-28">
@@ -2330,65 +2190,6 @@ export default function SurveyPage() {
           </div>
         )}
       </div>
-
-      {/* Template Selection Modal */}
-      <Modal isOpen={showTemplates} onOpenChange={setShowTemplates}>
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1 text-lg font-bold">
-                เลือกเทมเพลตแบบสอบถาม
-              </ModalHeader>
-              <ModalBody className="pb-6">
-                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
-                  {loadingTemplates ? (
-                    <p className="text-sm text-gray-400 p-6 text-center">
-                      กำลังโหลดเทมเพลต...
-                    </p>
-                  ) : templates.length === 0 ? (
-                    <p className="text-sm text-gray-400 p-6 text-center">
-                      ยังไม่มีเทมเพลตที่บันทึกไว้
-                    </p>
-                  ) : (
-                    templates.map((tpl) => (
-                      <div
-                        key={tpl.template_id}
-                        className="flex items-center justify-between border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50 group"
-                      >
-                        <button
-                          className="flex-1 px-5 py-3.5 text-left"
-                          type="button"
-                          onClick={() => {
-                            applyTemplate(tpl);
-                            onClose();
-                          }}
-                        >
-                          <p className="text-sm font-semibold text-gray-900">
-                            {tpl.title}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {tpl.survey_template_question.length} รายการคำถาม
-                          </p>
-                        </button>
-                        <button
-                          className="p-2 text-red-400 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
-                          title="ลบเทมเพลต"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteTemplate(tpl.template_id);
-                          }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </ModalBody>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
     </main>
   );
 }

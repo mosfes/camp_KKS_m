@@ -21,10 +21,10 @@ export async function GET() {
     const auth = await requireParentSession();
 
     if (auth.error) return auth.error;
-    const { studentId } = auth.session;
+    const { parentId } = auth.session;
 
     const parent = await prisma.parents.findFirst({
-      where: { username_student_id: studentId },
+      where: { parents_id: parentId },
       select: {
         parents_id: true,
         firstname: true,
@@ -65,7 +65,7 @@ async function saveProfile(req: Request) {
     const auth = await requireParentSession();
 
     if (auth.error) return auth.error;
-    const { studentId } = auth.session;
+    const { parentId, primaryStudentId } = auth.session;
 
     const body = await req.json();
     const { firstname, lastname, tel } = body;
@@ -97,7 +97,7 @@ async function saveProfile(req: Request) {
 
     // upsert: ถ้ามีแล้ว update, ถ้ายังไม่มี create
     const existing = await prisma.parents.findFirst({
-      where: { username_student_id: studentId },
+      where: { parents_id: parentId },
     });
 
     let parent;
@@ -124,8 +124,8 @@ async function saveProfile(req: Request) {
           lastname: lastname.trim(),
           tel: telDigits,
           email: email || null,
-          password: await bcrypt.hash(`kks${studentId}`, 10),
-          username_student_id: studentId,
+          password: await bcrypt.hash(`kks${primaryStudentId}`, 10),
+          username_student_id: primaryStudentId,
         },
       });
     }

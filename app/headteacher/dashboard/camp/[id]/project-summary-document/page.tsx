@@ -2,7 +2,7 @@
 
 import type { ChangeEvent, ReactNode } from "react";
 
-import { Select, SelectItem } from "@heroui/react";
+import { Select, SelectItem, Switch } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 import {
   Check,
@@ -24,6 +24,8 @@ import { useParams } from "next/navigation";
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
+import DocumentPersonnelPicker from "@/components/documents/DocumentPersonnelPicker";
+import { useDocumentAutoSave } from "@/components/documents/useDocumentAutoSave";
 import {
   DocumentStandardsChecklist,
   type DocumentStandardClause,
@@ -37,7 +39,7 @@ import { useStatusModal } from "@/components/StatusModalProvider";
 import { normalizeProjectSummaryStandards } from "@/lib/project-summary-standards";
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#6b857a] focus:ring-2 focus:ring-[#6b857a]/15 disabled:bg-gray-100 disabled:text-gray-500";
+  "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#6b857a] focus:ring-2 focus:ring-[#6b857a]/15 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500";
 
 const selectClassNames = {
   trigger:
@@ -47,6 +49,8 @@ const selectClassNames = {
   popoverContent: "rounded-xl border border-gray-200 bg-white shadow-lg",
   listboxWrapper: "max-h-64",
 };
+const itemCardClass =
+  "rounded-xl border border-[#e2e8e5] bg-white p-4 shadow-xs";
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -102,34 +106,36 @@ function ListEditor({
   return (
     <div className="space-y-2">
       {items.map((value, index) => (
-        <div className="flex items-start gap-2" key={index}>
+        <div key={index} className="flex items-start gap-2">
           <span className="mt-2.5 w-7 shrink-0 text-sm text-gray-500">
             {index + 1}.
           </span>
-          <textarea
-            className={inputClass + " min-h-16 resize-y"}
-            disabled={disabled}
-            placeholder={placeholder}
-            value={value}
-            onChange={(event) =>
-              onChange(
-                items.map((item, itemIndex) =>
-                  itemIndex === index ? event.target.value : item,
-                ),
-              )
-            }
-          />
-          <button
-            aria-label="ลบรายการ"
-            className="mt-1 rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
-            disabled={disabled}
-            type="button"
-            onClick={() =>
-              onChange(items.filter((_, itemIndex) => itemIndex !== index))
-            }
-          >
-            <Trash2 size={16} />
-          </button>
+          <div className="relative min-w-0 flex-1">
+            <textarea
+              className={inputClass + " min-h-16 resize-y pr-12"}
+              disabled={disabled}
+              placeholder={placeholder}
+              value={value}
+              onChange={(event) =>
+                onChange(
+                  items.map((item, itemIndex) =>
+                    itemIndex === index ? event.target.value : item,
+                  ),
+                )
+              }
+            />
+            <button
+              aria-label={`ลบรายการที่ ${index + 1}`}
+              className="absolute right-2 top-2 rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={disabled}
+              type="button"
+              onClick={() =>
+                onChange(items.filter((_, itemIndex) => itemIndex !== index))
+              }
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
       ))}
       <button
@@ -141,40 +147,6 @@ function ListEditor({
         <Plus size={15} /> เพิ่มรายการ
       </button>
     </div>
-  );
-}
-
-function RadioCard({
-  checked,
-  disabled,
-  label,
-  onChange,
-}: {
-  checked: boolean;
-  disabled?: boolean;
-  label: string;
-  onChange: () => void;
-}) {
-  const selectedClass = checked
-    ? " border-[#6b857a] bg-[#f2f7f5] text-[#4d685e]"
-    : " border-gray-200 bg-white text-gray-700";
-
-  return (
-    <label
-      className={
-        "flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm transition" +
-        selectedClass +
-        (disabled ? " cursor-not-allowed opacity-60" : "")
-      }
-    >
-      <input
-        checked={checked}
-        disabled={disabled}
-        type="radio"
-        onChange={onChange}
-      />
-      <span className="font-medium">{label}</span>
-    </label>
   );
 }
 
@@ -367,11 +339,14 @@ function StandardsEditor({
   ) => toggleCatalogSubItem(standard, indicator, selected);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="mb-3 text-sm text-gray-500">
-          เลือกมาตรฐานและตัวชี้วัดจากรายการที่แอดมินกำหนด
-        </p>
+    <div className="grid gap-4 lg:grid-cols-2 lg:items-stretch">
+      <div className="min-w-0 rounded-xl border border-gray-200 bg-[#fbfcfb] p-4">
+        <div className="mb-4 flex min-h-9 items-center justify-between gap-3 border-b border-gray-200 pb-3">
+          <h3 className="text-sm font-semibold text-gray-800">เลือกมาตรฐาน</h3>
+          <span className="shrink-0 rounded-full bg-[#edf4f1] px-2.5 py-1 text-xs font-medium text-[#526c61]">
+            {standardOptions.length} มาตรฐาน
+          </span>
+        </div>
         <DocumentStandardsChecklist
           disabled={disabled}
           isClauseSelected={(standard, clause) =>
@@ -387,125 +362,84 @@ function StandardsEditor({
           onToggleStandard={toggleCatalogStandard}
         />
       </div>
-      {standards.length ? (
-        <p className="pt-2 text-sm font-medium text-gray-700">
-          รายการที่เลือกและรายการเพิ่มเติม
-        </p>
-      ) : null}
-      {standards.map((standard, standardIndex) => {
-        const subItems = Array.isArray(standard.subItems)
-          ? standard.subItems
-          : [];
-        const updateStandard = (value: any) =>
-          onChange(
-            standards.map((item, index) =>
-              index === standardIndex ? { ...item, ...value } : item,
-            ),
-          );
+      <div className="flex min-w-0 flex-col rounded-xl border border-gray-200 bg-[#fbfcfb] p-4">
+        <div className="mb-4 flex min-h-9 items-center justify-between gap-3 border-b border-gray-200 pb-3">
+          <h3 className="text-sm font-semibold text-gray-800">
+            รายละเอียดที่เลือก
+          </h3>
+          <span className="shrink-0 rounded-full bg-[#edf4f1] px-2.5 py-1 text-xs font-medium text-[#526c61]">
+            {standards.length} ที่เลือก
+          </span>
+        </div>
+        <div className="space-y-3">
+          {!standards.length && (
+            <p className="rounded-xl border border-dashed border-gray-200 bg-white p-4 text-sm text-gray-500">
+              {standardOptions.length
+                ? "เลือกมาตรฐานทางซ้ายเพื่อดูและแก้ไขรายละเอียด"
+                : "เพิ่มมาตรฐานเพื่อกรอกรายละเอียด"}
+            </p>
+          )}
+          {standards.map((standard, standardIndex) => {
+            const subItems = Array.isArray(standard.subItems)
+              ? standard.subItems
+              : [];
+            const standardCode = standardCodeFromTitle(standard.title);
+            const standardHeading = standardCode
+              ? `มาตรฐานที่ ${standardCode}`
+              : String(standard.title || "").trim() || "มาตรฐานใหม่";
+            const updateStandard = (value: any) =>
+              onChange(
+                standards.map((item, index) =>
+                  index === standardIndex ? { ...item, ...value } : item,
+                ),
+              );
 
-        return (
-          <div
-            className="rounded-xl border border-gray-200 bg-gray-50 p-4"
-            key={standardIndex}
-          >
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <strong className="text-sm text-gray-700">
-                มาตรฐานที่ {standardIndex + 1}
-              </strong>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-[#4d685e]">
-                  <input
-                    checked={Boolean(standard.achieved)}
-                    className="h-4 w-4 accent-[#5d7c6f]"
-                    disabled={disabled}
-                    type="checkbox"
-                    onChange={(event) =>
-                      updateStandard({ achieved: event.target.checked })
-                    }
-                  />
-                  ทำได้แล้ว
-                </label>
-                <button
-                  aria-label="ลบมาตรฐาน"
-                  className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
-                  disabled={disabled}
-                  type="button"
-                  onClick={() =>
-                    onChange(
-                      standards.filter((_, index) => index !== standardIndex),
-                    )
-                  }
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-              <Field label="ชื่อมาตรฐาน">
-                <input
-                  className={inputClass}
-                  disabled={disabled}
-                  placeholder="เช่น มาตรฐานที่ 1 คุณภาพผู้เรียน"
-                  value={standard.title || ""}
-                  onChange={(event) =>
-                    updateStandard({ title: event.target.value })
-                  }
-                />
-              </Field>
-              <Field label="รายการที่เกี่ยวข้อง">
-                <input
-                  className={inputClass}
-                  disabled={disabled}
-                  placeholder="เช่น 3"
-                  value={standard.relatedItems || ""}
-                  onChange={(event) =>
-                    updateStandard({ relatedItems: event.target.value })
-                  }
-                />
-              </Field>
-            </div>
-            <div className="mt-4 space-y-3 border-l-2 border-[#cad8d2] pl-4">
-              {!subItems.length && (
-                <p className="text-sm text-gray-500">
-                  หากมาตรฐานนี้ไม่มีข้อย่อย ไม่ต้องเพิ่มรายการด้านล่าง
-                </p>
-              )}
-              {subItems.map((subItem: any, subIndex: number) => (
-                <div
-                  className="grid gap-3 rounded-xl border border-gray-200 bg-white p-3 md:grid-cols-[110px_1fr_180px_110px_auto]"
-                  key={subIndex}
-                >
-                  <Field label="ข้อย่อย">
-                    <input
-                      className={inputClass}
+            return (
+              <div
+                key={standardIndex}
+                className="rounded-xl border border-gray-200 bg-gray-50 p-4"
+              >
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <strong className="min-w-0 truncate text-sm text-gray-700" title={standardHeading}>
+                    {standardHeading}
+                  </strong>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      aria-label={`ทำได้แล้ว: ${standard.title || standardHeading}`}
+                      color="success"
+                      isDisabled={disabled}
+                      isSelected={Boolean(standard.achieved)}
+                      size="sm"
+                      onValueChange={(achieved) => updateStandard({ achieved })}
+                    >
+                      ทำได้แล้ว
+                    </Switch>
+                    <button
+                      aria-label="ลบมาตรฐาน"
+                      className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
                       disabled={disabled}
-                      placeholder="1.1"
-                      value={subItem.code || ""}
-                      onChange={(event) =>
-                        updateStandard({
-                          subItems: subItems.map((item: any, index: number) =>
-                            index === subIndex
-                              ? { ...item, code: event.target.value }
-                              : item,
+                      type="button"
+                      onClick={() =>
+                        onChange(
+                          standards.filter(
+                            (_, index) => index !== standardIndex,
                           ),
-                        })
+                        )
                       }
-                    />
-                  </Field>
-                  <Field label="รายละเอียดข้อย่อย">
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px]">
+                  <Field label="ชื่อมาตรฐาน">
                     <input
                       className={inputClass}
                       disabled={disabled}
-                      placeholder="เช่น ผลสัมฤทธิ์ทางวิชาการของผู้เรียน"
-                      value={subItem.title || ""}
+                      placeholder="เช่น มาตรฐานที่ 1 คุณภาพผู้เรียน"
+                      value={standard.title || ""}
                       onChange={(event) =>
-                        updateStandard({
-                          subItems: subItems.map((item: any, index: number) =>
-                            index === subIndex
-                              ? { ...item, title: event.target.value }
-                              : item,
-                          ),
-                        })
+                        updateStandard({ title: event.target.value })
                       }
                     />
                   </Field>
@@ -513,102 +447,174 @@ function StandardsEditor({
                     <input
                       className={inputClass}
                       disabled={disabled}
-                      placeholder="เช่น 1, 2"
-                      value={subItem.relatedItems || ""}
+                      placeholder="เช่น 3"
+                      value={standard.relatedItems || ""}
                       onChange={(event) =>
-                        updateStandard({
-                          subItems: subItems.map((item: any, index: number) =>
-                            index === subIndex
-                              ? { ...item, relatedItems: event.target.value }
-                              : item,
-                          ),
-                        })
+                        updateStandard({ relatedItems: event.target.value })
                       }
                     />
                   </Field>
-                  <Field label="สถานะ">
-                    <label className="flex min-h-10 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-[#4d685e]">
-                      <input
-                        checked={Boolean(subItem.achieved)}
-                        className="h-4 w-4 accent-[#5d7c6f]"
+                </div>
+                <div className="mt-4 space-y-3 border-l-2 border-[#cad8d2] pl-3">
+                  {!subItems.length && (
+                    <p className="text-sm text-gray-500">
+                      หากมาตรฐานนี้ไม่มีข้อย่อย ไม่ต้องเพิ่มรายการด้านล่าง
+                    </p>
+                  )}
+                  {subItems.map((subItem: any, subIndex: number) => (
+                    <div
+                      className="relative grid gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:grid-cols-2"
+                      key={subIndex}
+                    >
+                      <Field label="ข้อย่อย">
+                        <input
+                          className={inputClass}
+                          disabled={disabled}
+                          placeholder="1.1"
+                          value={subItem.code || ""}
+                          onChange={(event) =>
+                            updateStandard({
+                              subItems: subItems.map(
+                                (item: any, index: number) =>
+                                  index === subIndex
+                                    ? { ...item, code: event.target.value }
+                                    : item,
+                              ),
+                            })
+                          }
+                        />
+                      </Field>
+                      <div className="min-w-0 sm:pr-8">
+                        <Field label="รายละเอียดข้อย่อย">
+                          <input
+                            className={inputClass}
+                            disabled={disabled}
+                            placeholder="เช่น ผลสัมฤทธิ์ทางวิชาการของผู้เรียน"
+                            value={subItem.title || ""}
+                            onChange={(event) =>
+                              updateStandard({
+                                subItems: subItems.map(
+                                  (item: any, index: number) =>
+                                    index === subIndex
+                                      ? { ...item, title: event.target.value }
+                                      : item,
+                                ),
+                              })
+                            }
+                          />
+                        </Field>
+                      </div>
+                      <Field label="รายการที่เกี่ยวข้อง">
+                        <input
+                          className={inputClass}
+                          disabled={disabled}
+                          placeholder="เช่น 1, 2"
+                          value={subItem.relatedItems || ""}
+                          onChange={(event) =>
+                            updateStandard({
+                              subItems: subItems.map(
+                                (item: any, index: number) =>
+                                  index === subIndex
+                                    ? {
+                                        ...item,
+                                        relatedItems: event.target.value,
+                                      }
+                                    : item,
+                              ),
+                            })
+                          }
+                        />
+                      </Field>
+                      <div>
+                        <span className="mb-1.5 block text-sm font-medium text-gray-700">
+                          สถานะ
+                        </span>
+                        <div className="flex min-h-10 items-center rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+                          <Switch
+                            aria-label={`ทำได้แล้ว: ${subItem.title || `ข้อย่อยที่ ${subIndex + 1}`}`}
+                            color="success"
+                            isDisabled={disabled}
+                            isSelected={Boolean(subItem.achieved)}
+                            size="sm"
+                            onValueChange={(achieved) =>
+                              updateStandard({
+                                subItems: subItems.map(
+                                  (item: any, index: number) =>
+                                    index === subIndex
+                                      ? {
+                                          ...item,
+                                          achieved,
+                                        }
+                                      : item,
+                                ),
+                              })
+                            }
+                          >
+                            ทำได้แล้ว
+                          </Switch>
+                        </div>
+                      </div>
+                      <button
+                        aria-label={`ลบข้อย่อย ${subItem.code || subIndex + 1}`}
+                        className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={disabled}
-                        type="checkbox"
-                        onChange={(event) =>
+                        type="button"
+                        onClick={() =>
                           updateStandard({
-                            subItems: subItems.map(
-                              (item: any, index: number) =>
-                                index === subIndex
-                                  ? {
-                                      ...item,
-                                      achieved: event.target.checked,
-                                    }
-                                  : item,
+                            subItems: subItems.filter(
+                              (_: any, index: number) => index !== subIndex,
                             ),
                           })
                         }
-                      />
-                      ทำได้แล้ว
-                    </label>
-                  </Field>
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
                   <button
-                    aria-label="ลบข้อย่อย"
-                    className="mt-7 rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+                    className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-[#5d7c6f] hover:bg-[#f0f4f2] disabled:opacity-40"
                     disabled={disabled}
                     type="button"
                     onClick={() =>
                       updateStandard({
-                        subItems: subItems.filter(
-                          (_: any, index: number) => index !== subIndex,
-                        ),
+                        subItems: [
+                          ...subItems,
+                          {
+                            code: "",
+                            title: "",
+                            relatedItems: "",
+                            achieved: false,
+                          },
+                        ],
                       })
                     }
                   >
-                    <Trash2 size={16} />
+                    <Plus size={15} /> เพิ่มข้อย่อย
                   </button>
                 </div>
-              ))}
-              <button
-                className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-[#5d7c6f] hover:bg-[#f0f4f2] disabled:opacity-40"
-                disabled={disabled}
-                type="button"
-                onClick={() =>
-                  updateStandard({
-                    subItems: [
-                      ...subItems,
-                      {
-                        code: "",
-                        title: "",
-                        relatedItems: "",
-                        achieved: false,
-                      },
-                    ],
-                  })
-                }
-              >
-                <Plus size={15} /> เพิ่มข้อย่อย
-              </button>
-            </div>
-          </div>
-        );
-      })}
-      <button
-        className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-[#5d7c6f] hover:bg-[#f0f4f2] disabled:opacity-40"
-        disabled={disabled}
-        type="button"
-        onClick={() =>
-          onChange([
-            ...standards,
-            {
-              title: "",
-              relatedItems: "",
-              achieved: false,
-              subItems: [],
-            },
-          ])
-        }
-      >
-        <Plus size={15} /> เพิ่มมาตรฐาน
-      </button>
+              </div>
+            );
+          })}
+        </div>
+        <button
+          className="mt-3 inline-flex items-center gap-1 self-start rounded-lg px-3 py-2 text-sm font-medium text-[#5d7c6f] hover:bg-[#f0f4f2] disabled:opacity-40 lg:mt-auto lg:pt-3"
+          disabled={disabled}
+          type="button"
+          onClick={() =>
+            onChange([
+              ...standards,
+              {
+                title: "",
+                relatedItems: "",
+                achieved: false,
+                subItems: [],
+              },
+            ])
+          }
+        >
+          <Plus size={15} /> เพิ่มมาตรฐาน
+        </button>
+      </div>
     </div>
   );
 }
@@ -638,6 +644,8 @@ export default function ProjectSummaryDocumentPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(true);
+  const [isRefreshingFromSystem, setIsRefreshingFromSystem] = useState(false);
+  const [initiallyDirty, setInitiallyDirty] = useState(false);
   const [photoCaption, setPhotoCaption] = useState("");
   const [editingPhotoId, setEditingPhotoId] = useState<number | null>(null);
   const [editingPhotoCaption, setEditingPhotoCaption] = useState("");
@@ -658,6 +666,12 @@ export default function ProjectSummaryDocumentPage() {
   const [loadingMissionPhotos, setLoadingMissionPhotos] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const captionInputRef = useRef<HTMLInputElement>(null);
+  const { saveStatus, saveNow } = useDocumentAutoSave({
+    document,
+    endpoint: `/api/camps/${campId}/project-summary-document`,
+    initiallyDirty,
+    setDocument,
+  });
 
   useEffect(() => {
     if (editingPhotoId !== null) captionInputRef.current?.focus();
@@ -744,6 +758,10 @@ export default function ProjectSummaryDocumentPage() {
       }
     }
 
+    setInitiallyDirty(
+      !summaryData.document.camp_project_summary_document_id ||
+        nextDocument !== summaryData.document,
+    );
     setDocument(nextDocument);
     setSourceData(summaryData.sourceData);
     setPhotos(Array.isArray(summaryData.photos) ? summaryData.photos : []);
@@ -972,27 +990,24 @@ export default function ProjectSummaryDocumentPage() {
   const readOnly = document?.status === "FINALIZED";
 
   const save = async (
-    nextStatus = document?.status || "DRAFT",
+    nextStatus: "DRAFT" | "FINALIZED" = "DRAFT",
     options: { silent?: boolean } = {},
   ) => {
     setIsLoading(true);
     try {
-      const response = await fetch(
-        "/api/camps/" + campId + "/project-summary-document",
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...document, status: nextStatus }),
-        },
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "บันทึกเอกสารไม่สำเร็จ");
+      if (!(await saveNow(nextStatus))) {
+        if (nextStatus === "FINALIZED") {
+          showError(
+            "ยังยืนยันไม่ได้",
+            "มีการแก้ไขระหว่างยืนยัน ระบบกำลังบันทึกข้อมูลล่าสุด กรุณากดยืนยันอีกครั้ง",
+          );
+        }
+
+        return false;
       }
-      setDocument(data.document);
-      if (!options.silent) {
+      if (!options.silent && nextStatus === "FINALIZED") {
         showSuccess(
-          nextStatus === "FINALIZED" ? "ยืนยันเอกสารแล้ว" : "บันทึกแล้ว",
+          "ยืนยันเอกสารแล้ว",
           "บันทึกข้อมูลรายงานการดำเนินโครงการเรียบร้อยแล้ว",
         );
       }
@@ -1008,6 +1023,9 @@ export default function ProjectSummaryDocumentPage() {
   };
 
   const refreshFromSystem = async () => {
+    if (isRefreshingFromSystem) return;
+
+    setIsRefreshingFromSystem(true);
     setIsLoading(true);
     try {
       const [response, aiSummary] = await Promise.all([
@@ -1020,6 +1038,7 @@ export default function ProjectSummaryDocumentPage() {
         })),
       ]);
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data.error || "โหลดข้อมูลล่าสุดไม่สำเร็จ");
       }
@@ -1093,12 +1112,13 @@ export default function ProjectSummaryDocumentPage() {
     } catch (error: any) {
       showError("ดึงข้อมูลไม่สำเร็จ", error.message);
     } finally {
+      setIsRefreshingFromSystem(false);
       setIsLoading(false);
     }
   };
 
   const download = async (format: "pdf" | "docx") => {
-    if (!readOnly && !(await save(document.status || "DRAFT"))) return;
+    if (!readOnly && !(await save("DRAFT", { silent: true }))) return;
     window.location.href =
       "/api/camps/" + campId + "/project-summary-document/" + format;
   };
@@ -1191,7 +1211,7 @@ export default function ProjectSummaryDocumentPage() {
     try {
       if (
         !document.camp_project_summary_document_id &&
-        !(await save(document.status || "DRAFT", { silent: true }))
+        !(await save("DRAFT", { silent: true }))
       ) {
         return;
       }
@@ -1237,7 +1257,7 @@ export default function ProjectSummaryDocumentPage() {
     try {
       if (
         !document.camp_project_summary_document_id &&
-        !(await save(document.status || "DRAFT", { silent: true }))
+        !(await save("DRAFT", { silent: true }))
       ) {
         return;
       }
@@ -1374,8 +1394,25 @@ export default function ProjectSummaryDocumentPage() {
 
   if (loading || !document) {
     return (
-      <div className="min-h-screen bg-[#f5f5f2] p-8">
-        <div className="mx-auto h-64 max-w-5xl animate-pulse rounded-2xl bg-white" />
+      <div className="min-h-screen bg-[#f5f5f2] pb-24">
+        <main className="mx-auto max-w-6xl space-y-5 px-4 pb-24 pt-8">
+          <div className="h-6 w-64 max-w-full animate-pulse rounded-lg bg-gray-200" />
+          <div className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="h-4 w-56 animate-pulse rounded-lg bg-gray-200" />
+            <div className="h-11 animate-pulse rounded-xl bg-gray-100" />
+          </div>
+          <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:p-6">
+            <div className="h-6 w-40 animate-pulse rounded-lg bg-gray-200" />
+            <div className="grid gap-4 md:grid-cols-2">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="space-y-2">
+                  <div className="h-4 w-28 animate-pulse rounded-lg bg-gray-200" />
+                  <div className="h-11 animate-pulse rounded-xl bg-gray-100" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </main>
       </div>
     );
   }
@@ -1428,7 +1465,7 @@ export default function ProjectSummaryDocumentPage() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f2] pb-24">
-      <main className="mx-auto max-w-5xl space-y-5 px-4 pb-24 pt-8">
+      <main className="mx-auto max-w-6xl space-y-5 px-4 pb-24 pt-8">
         <div className="space-y-6">
           <CampBreadcrumb campId={campId} currentPage="เอกสารสรุปโครงการ" />
 
@@ -1436,10 +1473,11 @@ export default function ProjectSummaryDocumentPage() {
             description="สรุปผลการดำเนินงานตามหัวข้อรายงาน พร้อมข้อมูลประเมินและภาคผนวก"
             icon={<FileText size={21} />}
             isFinalized={readOnly}
+            saveStatus={saveStatus}
             title="เอกสารสรุปโครงการ"
             onDownload={download}
             onFinalize={() => save("FINALIZED")}
-            onSaveDraft={() => save("DRAFT")}
+            onRetrySave={() => save("DRAFT", { silent: true })}
             onUnlock={() => update("status", "DRAFT")}
           />
         </div>
@@ -1453,18 +1491,27 @@ export default function ProjectSummaryDocumentPage() {
             </p>
           </div>
           <button
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#5d7c6f] px-4 py-2 text-sm font-medium text-white disabled:opacity-40"
-            disabled={readOnly}
+            aria-busy={isRefreshingFromSystem}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#5d7c6f] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#4b685c] disabled:cursor-wait disabled:opacity-70"
+            disabled={readOnly || isRefreshingFromSystem}
             type="button"
             onClick={refreshFromSystem}
           >
-            <RefreshCw size={16} /> ดึงข้อมูลล่าสุด
+            <RefreshCw
+              aria-hidden="true"
+              className={isRefreshingFromSystem ? "animate-spin" : undefined}
+              size={16}
+            />
+            {isRefreshingFromSystem
+              ? "กำลังดึงข้อมูลจากระบบ..."
+              : "ดึงข้อมูลล่าสุดจากระบบ"}
           </button>
         </section>
 
         <DocumentTemplatePanel
           description="บันทึกโครงสร้างที่ใช้ซ้ำ เช่น มาตรฐาน วัตถุประสงค์ ตัวชี้วัด แบบประเมิน และผู้รายงาน โดยไม่คัดลอกผลจริงของค่ายเดิม"
           disabled={readOnly}
+          helpText="ชื่อโครงการและข้อมูลพื้นฐานเริ่มจากข้อมูลที่กรอกตอนสร้างค่าย หากมีเอกสารข้อเสนอ ระบบจะใช้ข้อมูลจากเอกสารนั้นด้วย เมื่อใช้เท็มเพลต ควรตรวจสอบชื่อและข้อมูลพื้นฐานอีกครั้งก่อนยืนยันเอกสาร"
           newTemplateName={templateName}
           selectedTemplateId={selectedTemplateId}
           templates={templates.map((template) => ({
@@ -1472,6 +1519,7 @@ export default function ProjectSummaryDocumentPage() {
             name: template.name,
           }))}
           title="เท็มเพลตเอกสารสรุปโครงการ"
+          variant="compact"
           onApply={applyTemplate}
           onDelete={deleteTemplate}
           onNewTemplateNameChange={setTemplateName}
@@ -1479,7 +1527,7 @@ export default function ProjectSummaryDocumentPage() {
           onSelectedTemplateChange={setSelectedTemplateId}
         />
 
-        <Section number="1" title="ชื่อโครงการ">
+        <Section title="ข้อมูลส่วนหัว">
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="ปีงบประมาณ (พ.ศ.)">
               <input
@@ -1492,12 +1540,12 @@ export default function ProjectSummaryDocumentPage() {
                 }
               />
             </Field>
-            <Field label="กลุ่มสาระการเรียนรู้/กลุ่มงาน">
+            <Field label="รหัสโครงการ/กิจกรรม (ถ้ามี)">
               <input
                 className={inputClass}
                 disabled={readOnly}
-                value={document.department || ""}
-                onChange={(event) => update("department", event.target.value)}
+                value={document.project_code || ""}
+                onChange={(event) => update("project_code", event.target.value)}
               />
             </Field>
             <Field label="ชื่อโครงการ">
@@ -1508,7 +1556,7 @@ export default function ProjectSummaryDocumentPage() {
                 onChange={(event) => update("project_name", event.target.value)}
               />
             </Field>
-            <Field label="กิจกรรม">
+            <Field label="ชื่อกิจกรรม">
               <input
                 className={inputClass}
                 disabled={readOnly}
@@ -1518,7 +1566,7 @@ export default function ProjectSummaryDocumentPage() {
                 }
               />
             </Field>
-            <Field label="ลำดับกิจกรรมที่">
+            <Field label="ลำดับกิจกรรม">
               <input
                 className={inputClass}
                 disabled={readOnly}
@@ -1528,49 +1576,51 @@ export default function ProjectSummaryDocumentPage() {
                 }
               />
             </Field>
-            <Field label="รหัสโครงการ/กิจกรรม (ถ้ามี)">
+            <Field label="ลักษณะโครงการ">
+              <Select
+                aria-label="ลักษณะโครงการ"
+                className="w-full"
+                classNames={selectClassNames}
+                isDisabled={readOnly}
+                placeholder="เลือกลักษณะโครงการ"
+                selectedKeys={
+                  document.project_nature ? [document.project_nature] : []
+                }
+                variant="bordered"
+                onChange={(event) =>
+                  update("project_nature", event.target.value)
+                }
+              >
+                <SelectItem key="NEW">โครงการใหม่</SelectItem>
+                <SelectItem key="CONTINUING">โครงการต่อเนื่อง</SelectItem>
+                <SelectItem key="IN_EVALUATION_PLAN">
+                  อยู่ในแผนประเมิน
+                </SelectItem>
+                <SelectItem key="OUTSIDE_ACTION_PLAN">
+                  นอกแผนปฏิบัติการ
+                </SelectItem>
+              </Select>
+            </Field>
+            <Field label="ผู้รับผิดชอบโครงการ">
+              <textarea
+                className={inputClass + " min-h-11 resize-y"}
+                disabled={readOnly}
+                placeholder="ระบุชื่อผู้รับผิดชอบโครงการ"
+                value={document.responsible_people || ""}
+                onChange={(event) =>
+                  update("responsible_people", event.target.value)
+                }
+              />
+            </Field>
+            <Field label="กลุ่มสาระการเรียนรู้/กลุ่มงาน">
               <input
                 className={inputClass}
                 disabled={readOnly}
-                value={document.project_code || ""}
-                onChange={(event) => update("project_code", event.target.value)}
+                value={document.department || ""}
+                onChange={(event) => update("department", event.target.value)}
               />
             </Field>
           </div>
-        </Section>
-
-        <Section number="2" title="ลักษณะโครงการ">
-          <p className="mb-3 text-sm text-gray-500">
-            เลือกได้เพียงหนึ่งลักษณะโครงการ
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["NEW", "ใหม่"],
-              ["CONTINUING", "ต่อเนื่อง"],
-              ["IN_EVALUATION_PLAN", "อยู่ในแผนประเมิน"],
-              ["OUTSIDE_ACTION_PLAN", "นอกแผนปฏิบัติการ"],
-            ].map(([value, label]) => (
-              <RadioCard
-                key={value}
-                checked={document.project_nature === value}
-                disabled={readOnly}
-                label={label}
-                onChange={() => update("project_nature", value)}
-              />
-            ))}
-          </div>
-        </Section>
-
-        <Section number="3" title="ผู้รับผิดชอบ">
-          <textarea
-            className={inputClass + " min-h-24 resize-y"}
-            disabled={readOnly}
-            placeholder="ระบุชื่อผู้รับผิดชอบโครงการ"
-            value={document.responsible_people || ""}
-            onChange={(event) =>
-              update("responsible_people", event.target.value)
-            }
-          />
         </Section>
 
         <Section number="4" title="สอดคล้องกับมาตรฐานการศึกษา">
@@ -1592,20 +1642,28 @@ export default function ProjectSummaryDocumentPage() {
         </Section>
 
         <Section number="6" title="การดำเนินการ">
-          <div className="grid gap-2 md:grid-cols-3">
-            {[
-              ["COMPLETED", "ดำเนินการเสร็จสิ้น"],
-              ["IN_PROGRESS", "อยู่ระหว่างการดำเนินการ"],
-              ["NOT_STARTED", "ยังไม่ดำเนินการ"],
-            ].map(([value, label]) => (
-              <RadioCard
-                key={value}
-                checked={document.execution_status === value}
-                disabled={readOnly}
-                label={label}
-                onChange={() => update("execution_status", value)}
-              />
-            ))}
+          <div className="max-w-md">
+            <Field label="สถานะการดำเนินงาน">
+              <Select
+                aria-label="สถานะการดำเนินงาน"
+                className="w-full"
+                classNames={selectClassNames}
+                isDisabled={readOnly}
+                selectedKeys={
+                  document.execution_status ? [document.execution_status] : []
+                }
+                variant="bordered"
+                onChange={(event) =>
+                  update("execution_status", event.target.value)
+                }
+              >
+                <SelectItem key="COMPLETED">ดำเนินการเสร็จสิ้น</SelectItem>
+                <SelectItem key="IN_PROGRESS">
+                  อยู่ระหว่างการดำเนินการ
+                </SelectItem>
+                <SelectItem key="NOT_STARTED">ยังไม่ดำเนินการ</SelectItem>
+              </Select>
+            </Field>
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             {[
@@ -1613,9 +1671,9 @@ export default function ProjectSummaryDocumentPage() {
               ["เช็กชื่อจริง", sourceData?.attendance?.checkedIn ?? "-", "คน"],
               ["อัตราเข้าร่วม", sourceData?.attendance?.percentage ?? 0, "%"],
             ].map(([label, value, suffix]) => (
-              <div className="rounded-xl bg-[#f2f7f5] p-4" key={label}>
+              <div key={label} className={itemCardClass}>
                 <p className="text-xs text-gray-500">{label}</p>
-                <p className="mt-1 text-2xl font-bold text-[#5d7c6f]">
+                <p className="mt-1 text-xl font-semibold text-[#5d7c6f]">
                   {value} {suffix}
                 </p>
               </div>
@@ -1702,7 +1760,7 @@ export default function ProjectSummaryDocumentPage() {
             </Field>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl bg-gray-50 p-4 text-sm">
+            <div className={`${itemCardClass} text-sm`}>
               คงเหลือ{" "}
               <strong className="float-right">
                 {formatMoney(
@@ -1715,7 +1773,7 @@ export default function ProjectSummaryDocumentPage() {
                 บาท
               </strong>
             </div>
-            <div className="rounded-xl bg-gray-50 p-4 text-sm">
+            <div className={`${itemCardClass} text-sm`}>
               ใช้เกิน{" "}
               <strong className="float-right">
                 {formatMoney(
@@ -1735,10 +1793,7 @@ export default function ProjectSummaryDocumentPage() {
           <div className="space-y-4">
             {(document.success_indicators || []).map(
               (row: any, index: number) => (
-                <div
-                  className="rounded-xl border border-gray-200 bg-gray-50 p-4"
-                  key={index}
-                >
+                <div key={index} className={itemCardClass}>
                   <div className="mb-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <strong className="text-sm text-gray-700">
@@ -1941,108 +1996,103 @@ export default function ProjectSummaryDocumentPage() {
                   );
 
                 return (
-                  <div
-                    className={`grid gap-3 rounded-xl border p-4 md:grid-cols-[1fr_110px_110px_140px_auto] ${
-                      isSurveyEvaluation
-                        ? "border-[#d7e3de] bg-[#f4f8f6]"
-                        : "border-gray-200 bg-gray-50"
-                    }`}
-                    key={index}
-                  >
-                    <Field
-                      label={
-                        isSurveyEvaluation
-                          ? "รายการประเมิน (จากแบบสอบถาม)"
-                          : "รายการประเมิน"
-                      }
-                    >
-                      <textarea
-                        className={inputClass + " min-h-16 resize-y"}
-                        disabled={readOnly || isSurveyEvaluation}
-                        value={row.topic || ""}
-                        onChange={(event) =>
-                          updateRow("evaluation_results", index, {
-                            topic: event.target.value,
-                          })
-                        }
-                      />
-                    </Field>
-                    <Field label="ค่าเฉลี่ย">
-                      <input
-                        className={inputClass}
-                        disabled={readOnly || isSurveyEvaluation}
-                        max="5"
-                        min="0"
-                        step="0.01"
-                        type="number"
-                        value={row.average ?? ""}
-                        onChange={(event) =>
-                          updateRow("evaluation_results", index, {
-                            average:
-                              event.target.value === ""
-                                ? null
-                                : Number(event.target.value),
-                          })
-                        }
-                      />
-                    </Field>
-                    <Field label="S.D.">
-                      <input
-                        className={inputClass}
-                        disabled={readOnly || isSurveyEvaluation}
-                        max="5"
-                        min="0"
-                        step="0.001"
-                        type="number"
-                        value={row.sd ?? ""}
-                        onChange={(event) =>
-                          updateRow("evaluation_results", index, {
-                            sd:
-                              event.target.value === ""
-                                ? null
-                                : Number(event.target.value),
-                          })
-                        }
-                      />
-                    </Field>
-                    <Field label="แปลผล">
-                      <input
-                        className={inputClass}
-                        disabled={readOnly || isSurveyEvaluation}
-                        value={row.interpretation || ""}
-                        onChange={(event) =>
-                          updateRow("evaluation_results", index, {
-                            interpretation: event.target.value,
-                          })
-                        }
-                      />
-                    </Field>
-                    {isSurveyEvaluation ? (
-                      <div
-                        className="mt-7 flex size-9 items-center justify-center rounded-lg bg-[#e8f0ec] text-[#5d7c6f]"
-                        title="ข้อมูลจากแบบสอบถาม แก้ไขไม่ได้"
-                      >
-                        <LockKeyhole aria-hidden="true" size={16} />
+                  <div key={index} className={itemCardClass}>
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="text-sm text-gray-700">
+                          รายการที่ {index + 1}
+                        </strong>
+                        {isSurveyEvaluation && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#e3eee9] px-2 py-1 text-xs font-medium text-[#4d685e]">
+                            <LockKeyhole aria-hidden="true" size={12} />
+                            จากแบบสอบถาม
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <button
-                        aria-label="ลบรายการประเมิน"
-                        className="mt-7 text-gray-400 hover:text-red-500"
-                        disabled={readOnly}
-                        type="button"
-                        onClick={() =>
-                          update(
-                            "evaluation_results",
-                            document.evaluation_results.filter(
-                              (_: any, itemIndex: number) =>
-                                itemIndex !== index,
-                            ),
-                          )
-                        }
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+                      {!isSurveyEvaluation && (
+                        <button
+                          aria-label={`ลบรายการประเมินที่ ${index + 1}`}
+                          className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+                          disabled={readOnly}
+                          type="button"
+                          onClick={() =>
+                            update(
+                              "evaluation_results",
+                              document.evaluation_results.filter(
+                                (_: any, itemIndex: number) =>
+                                  itemIndex !== index,
+                              ),
+                            )
+                          }
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_100px_100px_minmax(0,1fr)]">
+                      <Field label="รายการประเมิน">
+                        <textarea
+                          className={inputClass + " min-h-16 resize-y"}
+                          disabled={readOnly || isSurveyEvaluation}
+                          value={row.topic || ""}
+                          onChange={(event) =>
+                            updateRow("evaluation_results", index, {
+                              topic: event.target.value,
+                            })
+                          }
+                        />
+                      </Field>
+                      <Field label="ค่าเฉลี่ย">
+                        <input
+                          className={inputClass}
+                          disabled={readOnly || isSurveyEvaluation}
+                          max="5"
+                          min="0"
+                          step="0.01"
+                          type="number"
+                          value={row.average ?? ""}
+                          onChange={(event) =>
+                            updateRow("evaluation_results", index, {
+                              average:
+                                event.target.value === ""
+                                  ? null
+                                  : Number(event.target.value),
+                            })
+                          }
+                        />
+                      </Field>
+                      <Field label="S.D.">
+                        <input
+                          className={inputClass}
+                          disabled={readOnly || isSurveyEvaluation}
+                          max="5"
+                          min="0"
+                          step="0.001"
+                          type="number"
+                          value={row.sd ?? ""}
+                          onChange={(event) =>
+                            updateRow("evaluation_results", index, {
+                              sd:
+                                event.target.value === ""
+                                  ? null
+                                  : Number(event.target.value),
+                            })
+                          }
+                        />
+                      </Field>
+                      <Field label="แปลผล">
+                        <input
+                          className={inputClass}
+                          disabled={readOnly || isSurveyEvaluation}
+                          value={row.interpretation || ""}
+                          onChange={(event) =>
+                            updateRow("evaluation_results", index, {
+                              interpretation: event.target.value,
+                            })
+                          }
+                        />
+                      </Field>
+                    </div>
                   </div>
                 );
               },
@@ -2270,7 +2320,7 @@ export default function ProjectSummaryDocumentPage() {
           <div className="mt-5 grid items-stretch gap-4 md:grid-cols-2">
             <Field label="10. ปัญหาและอุปสรรคระหว่างดำเนินการ">
               <textarea
-                className={inputClass + " min-h-32 resize-y leading-6"}
+                className={inputClass + " min-h-24 resize-y leading-6"}
                 disabled={readOnly}
                 value={document.problems || ""}
                 onChange={(event) => update("problems", event.target.value)}
@@ -2278,7 +2328,7 @@ export default function ProjectSummaryDocumentPage() {
             </Field>
             <Field label="11. ข้อเสนอแนะและแนวทางปรับปรุง">
               <textarea
-                className={inputClass + " min-h-32 resize-y leading-6"}
+                className={inputClass + " min-h-24 resize-y leading-6"}
                 disabled={readOnly}
                 value={document.recommendations || ""}
                 onChange={(event) =>
@@ -2290,7 +2340,7 @@ export default function ProjectSummaryDocumentPage() {
           <div className="mt-4">
             <Field label="12. ความสอดคล้องกับบริบทโรงเรียนและเหตุผลที่ควรจัดต่อ">
               <textarea
-                className={inputClass + " min-h-36 resize-y leading-6"}
+                className={inputClass + " min-h-28 resize-y leading-6"}
                 disabled={readOnly}
                 value={document.continuation_reason || ""}
                 onChange={(event) =>
@@ -2301,36 +2351,46 @@ export default function ProjectSummaryDocumentPage() {
           </div>
         </Section>
 
-        <Section
-          title="ผู้รายงาน"
-          description="ใช้เฉพาะผู้รายงาน ไม่ใช้สายอนุมัติของเอกสารข้อเสนอ"
-        >
+        <Section title="ผู้รายงาน">
           <div className="space-y-3">
             {(document.signatories || []).map((row: any, index: number) => (
-              <div
-                className="grid gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 md:grid-cols-[1fr_auto]"
-                key={index}
-              >
-                <Field label={"ผู้รายงานคนที่ " + (index + 1)}>
-                  <Select
-                    aria-label={"ผู้รายงานคนที่ " + (index + 1)}
-                    className="w-full"
-                    classNames={selectClassNames}
-                    isDisabled={readOnly}
-                    placeholder="เลือกบุคลากร"
-                    selectedKeys={
-                      row.personnelId ? [String(row.personnelId)] : []
+              <div key={index} className={itemCardClass}>
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="font-medium text-gray-700">
+                    ผู้รายงานคนที่ {index + 1}
+                  </span>
+                  <button
+                    aria-label={`ลบผู้รายงานคนที่ ${index + 1}`}
+                    className="rounded-lg p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+                    disabled={readOnly}
+                    type="button"
+                    onClick={() =>
+                      update(
+                        "signatories",
+                        document.signatories.filter(
+                          (_: any, itemIndex: number) => itemIndex !== index,
+                        ),
+                      )
                     }
-                    variant="bordered"
-                    onChange={(event) => {
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                <Field label="เลือกบุคลากร">
+                  <DocumentPersonnelPicker
+                    ariaLabel={"ผู้รายงานคนที่ " + (index + 1)}
+                    disabled={readOnly}
+                    fallbackLabel={row.name || ""}
+                    people={people}
+                    selectedId={row.personnelId}
+                    onChange={(personId) => {
                       const person = people.find(
-                        (item) =>
-                          item.document_personnel_id ===
-                          Number(event.target.value),
+                        (item) => item.document_personnel_id === personId,
                       );
+
                       updateRow("signatories", index, {
                         role: "ผู้รายงาน",
-                        personnelId: Number(event.target.value),
+                        personnelId: personId ?? undefined,
                         name: person
                           ? String(person.prefix_name || "") +
                             person.firstname +
@@ -2339,33 +2399,8 @@ export default function ProjectSummaryDocumentPage() {
                           : "",
                       });
                     }}
-                  >
-                    {people.map((person) => (
-                      <SelectItem
-                        key={String(person.document_personnel_id)}
-                        textValue={`${person.prefix_name || ""}${person.firstname} ${person.lastname} (${person.position})`}
-                      >
-                        {person.prefix_name || ""}
-                        {person.firstname} {person.lastname} ({person.position})
-                      </SelectItem>
-                    ))}
-                  </Select>
+                  />
                 </Field>
-                <button
-                  className="mt-7 text-gray-400 hover:text-red-500"
-                  disabled={readOnly}
-                  type="button"
-                  onClick={() =>
-                    update(
-                      "signatories",
-                      document.signatories.filter(
-                        (_: any, itemIndex: number) => itemIndex !== index,
-                      ),
-                    )
-                  }
-                >
-                  <Trash2 size={16} />
-                </button>
               </div>
             ))}
           </div>
@@ -2385,7 +2420,7 @@ export default function ProjectSummaryDocumentPage() {
         </Section>
 
         <Section title="ภาคผนวกประมวลภาพกิจกรรม">
-          <div className="mb-4 rounded-xl border border-[#dce7e2] bg-[#f7faf9] p-4">
+          <div className="mb-4 rounded-xl border border-[#e2e8e5] bg-white p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-medium text-gray-800">
@@ -2641,7 +2676,7 @@ export default function ProjectSummaryDocumentPage() {
             ) : null}
           </div>
 
-          <div className="mb-4 flex flex-col gap-3 rounded-xl bg-[#f2f7f5] p-4 md:flex-row md:items-end">
+          <div className="mb-4 flex flex-col gap-3 rounded-xl border border-[#e2e8e5] bg-white p-4 md:flex-row md:items-end">
             <Field label="คำบรรยายภาพ (ถ้ามี)">
               <input
                 className={inputClass}
@@ -2800,7 +2835,7 @@ export default function ProjectSummaryDocumentPage() {
                           <div className="flex items-center justify-between gap-2">
                             <button
                               aria-label={`${photo.caption ? "แก้ไข" : "เพิ่ม"}คำบรรยายรูป ${index + 1}`}
-                              className={`flex items-center gap-2 text-sm text-gray-600 hover:text-[#4d685e] disabled:cursor-default disabled:hover:text-gray-600 ${
+                              className={`group flex items-center gap-2 rounded-lg text-sm text-gray-600 hover:text-[#4d685e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/40 disabled:pointer-events-none disabled:cursor-default ${
                                 photo.caption ? "min-w-0 flex-1 text-left" : "ml-auto"
                               }`}
                               disabled={readOnly}
@@ -2812,15 +2847,19 @@ export default function ProjectSummaryDocumentPage() {
                                   {photo.caption}
                                 </span>
                               ) : null}
-                              <Pencil className="shrink-0" size={14} />
+                              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 transition-colors group-hover:bg-[#edf4f1] group-hover:text-[#4d685e] group-focus-visible:bg-[#edf4f1] group-focus-visible:text-[#4d685e]">
+                                <Pencil aria-hidden="true" size={15} />
+                              </span>
                             </button>
                             <button
-                              className="text-xs text-red-500"
+                              aria-label={`ลบรูป ${index + 1}`}
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40 disabled:cursor-not-allowed disabled:opacity-40"
                               disabled={readOnly}
+                              title="ลบรูป"
                               type="button"
                               onClick={() => deletePhoto(photoId)}
                             >
-                              ลบ
+                              <Trash2 aria-hidden="true" size={16} />
                             </button>
                           </div>
                         )}

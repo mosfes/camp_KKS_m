@@ -110,6 +110,9 @@ export async function POST(request: Request) {
           session_version: { increment: 1 },
         },
       });
+      await tx.parent_student_links.deleteMany({
+        where: { students_id: resetToken.parent.username_student_id },
+      });
       await tx.parent_auth_tokens.updateMany({
         where: {
           parents_id: resetToken.parents_id,

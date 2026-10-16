@@ -320,6 +320,90 @@ function ActivityPanel({
       </div>
 
       <div className="space-y-4">
+        <h3 className="flex items-center gap-2 px-1 text-sm font-bold text-gray-700">
+          <Target className="text-[#5d7c6f]" size={17} />
+          รายละเอียดรายฐาน
+        </h3>
+        {camp.station.map((station) => {
+          const completed = station.mission.filter(
+            (mission) => mission.status === "completed",
+          ).length;
+          const progress = station.mission.length
+            ? Math.round((completed / station.mission.length) * 100)
+            : 0;
+          return (
+            <div
+              key={station.station_id}
+              className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
+            >
+              <div className="flex items-center gap-3 bg-gray-50/50 p-5">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#5d7c6f]/10 text-[#5d7c6f]">
+                  <Target size={21} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex justify-between gap-2">
+                    <h4 className="truncate font-bold text-gray-800">
+                      {station.name}
+                    </h4>
+                    <span className="text-xs font-black text-[#5d7c6f]">
+                      {progress}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    {completed} จาก {station.mission.length} ภารกิจเสร็จสิ้น
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-2 p-5 sm:grid-cols-2">
+                {station.mission.length === 0 ? (
+                  <p className="text-xs text-gray-400">ไม่มีภารกิจย่อย</p>
+                ) : (
+                  station.mission.map((mission) => (
+                    <div
+                      key={mission.mission_id}
+                      className={`flex items-center gap-3 rounded-2xl border p-3 ${mission.status === "completed" ? "border-green-100 bg-green-50/30" : "border-gray-100"}`}
+                    >
+                      <div
+                        className={
+                          mission.status === "completed"
+                            ? "text-green-500"
+                            : "text-gray-200"
+                        }
+                      >
+                        {mission.status === "completed" ? (
+                          <CheckCircle2 size={18} />
+                        ) : (
+                          <Circle size={18} />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p
+                          className={`truncate text-xs font-bold ${mission.status === "completed" ? "text-[#3d6357]" : "text-gray-400"}`}
+                        >
+                          {mission.title || "ภารกิจ"}
+                        </p>
+                        <p className="text-[10px] text-gray-400">
+                          {mission.status === "completed"
+                            ? "เสร็จเรียบร้อย"
+                            : "ยังไม่ได้ทำ"}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="h-1 bg-gray-50">
+                <div
+                  className="h-full bg-[#5d7c6f]"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="space-y-4 pb-8">
         <div className="flex items-center justify-between gap-3 px-1">
           <h3 className="flex items-center gap-2 text-sm font-bold text-gray-700">
             <Clock3 className="text-[#5d7c6f]" size={17} />
@@ -427,90 +511,6 @@ function ActivityPanel({
             )}
           </div>
         )}
-      </div>
-
-      <div className="space-y-4 pb-8">
-        <h3 className="flex items-center gap-2 px-1 text-sm font-bold text-gray-700">
-          <Target className="text-[#5d7c6f]" size={17} />
-          รายละเอียดรายฐาน
-        </h3>
-        {camp.station.map((station) => {
-          const completed = station.mission.filter(
-            (mission) => mission.status === "completed",
-          ).length;
-          const progress = station.mission.length
-            ? Math.round((completed / station.mission.length) * 100)
-            : 0;
-          return (
-            <div
-              key={station.station_id}
-              className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm"
-            >
-              <div className="flex items-center gap-3 bg-gray-50/50 p-5">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#5d7c6f]/10 text-[#5d7c6f]">
-                  <Target size={21} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex justify-between gap-2">
-                    <h4 className="truncate font-bold text-gray-800">
-                      {station.name}
-                    </h4>
-                    <span className="text-xs font-black text-[#5d7c6f]">
-                      {progress}%
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    {completed} จาก {station.mission.length} ภารกิจเสร็จสิ้น
-                  </p>
-                </div>
-              </div>
-              <div className="grid gap-2 p-5 sm:grid-cols-2">
-                {station.mission.length === 0 ? (
-                  <p className="text-xs text-gray-400">ไม่มีภารกิจย่อย</p>
-                ) : (
-                  station.mission.map((mission) => (
-                    <div
-                      key={mission.mission_id}
-                      className={`flex items-center gap-3 rounded-2xl border p-3 ${mission.status === "completed" ? "border-green-100 bg-green-50/30" : "border-gray-100"}`}
-                    >
-                      <div
-                        className={
-                          mission.status === "completed"
-                            ? "text-green-500"
-                            : "text-gray-200"
-                        }
-                      >
-                        {mission.status === "completed" ? (
-                          <CheckCircle2 size={18} />
-                        ) : (
-                          <Circle size={18} />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p
-                          className={`truncate text-xs font-bold ${mission.status === "completed" ? "text-[#3d6357]" : "text-gray-400"}`}
-                        >
-                          {mission.title || "ภารกิจ"}
-                        </p>
-                        <p className="text-[10px] text-gray-400">
-                          {mission.status === "completed"
-                            ? "เสร็จเรียบร้อย"
-                            : "ยังไม่ได้ทำ"}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="h-1 bg-gray-50">
-                <div
-                  className="h-full bg-[#5d7c6f]"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );

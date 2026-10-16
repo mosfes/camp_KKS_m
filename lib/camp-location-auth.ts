@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
 import { prisma } from "@/lib/db";
+import { getParentSession } from "@/lib/parent-auth";
 
 type Viewer =
   | { kind: "teacher"; teacherId: number; role: string }
@@ -40,10 +41,10 @@ export async function getCampLocationViewer(): Promise<Viewer | null> {
     return { kind: "student", studentId: Number(student.students_id) };
   }
 
-  const parent = await verifyCookie("parent_session");
+  const parent = await getParentSession();
 
-  if (parent?.students_id) {
-    return { kind: "parent", studentId: Number(parent.students_id) };
+  if (parent && !parent.mustChangePassword) {
+    return { kind: "parent", studentId: parent.studentId };
   }
 
   return null;

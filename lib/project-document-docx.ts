@@ -30,6 +30,7 @@ import {
   spacer,
   table,
 } from "@/lib/project-docx";
+import { normalizeProjectEvaluationMethod } from "@/lib/project-evaluation-method";
 
 const HEADER_LABEL_WIDTH = 2160;
 const HEADER_VALUE_WIDTH = CONTENT_WIDTH - HEADER_LABEL_WIDTH;
@@ -337,7 +338,10 @@ export async function createProjectDocumentDocx(document: any) {
       list(document.evaluations).map((row, index) => [
         { text: `8.${index + 1}`, align: AlignmentType.CENTER },
         { text: clean(row.indicator) },
-        { text: clean(row.method), align: AlignmentType.CENTER },
+        {
+          text: normalizeProjectEvaluationMethod(row.method),
+          align: AlignmentType.CENTER,
+        },
         { text: clean(row.tool), align: AlignmentType.CENTER },
       ]),
       [600, 5100, 1800, 2138],

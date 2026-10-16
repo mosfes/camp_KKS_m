@@ -4,6 +4,8 @@ import path from "node:path";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, PDFImage, PDFPage, rgb } from "pdf-lib";
 
+import { normalizeProjectEvaluationMethod } from "@/lib/project-evaluation-method";
+
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
 const MARGIN_LEFT = 70.8;
@@ -372,6 +374,7 @@ export async function createProjectDocumentPdf(document: any) {
       totalRow?: number;
       groupedBudgetHeader?: boolean;
       minimumRowHeights?: number[];
+      sectionHeading?: { number: string; title: string };
     } = {},
   ) => {
     const size = options.size ?? BODY_SIZE;
@@ -400,6 +403,26 @@ export async function createProjectDocumentPdf(document: any) {
             paddingY * 2 +
             2,
         );
+    const rowLayouts = rows.map((row, rowIndex) => {
+      const lines = row.map((cell, index) => {
+        const bold = Boolean(cell.bold || options.totalRow === rowIndex);
+
+        return wrap(
+          clean(cell.text) || " ",
+          (headers[index].width || 0) - paddingX * 2,
+          size,
+          bold,
+        );
+      });
+
+      return {
+        lines,
+        height: Math.max(
+          options.minimumRowHeights?.[rowIndex] ?? 25,
+          Math.max(...lines.map((items) => items.length)) * lineHeight,
+        ),
+      };
+    });
     const drawHeader = () => {
       ensure(headerHeight);
 
@@ -496,22 +519,31 @@ export async function createProjectDocumentPdf(document: any) {
       y += headerHeight;
     };
 
+    if (options.sectionHeading) {
+      const { number, title } = options.sectionHeading;
+      const headingHeight =
+        4 +
+        wrap(`${number}.  ${title}`, CONTENT_WIDTH, BODY_SIZE, true).length *
+          LINE_HEIGHT +
+        1;
+
+      if (
+        y + headingHeight + headerHeight + (rowLayouts[0]?.height ?? 0) >
+        PAGE_HEIGHT - BOTTOM
+      ) {
+        addPage();
+      }
+      heading(number, title);
+    }
+    if (
+      rowLayouts.length &&
+      y + headerHeight + rowLayouts[0].height > PAGE_HEIGHT - BOTTOM
+    ) {
+      addPage();
+    }
     drawHeader();
     rows.forEach((row, rowIndex) => {
-      const allLines = row.map((cell, index) => {
-        const bold = Boolean(cell.bold || options.totalRow === rowIndex);
-
-        return wrap(
-          clean(cell.text) || " ",
-          (headers[index].width || 0) - paddingX * 2,
-          size,
-          bold,
-        );
-      });
-      const rowHeight = Math.max(
-        options.minimumRowHeights?.[rowIndex] ?? 25,
-        Math.max(...allLines.map((items) => items.length)) * lineHeight,
-      );
+      const { lines: allLines, height: rowHeight } = rowLayouts[rowIndex];
 
       if (y + rowHeight > PAGE_HEIGHT - BOTTOM) {
         addPage();
@@ -812,7 +844,6 @@ export async function createProjectDocumentPdf(document: any) {
   drawWrapped("3.2  เชิงคุณภาพ", { x: MARGIN_LEFT + 22, bold: true });
   numberedList(document.qualitative_targets, "3.2", 35, 11);
 
-  heading("4", "วิธีดำเนินการ");
   drawTable(
     [
       { text: "ขั้นตอน", width: 76 },
@@ -836,6 +867,7 @@ export async function createProjectDocumentPdf(document: any) {
     {
       headerHeight: 42,
       minimumRowHeights: [84, 168, 63, 63],
+      sectionHeading: { number: "4", title: "วิธีดำเนินการ" },
     },
   );
 
@@ -924,7 +956,6 @@ export async function createProjectDocumentPdf(document: any) {
     },
   );
 
-  heading("8", "การวัดและประเมินผล");
   drawTable(
     [
       { text: "ที่", width: 28, align: "center" },
@@ -935,9 +966,10 @@ export async function createProjectDocumentPdf(document: any) {
     (document.evaluations || []).map((row: any, index: number) => [
       { text: `8.${index + 1}`, align: "center" },
       { text: row.indicator },
-      { text: row.method, align: "center" },
+      { text: normalizeProjectEvaluationMethod(row.method), align: "center" },
       { text: row.tool, align: "center" },
     ]),
+    { sectionHeading: { number: "8", title: "การวัดและประเมินผล" } },
   );
   heading("9", "ผลที่คาดว่าจะได้รับ");
   numberedList(document.expected_results, "9");

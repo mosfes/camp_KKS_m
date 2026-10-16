@@ -233,6 +233,7 @@ export async function POST(req: Request) {
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 วัน
     });
+    response.cookies.delete("parent_selected_student");
     response.cookies.delete("teacher_session");
     response.cookies.delete("student_session");
 

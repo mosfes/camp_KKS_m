@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (newPassword === `kks${session.studentId}`) {
+    if (newPassword === `kks${session.primaryStudentId}`) {
       return NextResponse.json(
         { error: "กรุณาตั้งรหัสผ่านใหม่ที่ไม่ใช่รหัสผ่านเริ่มต้น" },
         { status: 400 },
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     const parent = await prisma.parents.findFirst({
       where: {
         parents_id: session.parentId,
-        username_student_id: session.studentId,
+        username_student_id: session.primaryStudentId,
       },
       select: { parents_id: true },
     });
@@ -71,20 +71,27 @@ export async function POST(req: Request) {
 
     const bcrypt = await import("bcryptjs");
 
-    const updatedParent = await prisma.parents.update({
-      where: { parents_id: parent.parents_id },
-      data: {
-        password: await bcrypt.hash(newPassword, 10),
-        session_version: { increment: 1 },
-      },
-      select: { session_version: true },
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const updatedParent = await prisma.$transaction(async (tx) => {
+      const updated = await tx.parents.update({
+        where: { parents_id: parent.parents_id },
+        data: {
+          password: passwordHash,
+          session_version: { increment: 1 },
+        },
+        select: { session_version: true },
+      });
+      await tx.parent_student_links.deleteMany({
+        where: { students_id: session.primaryStudentId },
+      });
+      return updated;
     });
 
     const { SignJWT } = await import("jose");
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const token = await new SignJWT({
       parents_id: session.parentId,
-      students_id: session.studentId,
+      students_id: session.primaryStudentId,
       mustChangePassword: false,
       sessionVersion: updatedParent.session_version,
     })

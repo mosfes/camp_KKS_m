@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, MoreVertical, Share, SquarePlus } from "lucide-react";
+import { Download, Share, SquarePlus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { StudentPromptDialog } from "@/components/student/StudentPromptDialog";
@@ -148,24 +148,6 @@ export function AddToHomeScreenPrompt() {
             </InstallStep>
             <InstallStep number={3}>
               กด “เพิ่ม” แล้วเปิด KKS Camp จากหน้าจอโฮม
-            </InstallStep>
-          </ol>
-        )}
-
-        {platform === "android" && (
-          <ol className="space-y-3">
-            <InstallStep number={1}>เปิดหน้านี้ด้วย Google Chrome</InstallStep>
-            <InstallStep number={2}>
-              กดเมนู
-              <MoreVertical
-                aria-hidden="true"
-                className="mx-0.5 inline text-[#426a5b]"
-                size={19}
-              />
-              มุมขวาบน
-            </InstallStep>
-            <InstallStep number={3}>
-              เลือก “ติดตั้งแอป” หรือ “เพิ่มลงในหน้าจอหลัก” แล้วกดยืนยัน
             </InstallStep>
           </ol>
         )}

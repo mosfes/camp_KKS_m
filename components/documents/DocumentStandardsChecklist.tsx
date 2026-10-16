@@ -1,5 +1,8 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
+import { useState } from "react";
+
 export type DocumentStandardIndicator = {
   code: string;
   label: string;
@@ -374,93 +377,97 @@ export function DocumentStandardsChecklist({
 
   return (
     <div className="space-y-3">
-      {standards.map((standard) => (
-        <div
-          key={standard.document_reference_option_id}
-          className="rounded-xl border border-gray-200 bg-gray-50 p-4"
-        >
-          <label className="flex cursor-pointer items-start gap-3 text-sm font-medium text-gray-800">
-            <input
-              checked={isStandardSelected(standard)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
-              disabled={disabled}
-              type="checkbox"
-              onChange={(event) =>
-                onToggleStandard(standard, event.target.checked)
-              }
-            />
-            <span>{standard.label}</span>
-          </label>
-          {standard.indicators.length ? (
-            <div className="mt-3 space-y-2 border-l-2 border-[#cad8d2] pl-5">
-              {standard.indicators.map((indicator, index) => {
-                const previousClause =
-                  index > 0
-                    ? standard.indicators[index - 1].clauseCode
-                    : undefined;
-                const showClause =
-                  indicator.clauseCode &&
-                  indicator.clauseCode !== previousClause;
-                const clause = {
-                  code: clean(indicator.clauseCode),
-                  label: clean(indicator.clauseLabel),
-                };
+      {standards.map((standard) => {
+        const isSelected = isStandardSelected(standard);
 
-                return (
-                  <div key={`${indicator.code}-${indicator.label}-${index}`}>
-                    {showClause ? (
-                      isClauseSelected && onToggleClause ? (
-                        <label className="mb-2 mt-3 flex cursor-pointer items-start gap-3 text-sm font-medium text-gray-700 first:mt-0">
-                          <input
-                            checked={isClauseSelected(standard, clause)}
-                            className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
-                            disabled={disabled}
-                            type="checkbox"
-                            onChange={(event) =>
-                              onToggleClause(
-                                standard,
-                                clause,
-                                event.target.checked,
-                              )
-                            }
-                          />
-                          <span>
+        return (
+          <div
+            key={standard.document_reference_option_id}
+            className="rounded-xl border border-gray-200 bg-gray-50 p-4"
+          >
+            <label className="flex cursor-pointer items-start gap-3 text-sm font-medium text-gray-800">
+              <input
+                checked={isSelected}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
+                disabled={disabled}
+                type="checkbox"
+                onChange={(event) =>
+                  onToggleStandard(standard, event.target.checked)
+                }
+              />
+              <span>{standard.label}</span>
+            </label>
+            {isSelected && standard.indicators.length ? (
+              <div className="mt-3 space-y-2 border-l-2 border-[#cad8d2] pl-5">
+                {standard.indicators.map((indicator, index) => {
+                  const previousClause =
+                    index > 0
+                      ? standard.indicators[index - 1].clauseCode
+                      : undefined;
+                  const showClause =
+                    indicator.clauseCode &&
+                    indicator.clauseCode !== previousClause;
+                  const clause = {
+                    code: clean(indicator.clauseCode),
+                    label: clean(indicator.clauseLabel),
+                  };
+
+                  return (
+                    <div key={`${indicator.code}-${indicator.label}-${index}`}>
+                      {showClause ? (
+                        isClauseSelected && onToggleClause ? (
+                          <label className="mb-2 mt-3 flex cursor-pointer items-start gap-3 text-sm font-medium text-gray-700 first:mt-0">
+                            <input
+                              checked={isClauseSelected(standard, clause)}
+                              className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
+                              disabled={disabled}
+                              type="checkbox"
+                              onChange={(event) =>
+                                onToggleClause(
+                                  standard,
+                                  clause,
+                                  event.target.checked,
+                                )
+                              }
+                            />
+                            <span>
+                              {[clause.code, clause.label]
+                                .filter(Boolean)
+                                .join(" ")}
+                            </span>
+                          </label>
+                        ) : (
+                          <p className="mb-2 mt-3 text-sm font-medium text-gray-700 first:mt-0">
                             {[clause.code, clause.label]
                               .filter(Boolean)
                               .join(" ")}
-                          </span>
-                        </label>
-                      ) : (
-                        <p className="mb-2 mt-3 text-sm font-medium text-gray-700 first:mt-0">
-                          {[clause.code, clause.label]
-                            .filter(Boolean)
-                            .join(" ")}
-                        </p>
-                      )
-                    ) : null}
-                    <label className="ml-5 flex cursor-pointer items-start gap-3 text-sm text-gray-600 sm:ml-7">
-                      <input
-                        checked={isIndicatorSelected(standard, indicator)}
-                        className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
-                        disabled={disabled}
-                        type="checkbox"
-                        onChange={(event) =>
-                          onToggleIndicator(
-                            standard,
-                            indicator,
-                            event.target.checked,
-                          )
-                        }
-                      />
-                      <span>{documentIndicatorText(indicator)}</span>
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
-      ))}
+                          </p>
+                        )
+                      ) : null}
+                      <label className="ml-5 flex cursor-pointer items-start gap-3 text-sm text-gray-600 sm:ml-7">
+                        <input
+                          checked={isIndicatorSelected(standard, indicator)}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
+                          disabled={disabled}
+                          type="checkbox"
+                          onChange={(event) =>
+                            onToggleIndicator(
+                              standard,
+                              indicator,
+                              event.target.checked,
+                            )
+                          }
+                        />
+                        <span>{documentIndicatorText(indicator)}</span>
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -479,6 +486,8 @@ export function DocumentStrategiesChecklist({
     selected: boolean,
   ) => void;
 }) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
   if (!strategies.length) {
     return (
       <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
@@ -488,24 +497,45 @@ export function DocumentStrategiesChecklist({
   }
 
   return (
-    <div className="space-y-3">
-      {strategies.map((strategy) => (
-        <label
-          key={strategy.document_reference_option_id}
-          className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm font-medium text-gray-800"
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+      <div
+        className={`flex justify-end px-2 py-1.5 ${isExpanded ? "border-b border-gray-200" : ""}`}
+      >
+        <button
+          aria-expanded={isExpanded}
+          className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f] focus-visible:ring-offset-2"
+          type="button"
+          onClick={() => setIsExpanded((current) => !current)}
         >
-          <input
-            checked={isStrategySelected(strategy)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
-            disabled={disabled}
-            type="checkbox"
-            onChange={(event) =>
-              onToggleStrategy(strategy, event.target.checked)
-            }
+          {isExpanded ? "พับรายการ" : "แสดงรายการ"}
+          <ChevronDown
+            aria-hidden="true"
+            className={`transition-transform ${isExpanded ? "rotate-180" : ""}`}
+            size={15}
           />
-          <span>{strategy.label}</span>
-        </label>
-      ))}
+        </button>
+      </div>
+      {isExpanded ? (
+        <div className="divide-y divide-gray-200">
+          {strategies.map((strategy) => (
+            <label
+              key={strategy.document_reference_option_id}
+              className="flex cursor-pointer items-start gap-3 p-4 text-sm font-medium text-gray-800 transition-colors hover:bg-white/70"
+            >
+              <input
+                checked={isStrategySelected(strategy)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[#5d7c6f]"
+                disabled={disabled}
+                type="checkbox"
+                onChange={(event) =>
+                  onToggleStrategy(strategy, event.target.checked)
+                }
+              />
+              <span>{strategy.label}</span>
+            </label>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
