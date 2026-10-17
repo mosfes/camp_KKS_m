@@ -1,22 +1,18 @@
-"use client";
+import { GET as getLocation } from "@/app/api/camps/[id]/location/route";
 
-import { useParams, useRouter } from "next/navigation";
+import LocationClient from "./LocationClient";
 
-import TrackingModal from "../../TrackingModal";
-
-export default function LocationTrackingPage() {
-  const params = useParams<{ id: string }>();
-  const router = useRouter();
-  const campId = Number(params.id);
-
-  return (
-    <TrackingModal
-      isOpen
-      pageMode
-      campId={campId}
-      campName=""
-      view="location"
-      onClose={() => router.push("/headteacher/dashboard")}
-    />
+export default async function LocationTrackingPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const response = await getLocation(
+    new Request(`https://www.kkscamp.com/api/camps/${id}/location`),
+    { params: Promise.resolve({ id }) },
   );
+  const initialData = response.ok ? await response.json() : null;
+
+  return <LocationClient campId={Number(id)} initialData={initialData} />;
 }

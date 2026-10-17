@@ -27,6 +27,7 @@ import {
 import CampBreadcrumb from "./CampBreadcrumb";
 
 import CampLocationTracker from "@/components/camp-location/CampLocationTracker";
+import type { TrackerData } from "@/components/camp-location/CampLocationTracker";
 import {
   getCleanTrackingStudentPath,
   rememberActiveTrackingStudentId,
@@ -72,6 +73,7 @@ interface TrackingModalProps {
   locationTrackingEnabled?: boolean;
   pageMode?: boolean;
   view?: TrackingView;
+  initialLocationData?: TrackerData | null;
 }
 
 function hasCompletedAllMissions(student: StudentProgress) {
@@ -186,6 +188,7 @@ export default function TrackingModal({
   locationTrackingEnabled = false,
   pageMode = false,
   view = "both",
+  initialLocationData,
 }: TrackingModalProps) {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TrackingData | null>(null);
@@ -524,6 +527,7 @@ export default function TrackingModal({
           {activeSection === "location" ? (
             <CampLocationTracker
               campId={campId}
+              initialData={initialLocationData}
               configureDestination={false}
               showDestination={false}
               viewer="teacher"

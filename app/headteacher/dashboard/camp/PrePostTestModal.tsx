@@ -1,4 +1,4 @@
-import React, { useState, useEffect, type ReactNode } from "react";
+import React, { useState, useEffect, useRef, type ReactNode } from "react";
 import {
   Modal,
   ModalContent,
@@ -114,15 +114,21 @@ export default function PrePostTestModal({
   onClose,
   campId,
   pageMode = false,
+  initialPairs,
 }: any) {
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<any>(null);
+  const initialPairsPending = useRef(Boolean(initialPairs));
+  const [loading, setLoading] = useState(!initialPairs);
+  const [data, setData] = useState<any>(initialPairs || null);
   const [searchQuery, setSearchQuery] = useState("");
   const [scoreFilter, setScoreFilter] = useState("all");
 
   useEffect(() => {
     if (isOpen && campId) {
-      fetchData();
+      if (initialPairsPending.current) {
+        initialPairsPending.current = false;
+      } else {
+        fetchData();
+      }
     }
   }, [isOpen, campId]);
 

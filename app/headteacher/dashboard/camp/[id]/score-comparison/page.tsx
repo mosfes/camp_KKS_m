@@ -1,20 +1,18 @@
-"use client";
+import { GET as getScores } from "@/app/api/camps/[id]/pre-post-tests/route";
 
-import { useParams, useRouter } from "next/navigation";
+import ScoreComparisonClient from "./ScoreComparisonClient";
 
-import PrePostTestModal from "../../PrePostTestModal";
-
-export default function ScoreComparisonPage() {
-  const params = useParams<{ id: string }>();
-  const router = useRouter();
-  const campId = Number(params.id);
-
-  return (
-    <PrePostTestModal
-      isOpen
-      pageMode
-      campId={campId}
-      onClose={() => router.push("/headteacher/dashboard")}
-    />
+export default async function ScoreComparisonPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const response = await getScores(
+    new Request(`https://www.kkscamp.com/api/camps/${id}/pre-post-tests`),
+    { params: Promise.resolve({ id }) },
   );
+  const data = response.ok ? await response.json() : null;
+
+  return <ScoreComparisonClient campId={Number(id)} initialPairs={data?.pairs || null} />;
 }

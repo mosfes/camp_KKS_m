@@ -64,7 +64,7 @@ interface StudentLocation {
   latest: LocationUpdate | null;
 }
 
-interface TrackerData {
+export interface TrackerData {
   destination: Destination | null;
   sharingEnabled: boolean;
   studentSharingEnabled: boolean;
@@ -324,6 +324,7 @@ interface CampLocationTrackerProps {
   viewer: "teacher" | "student" | "parent";
   configureDestination?: boolean;
   showDestination?: boolean;
+  initialData?: TrackerData | null;
 }
 
 function thaiDateTime(value?: string | null) {
@@ -413,15 +414,17 @@ export default function CampLocationTracker({
   viewer,
   configureDestination = true,
   showDestination = true,
+  initialData,
 }: CampLocationTrackerProps) {
   const locationUrl = `/api/camps/${campId}/location${viewer === "parent" && studentId ? `?studentId=${studentId}` : ""}`;
-  const [data, setData] = useState<TrackerData | null>(null);
+  const initialDataPendingRef = useRef(Boolean(initialData));
+  const [data, setData] = useState<TrackerData | null>(initialData || null);
   const [draftDestination, setDraftDestination] = useState<Destination | null>(
-    null,
+    initialData?.destination || null,
   );
-  const [destinationConfirmed, setDestinationConfirmed] = useState(false);
-  const [sharingEnabled, setSharingEnabled] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [destinationConfirmed, setDestinationConfirmed] = useState(Boolean(initialData?.destination));
+  const [sharingEnabled, setSharingEnabled] = useState(Boolean(initialData?.sharingEnabled));
+  const [loading, setLoading] = useState(!initialData);
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [confirmingDestination, setConfirmingDestination] = useState(false);
@@ -525,7 +528,11 @@ export default function CampLocationTracker({
   );
 
   useEffect(() => {
-    void fetchLocation({ showLoader: true, syncSettings: true });
+    if (initialDataPendingRef.current) {
+      initialDataPendingRef.current = false;
+    } else {
+      void fetchLocation({ showLoader: true, syncSettings: true });
+    }
   }, [fetchLocation]);
 
   useEffect(() => {
