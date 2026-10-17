@@ -3,16 +3,18 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getBangkokDateKey, isBangkokDateBefore } from "@/lib/bangkok-date";
 import { requireParentSession } from "@/lib/parent-auth";
+import { resolveParentStudent } from "@/lib/parent-student-access";
 
 /**
  * GET /api/parent/camps
  * ดึงค่ายทั้งหมดที่นักเรียน (ลูก) เข้าร่วม – format เดียวกับ /api/student/camps
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const auth = await requireParentSession();
     if (auth.error) return auth.error;
-    const { studentId } = auth.session;
+    const { studentId, error } = await resolveParentStudent(request, auth.session);
+    if (error) return error;
 
     // 1. Find classrooms for the student
     const classrooms = await prisma.classrooms.findMany({
@@ -135,7 +137,9 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(parentCamps);
+    return NextResponse.json(parentCamps, {
+      headers: { "Cache-Control": "private, no-store" },
+    });
   } catch {
     //     console.error("Parent camps error:", error);
 

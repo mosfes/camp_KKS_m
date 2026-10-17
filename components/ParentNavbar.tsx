@@ -6,9 +6,17 @@ import {
   Dropdown,
   DropdownItem,
   DropdownMenu,
+  DropdownSection,
   DropdownTrigger,
 } from "@heroui/dropdown";
-import { GraduationCap, LogOut, Menu, Settings } from "lucide-react";
+import {
+  Check,
+  GraduationCap,
+  LogOut,
+  Menu,
+  UserCircle,
+  UsersRound,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -20,17 +28,22 @@ interface ParentStudent {
   prefix_name: string | null;
   firstname: string;
   lastname: string;
+  profile_image_url?: string | null;
 }
 
 interface ParentProfile {
   firstname: string;
   lastname: string;
+  email?: string | null;
 }
 
 export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [student, setStudent] = useState<ParentStudent | null>(null);
+  const childId = Number(
+    pathname.match(/^\/parent\/children\/(\d+)(?:\/|$)/)?.[1],
+  );
+  const [students, setStudents] = useState<ParentStudent[]>([]);
   const [parent, setParent] = useState<ParentProfile | null>(null);
   const [mounted, setMounted] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -62,13 +75,27 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   );
 
   useEffect(() => {
-    fetch("/api/auth/parent/me")
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data) => {
-        if (data?.student) setStudent(data.student);
-        if (data?.parentProfile) setParent(data.parentProfile);
-      })
-      .catch(() => {});
+    const refreshFamily = () => {
+      void Promise.all([
+        fetch("/api/parent/profile", { cache: "no-store" }),
+        fetch("/api/parent/students", { cache: "no-store" }),
+      ])
+        .then(async ([parentResponse, studentsResponse]) => {
+          if (parentResponse.ok) {
+            const data = await parentResponse.json();
+            setParent(data.parent ?? null);
+          }
+          if (studentsResponse.ok) {
+            const data = await studentsResponse.json();
+            setStudents(data.students ?? []);
+          }
+        })
+        .catch(() => {});
+    };
+    refreshFamily();
+    window.addEventListener("parent-students-updated", refreshFamily);
+    return () =>
+      window.removeEventListener("parent-students-updated", refreshFamily);
   }, []);
 
   const navigate = (url: string, message = "กำลังโหลดข้อมูล...") => {
@@ -100,13 +127,13 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
     parent && parent.firstname !== "รอระบุ"
       ? `${parent.firstname} ${parent.lastname}`
       : "ผู้ปกครอง";
+  const displayParentName =
+    parentName === "ผู้ปกครอง" ? parentName : `คุณ${parentName}`;
   const initials =
     parent && parent.firstname !== "รอระบุ"
       ? `${parent.firstname[0]}${parent.lastname[0]}`
       : "ผป";
-  const childName = student
-    ? `${student.prefix_name ?? ""}${student.firstname} ${student.lastname}`
-    : "บุตรหลาน";
+  const activeStudent = students.find((item) => item.students_id === childId);
 
   return (
     <>
@@ -133,14 +160,14 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
             aria-label="กลับหน้าหลักผู้ปกครอง"
             className="flex cursor-pointer items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f] focus-visible:ring-offset-2"
             type="button"
-            onClick={() => navigate("/parent/dashboard")}
+            onClick={() => navigate("/parent/family")}
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#5d7c6f] text-white">
               <GraduationCap size={20} />
             </div>
             <div className="flex flex-col leading-tight">
               <span className="text-sm font-semibold text-black">KKS Camp</span>
-              <span className="text-xs text-gray-500">ค่ายของบุตร</span>
+              <span className="text-xs text-gray-500">ข้อมูลบุตรหลาน</span>
             </div>
           </button>
         </NavbarBrand>
@@ -150,47 +177,109 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
             {mounted ? (
               <Dropdown placement="bottom-end">
                 <DropdownTrigger>
-                  <div className="flex cursor-pointer items-center gap-2">
+                  <button
+                    aria-label="เปิดเมนูโปรไฟล์ผู้ปกครอง"
+                    className="flex items-center gap-2 rounded-xl p-1 transition hover:bg-[#edf3ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f] focus-visible:ring-offset-2"
+                    type="button"
+                  >
                     {parent && (
-                      <div className="hidden items-center gap-2 sm:flex">
-                        <span className="max-w-48 truncate text-sm font-medium text-gray-700">
-                          คุณ{parentName}
-                        </span>
-                        <span className="inline-flex items-center rounded-full border border-[#b8d0c8] bg-[#e8f0ee] px-2.5 py-0.5 text-xs font-medium text-[#3d6357]">
-                          ผู้ปกครอง
-                        </span>
-                      </div>
+                      <span className="hidden max-w-40 truncate text-sm font-medium text-gray-700 sm:inline">
+                        {displayParentName}
+                      </span>
                     )}
+                    <span className="hidden items-center rounded-full border border-[#b8d0c8] bg-[#e8f0ee] px-2.5 py-0.5 text-xs font-medium text-[#3d6357] sm:inline-flex">
+                      ผู้ปกครอง
+                    </span>
                     <Avatar
-                      aria-label={`เปิดเมนูผู้ปกครอง ${parentName}`}
-                      as="button"
                       className="bg-[#5d7c6f] text-white transition-transform"
                       name={initials}
                       size="sm"
                     />
-                  </div>
+                  </button>
                 </DropdownTrigger>
 
-                <DropdownMenu aria-label="Profile Actions" variant="flat">
-                  <DropdownItem key="profile-summary" className="h-14 gap-2">
+                <DropdownMenu aria-label="เมนูผู้ปกครอง" variant="flat">
+                  <DropdownItem
+                    key="profile-summary"
+                    className="h-14 gap-2 border-b border-gray-100"
+                    isReadOnly
+                  >
                     <div>
-                      <p className="font-semibold">{parentName}</p>
+                      <p className="font-semibold">{displayParentName}</p>
                       <p className="max-w-64 truncate text-xs text-gray-500">
-                        ดูแล: {childName}
+                        {parent?.email ||
+                          `ผู้ปกครอง · ${students.length} คนในบัญชี`}
                       </p>
                     </div>
                   </DropdownItem>
                   <DropdownItem
                     key="profile"
-                    startContent={<Settings size={16} />}
-                    onClick={() => navigate("/parent/profile")}
+                    startContent={<UserCircle size={16} />}
+                    onPress={() => navigate("/parent/profile")}
                   >
-                    ตั้งค่าโปรไฟล์
+                    โปรไฟล์ของฉัน
                   </DropdownItem>
                   <DropdownItem
+                    key="family"
+                    startContent={<UsersRound size={16} />}
+                    onPress={() => navigate("/parent/family")}
+                  >
+                    ลูกทั้งหมด
+                  </DropdownItem>
+                  <DropdownSection showDivider title="เลือกดูข้อมูลบุตร">
+                    {students.length === 0
+                      ? [
+                          <DropdownItem key="student-loading" isDisabled>
+                            กำลังโหลดรายชื่อ...
+                          </DropdownItem>,
+                        ]
+                      : students.map((linkedStudent) => {
+                          const isCurrent =
+                            linkedStudent.students_id === childId;
+                          return (
+                            <DropdownItem
+                              key={`student-${linkedStudent.students_id}`}
+                              className={
+                                isCurrent ? "bg-[#edf3ef] text-[#365f4f]" : ""
+                              }
+                              endContent={
+                                isCurrent ? <Check size={16} /> : undefined
+                              }
+                              startContent={
+                                linkedStudent.profile_image_url ? (
+                                  <img
+                                    alt=""
+                                    className="h-7 w-7 rounded-full object-cover"
+                                    src={linkedStudent.profile_image_url}
+                                  />
+                                ) : (
+                                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e8f0ee] text-[#5d7c6f]">
+                                    <GraduationCap size={15} />
+                                  </span>
+                                )
+                              }
+                              onPress={() =>
+                                navigate(
+                                  `/parent/children/${linkedStudent.students_id}`,
+                                )
+                              }
+                            >
+                              <span className="max-w-56 truncate">
+                                {linkedStudent.prefix_name ?? ""}
+                                {linkedStudent.firstname}{" "}
+                                {linkedStudent.lastname}
+                              </span>
+                            </DropdownItem>
+                          );
+                        })}
+                  </DropdownSection>
+                  <DropdownItem
                     key="student"
+                    isDisabled={!activeStudent}
                     startContent={<GraduationCap size={16} />}
-                    onClick={() => navigate("/parent/student")}
+                    onPress={() =>
+                      navigate(`/parent/children/${childId}/profile`)
+                    }
                   >
                     ข้อมูลบุตร
                   </DropdownItem>

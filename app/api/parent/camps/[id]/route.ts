@@ -5,20 +5,22 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getBangkokDateKey, isBangkokDateBefore } from "@/lib/bangkok-date";
 import { requireParentSession } from "@/lib/parent-auth";
+import { resolveParentStudent } from "@/lib/parent-student-access";
 
 /**
  * Parent-safe camp detail. The camp must both belong to the child's class and
  * have an active enrollment for the child.
  */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   const auth = await requireParentSession();
   if (auth.error) return auth.error;
 
   const campId = Number((await context.params).id);
-  const studentId = auth.session.studentId;
+  const { studentId, error } = await resolveParentStudent(request, auth.session);
+  if (error) return error;
 
   if (!Number.isInteger(campId) || campId <= 0) {
     return NextResponse.json({ error: "รหัสค่ายไม่ถูกต้อง" }, { status: 400 });

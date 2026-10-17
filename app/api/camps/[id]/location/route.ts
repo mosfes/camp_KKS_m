@@ -8,6 +8,8 @@ import {
 import { prisma } from "@/lib/db";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 import { getBangkokDateKey } from "@/lib/bangkok-date";
+import { getParentSession } from "@/lib/parent-auth";
+import { resolveParentStudent } from "@/lib/parent-student-access";
 
 const coordinateSchema = z.object({
   latitude: z.number().finite().min(-90).max(90),
@@ -37,7 +39,10 @@ const studentSharingSchema = z.object({
   noticeVersion: z.literal(LOCATION_NOTICE_VERSION).optional(),
 });
 
-async function authorize(context: { params: Promise<{ id: string }> }) {
+async function authorize(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
   const { id } = await context.params;
   const campId = Number(id);
 
@@ -50,7 +55,7 @@ async function authorize(context: { params: Promise<{ id: string }> }) {
     };
   }
 
-  const viewer = await getCampLocationViewer();
+  let viewer = await getCampLocationViewer();
 
   if (!viewer) {
     return {
@@ -59,6 +64,18 @@ async function authorize(context: { params: Promise<{ id: string }> }) {
         { status: 401 },
       ),
     };
+  }
+
+  if (viewer.kind === "parent") {
+    const parent = await getParentSession();
+    if (!parent) {
+      return {
+        error: NextResponse.json({ error: "กรุณาเข้าสู่ระบบก่อน" }, { status: 401 }),
+      };
+    }
+    const selected = await resolveParentStudent(request, parent);
+    if (selected.error) return { error: selected.error };
+    viewer = { kind: "parent", studentId: selected.studentId };
   }
 
   const access = await getCampLocationAccess(campId, viewer);
@@ -99,10 +116,10 @@ function isUnderTen(birthday: Date | null) {
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorize(context);
+  const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
 
@@ -335,7 +352,7 @@ export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorize(context);
+  const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
   if (!auth.access.canConfigure) {
@@ -423,7 +440,7 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorize(context);
+  const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
   if (
@@ -529,7 +546,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorize(context);
+  const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
   if (auth.viewer.kind !== "student" || !auth.access.canSubmitStudentLocation) {

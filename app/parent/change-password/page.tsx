@@ -35,7 +35,7 @@ export default function ParentChangePasswordPage() {
         return;
       }
 
-      router.replace("/parent/dashboard");
+      router.replace("/parent/family");
     } catch {
       setError("เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {

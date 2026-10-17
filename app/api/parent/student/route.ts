@@ -4,18 +4,21 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
 import { requireParentSession } from "@/lib/parent-auth";
+import { resolveParentStudent } from "@/lib/parent-student-access";
 
 /**
  * GET /api/parent/student
  * Read-only profile for the student belonging to the current parent.
  */
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await requireParentSession();
   if (auth.error) return auth.error;
+  const { studentId, error } = await resolveParentStudent(request, auth.session);
+  if (error) return error;
 
   try {
     const student = await prisma.students.findFirst({
-      where: { students_id: auth.session.studentId, deletedAt: null },
+      where: { students_id: studentId, deletedAt: null },
       select: {
         students_id: true,
         prefix_name: true,
@@ -78,7 +81,10 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ student });
+    return NextResponse.json(
+      { student },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
   } catch {
     return NextResponse.json(
       { error: "ไม่สามารถโหลดข้อมูลนักเรียนได้" },

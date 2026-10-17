@@ -129,7 +129,7 @@ export default function ParentProfilePage() {
             className="bg-white text-gray-700 shadow-sm"
             radius="lg"
             variant="flat"
-            onPress={() => router.push("/parent/dashboard")}
+            onPress={() => router.push("/parent/family")}
           >
             <ChevronLeft size={20} />
           </Button>

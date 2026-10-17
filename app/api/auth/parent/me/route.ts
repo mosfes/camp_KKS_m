@@ -2,16 +2,19 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireParentSession } from "@/lib/parent-auth";
+import { resolveParentStudent } from "@/lib/parent-student-access";
 
 /**
  * GET /api/auth/parent/me
  * อ่าน parent_session cookie → คืนข้อมูลนักเรียนพร้อมห้องเรียนและค่าย
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const auth = await requireParentSession();
     if (auth.error) return auth.error;
-    const { studentId, parentId } = auth.session;
+    const { parentId } = auth.session;
+    const { studentId, error } = await resolveParentStudent(request, auth.session);
+    if (error) return error;
 
     // ตรวจสอบว่ามีข้อมูลผู้ปกครองแล้วหรือยัง
     const parentRecord = await prisma.parents.findFirst({
@@ -29,6 +32,7 @@ export async function GET() {
         prefix_name: true,
         firstname: true,
         lastname: true,
+        profile_image_url: true,
         tel: true,
         classroom_students: {
           orderBy: {
@@ -146,11 +150,14 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({
-      student,
-      hasParentProfile: !!(parentRecord && parentRecord.firstname !== "รอระบุ"),
-      parentProfile: parentRecord ?? null,
-    });
+    return NextResponse.json(
+      {
+        student,
+        hasParentProfile: !!(parentRecord && parentRecord.firstname !== "รอระบุ"),
+        parentProfile: parentRecord ?? null,
+      },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
   } catch {
     //     console.error("Parent me error:", error);
 

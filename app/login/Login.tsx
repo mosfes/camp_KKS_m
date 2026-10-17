@@ -40,9 +40,7 @@ export default function ParentLoginPage() {
         return;
       }
       router.replace(
-        data.mustChangePassword
-          ? "/parent/change-password"
-          : "/parent/dashboard",
+        data.mustChangePassword ? "/parent/change-password" : "/parent/family",
       );
     } catch {
       setError("เกิดข้อผิดพลาด กรุณาลองใหม่");

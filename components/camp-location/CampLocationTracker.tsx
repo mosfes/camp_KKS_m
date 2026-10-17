@@ -320,6 +320,7 @@ function placeSearchError(error: unknown) {
 
 interface CampLocationTrackerProps {
   campId: number;
+  studentId?: number;
   viewer: "teacher" | "student" | "parent";
   configureDestination?: boolean;
   showDestination?: boolean;
@@ -408,10 +409,12 @@ async function responseError(response: Response) {
 
 export default function CampLocationTracker({
   campId,
+  studentId,
   viewer,
   configureDestination = true,
   showDestination = true,
 }: CampLocationTrackerProps) {
+  const locationUrl = `/api/camps/${campId}/location${viewer === "parent" && studentId ? `?studentId=${studentId}` : ""}`;
   const [data, setData] = useState<TrackerData | null>(null);
   const [draftDestination, setDraftDestination] = useState<Destination | null>(
     null,
@@ -493,7 +496,7 @@ export default function CampLocationTracker({
       if (showLoader) setLoading(true);
 
       try {
-        const response = await fetch(`/api/camps/${campId}/location`, {
+        const response = await fetch(locationUrl, {
           cache: "no-store",
         });
 
@@ -518,7 +521,7 @@ export default function CampLocationTracker({
         setLoading(false);
       }
     },
-    [campId],
+    [locationUrl],
   );
 
   useEffect(() => {
@@ -548,7 +551,7 @@ export default function CampLocationTracker({
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           try {
-            const response = await fetch(`/api/camps/${campId}/location`, {
+            const response = await fetch(locationUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -590,7 +593,7 @@ export default function CampLocationTracker({
         { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
       );
     },
-    [campId, fetchLocation],
+    [locationUrl, fetchLocation],
   );
 
   useEffect(() => {
@@ -631,7 +634,7 @@ export default function CampLocationTracker({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/camps/${campId}/location`, {
+      const response = await fetch(locationUrl, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -749,7 +752,7 @@ export default function CampLocationTracker({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/camps/${campId}/location`, {
+      const response = await fetch(locationUrl, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1013,7 +1016,7 @@ export default function CampLocationTracker({
     setMessage(null);
 
     try {
-      const response = await fetch(`/api/camps/${campId}/location`, {
+      const response = await fetch(locationUrl, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ destination: draftDestination }),
