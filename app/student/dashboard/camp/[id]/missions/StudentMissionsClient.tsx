@@ -22,10 +22,10 @@ export default function StudentMissionsPage({
   const [camp, setCamp] = useState<any>(initialCamp);
   const [navigatingTo, setNavigatingTo] = useState<number | null>(null);
 
-  const goToStation = (stationId: number) => {
+  const goToStation = (stationId: number, publicId: string) => {
     if (navigatingTo !== null) return;
     setNavigatingTo(stationId);
-    router.push(`/student/dashboard/camp/${id}/missions/${stationId}`);
+    router.push(`/student/dashboard/camp/${id}/missions/${publicId}`);
   };
 
   useEffect(() => {
@@ -69,6 +69,7 @@ export default function StudentMissionsPage({
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center gap-4">
           <Button
             isIconOnly
+            aria-label="ย้อนกลับ"
             className="bg-transparent text-gray-400 hover:bg-gray-50 min-w-0 w-8 h-8"
             variant="light"
             onPress={() => router.back()}
@@ -90,9 +91,9 @@ export default function StudentMissionsPage({
         {/* Overall Progress Card */}
         <div className="bg-[#EEEADF] rounded-3xl p-6 sm:p-8 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h3 className="text-[#2D3648] font-bold text-lg sm:text-xl">
+            <h2 className="text-[#2D3648] font-bold text-lg sm:text-xl">
               ความคืบหน้าโดยรวม
-            </h3>
+            </h2>
             <div className="text-sm font-semibold text-gray-600 bg-white/60 px-3 py-1 rounded-full w-fit">
               {completedOverall}/{totalMissions} ภารกิจสำเร็จ
             </div>
@@ -113,9 +114,9 @@ export default function StudentMissionsPage({
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-[#2D3648] font-bold text-lg px-1">
+          <h2 className="text-[#2D3648] font-bold text-lg px-1">
             เลือกฐานกิจกรรม
-          </h3>
+          </h2>
 
           {/* Stations Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -144,7 +145,9 @@ export default function StudentMissionsPage({
                       : ""
                   }`}
                   type="button"
-                  onClick={() => goToStation(station.station_id)}
+                  onClick={() =>
+                    goToStation(station.station_id, station.publicId)
+                  }
                 >
                   {/* Icon */}
                   <div className="w-14 h-14 rounded-2xl bg-[#F0FAF5] flex items-center justify-center shrink-0 border border-[#5D7C6F]/15 group-hover:scale-105 transition-transform">
@@ -156,9 +159,9 @@ export default function StudentMissionsPage({
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-1 gap-2">
-                      <h4 className="font-bold text-[#2D3648] text-base truncate group-hover:text-[#5D7C6F] transition-colors">
+                      <h3 className="font-bold text-[#2D3648] text-base truncate group-hover:text-[#5D7C6F] transition-colors">
                         {station.name}
-                      </h4>
+                      </h3>
                     </div>
 
                     <p className="text-[14px] text-gray-400 mb-4 line-clamp-2 break-words">

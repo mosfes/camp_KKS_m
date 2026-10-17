@@ -21,6 +21,7 @@ export async function GET(request: Request) {
       where: { students_id: studentId, deletedAt: null },
       select: {
         students_id: true,
+        public_id: true,
         prefix_name: true,
         firstname: true,
         lastname: true,

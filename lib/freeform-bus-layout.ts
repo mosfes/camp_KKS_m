@@ -188,6 +188,7 @@ export function formatBusLayoutTemplate(template: any) {
 
   return {
     templateId: template.template_id,
+    publicId: template.public_id,
     name: template.name,
     description: template.description,
     status: template.status,

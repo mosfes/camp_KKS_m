@@ -408,6 +408,7 @@ export default function StudentBusCheckinPage({
           <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center gap-3">
             <Button
               isIconOnly
+              aria-label="ย้อนกลับ"
               className="text-gray-500"
               variant="light"
               onPress={() => router.back()}
@@ -469,6 +470,7 @@ export default function StudentBusCheckinPage({
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center gap-3">
           <Button
             isIconOnly
+            aria-label="ย้อนกลับ"
             className="text-gray-500"
             variant="light"
             onPress={() => router.back()}

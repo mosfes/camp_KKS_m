@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
 import { studentCampBusAssignmentWhere } from "@/lib/student-bus-assignment";
+import { resolveStudentCampId } from "@/lib/student-public-route";
 import {
   BUS_REMINDER_TTL_MS,
   getActiveBusReminder,
@@ -47,7 +48,7 @@ export async function GET(request: Request, context: any) {
   }
 
   const { id } = await context.params;
-  const campId = Number(id);
+  const campId = await resolveStudentCampId(id);
   const studentId = Number(student.students_id);
 
   if (!Number.isInteger(campId) || campId <= 0) {

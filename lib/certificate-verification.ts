@@ -12,21 +12,28 @@ function getSigningSecret(): string {
   return secret;
 }
 
-function signaturePayload(enrollmentId: number): string {
+function signaturePayload(enrollmentId: number | string): string {
   return `certificate:${SIGNATURE_VERSION}:${enrollmentId}`;
 }
 
-export function signCertificateEnrollment(enrollmentId: number): string {
+export function signCertificateEnrollment(
+  enrollmentId: number | string,
+): string {
   return createHmac("sha256", getSigningSecret())
     .update(signaturePayload(enrollmentId))
     .digest("base64url");
 }
 
 export function verifyCertificateSignature(
-  enrollmentId: number,
+  enrollmentId: number | string,
   signature: string,
 ): boolean {
-  if (!Number.isInteger(enrollmentId) || enrollmentId <= 0 || !signature) {
+  const isNumeric = typeof enrollmentId === "number"
+    ? Number.isSafeInteger(enrollmentId) && enrollmentId > 0
+    : /^[1-9]\d*$/.test(enrollmentId) && Number.isSafeInteger(Number(enrollmentId));
+  const isUuid = typeof enrollmentId === "string" &&
+    /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(enrollmentId);
+  if ((!isNumeric && !isUuid) || !signature) {
     return false;
   }
 
@@ -45,7 +52,7 @@ export function verifyCertificateSignature(
 
 export function buildCertificateVerificationUrl(
   origin: string,
-  enrollmentId: number,
+  enrollmentId: string,
 ): string {
   const url = new URL(`/certificate/verify/${enrollmentId}`, origin);
 

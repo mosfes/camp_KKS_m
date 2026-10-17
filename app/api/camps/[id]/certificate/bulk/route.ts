@@ -315,7 +315,7 @@ export async function GET(request: Request, context: any) {
         camp.cert_show_qr && camp.cert_show_number && assignedCertNo != null
           ? buildCertificateVerificationUrl(
               requestOrigin,
-              enrollment.student_enrollment_id,
+              enrollment.public_id,
             )
           : null;
 

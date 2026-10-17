@@ -18,13 +18,19 @@ export async function GET(
   const auth = await requireParentSession();
   if (auth.error) return auth.error;
 
-  const campId = Number((await context.params).id);
+  const rawCampId = (await context.params).id;
+  const numericCampId = /^[1-9]\d*$/.test(rawCampId) ? Number(rawCampId) : null;
   const { studentId, error } = await resolveParentStudent(request, auth.session);
   if (error) return error;
 
-  if (!Number.isInteger(campId) || campId <= 0) {
-    return NextResponse.json({ error: "รหัสค่ายไม่ถูกต้อง" }, { status: 400 });
-  }
+  const campRecord = await prisma.camp.findFirst({
+    where: numericCampId !== null && Number.isSafeInteger(numericCampId)
+      ? { camp_id: numericCampId }
+      : { public_id: rawCampId },
+    select: { camp_id: true },
+  });
+  if (!campRecord) return NextResponse.json({ error: "รหัสค่ายไม่ถูกต้อง" }, { status: 404 });
+  const campId = campRecord.camp_id;
 
   try {
     const camp = await prisma.camp.findFirst({
@@ -50,6 +56,7 @@ export async function GET(
       },
       select: {
         camp_id: true,
+        public_id: true,
         name: true,
         description: true,
         location: true,
@@ -297,6 +304,8 @@ export async function GET(
     return NextResponse.json(
       {
         id: camp.camp_id,
+        publicId: camp.public_id,
+        studentId,
         title: camp.name,
         description: camp.description,
         location: camp.location,

@@ -98,6 +98,7 @@ test("builds a web push payload that opens the matching bus page", () => {
       action: "alight",
       busName: "รถบัส 1",
       campId: 42,
+      campPublicId: "f9fe31b8-cb8d-4d4e-83c1-586d657ae57e",
       campName: "ค่ายวิทยาศาสตร์",
       eventId: 99,
       studentIds: [1001],
@@ -112,7 +113,7 @@ test("builds a web push payload that opens the matching bus page", () => {
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       tag: "student-bus-reminder-99",
-      url: "/student/dashboard/camp/42/bus",
+      url: "/student/dashboard/camp/f9fe31b8-cb8d-4d4e-83c1-586d657ae57e/bus",
     },
   );
 });

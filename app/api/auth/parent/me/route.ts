@@ -29,6 +29,7 @@ export async function GET(request: Request) {
       },
       select: {
         students_id: true,
+        public_id: true,
         prefix_name: true,
         firstname: true,
         lastname: true,

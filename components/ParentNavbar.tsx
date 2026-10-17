@@ -25,6 +25,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface ParentStudent {
   students_id: number;
+  public_id: string;
   prefix_name: string | null;
   firstname: string;
   lastname: string;
@@ -40,9 +41,7 @@ interface ParentProfile {
 export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
-  const childId = Number(
-    pathname.match(/^\/parent\/children\/(\d+)(?:\/|$)/)?.[1],
-  );
+  const childId = pathname.match(/^\/parent\/children\/([^/]+)(?:\/|$)/)?.[1];
   const [students, setStudents] = useState<ParentStudent[]>([]);
   const [parent, setParent] = useState<ParentProfile | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -133,7 +132,7 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
     parent && parent.firstname !== "รอระบุ"
       ? `${parent.firstname[0]}${parent.lastname[0]}`
       : "ผป";
-  const activeStudent = students.find((item) => item.students_id === childId);
+  const activeStudent = students.find((item) => item.public_id === childId || String(item.students_id) === childId);
 
   return (
     <>
@@ -235,7 +234,7 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                         ]
                       : students.map((linkedStudent) => {
                           const isCurrent =
-                            linkedStudent.students_id === childId;
+                            linkedStudent.public_id === childId || String(linkedStudent.students_id) === childId;
                           return (
                             <DropdownItem
                               key={`student-${linkedStudent.students_id}`}
@@ -260,7 +259,7 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                               }
                               onPress={() =>
                                 navigate(
-                                  `/parent/children/${linkedStudent.students_id}`,
+                                  `/parent/children/${linkedStudent.public_id}`,
                                 )
                               }
                             >
@@ -278,7 +277,7 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                     isDisabled={!activeStudent}
                     startContent={<GraduationCap size={16} />}
                     onPress={() =>
-                      navigate(`/parent/children/${childId}/profile`)
+                      navigate(activeStudent ? `/parent/children/${activeStudent.public_id}/profile` : "/parent/family")
                     }
                   >
                     ข้อมูลบุตร

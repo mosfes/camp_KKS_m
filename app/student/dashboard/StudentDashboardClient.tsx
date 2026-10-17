@@ -164,13 +164,13 @@ export default function StudentDashboard({
     return () => window.clearInterval(timer);
   }, [busRefreshCooldown]);
 
-  const goToCamp = (campId: number) => {
+  const goToCamp = (campId: number, publicId: string) => {
     if (navigatingTo !== null) return;
     setNavigatingTo(campId);
-    router.push(`/student/dashboard/camp/${campId}`);
+    router.push(`/student/dashboard/camp/${publicId}`);
   };
 
-  const goToBus = (campId: number) => {
+  const goToBus = (campId: number, publicId: string) => {
     if (
       navigatingTo !== null ||
       boardingCampId !== null ||
@@ -178,7 +178,7 @@ export default function StudentDashboard({
     )
       return;
     setNavigatingTo(campId);
-    router.push(`/student/dashboard/camp/${campId}/bus`);
+    router.push(`/student/dashboard/camp/${publicId}/bus`);
   };
 
   const refreshBusAssignments = useCallback(async () => {
@@ -631,13 +631,13 @@ export default function StudentDashboard({
                         alightingCampId === null &&
                         navigatingTo === null
                       ) {
-                        goToBus(assignment.campId);
+                        goToBus(assignment.campId, assignment.campPublicId);
                       }
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        goToBus(assignment.campId);
+                        goToBus(assignment.campId, assignment.campPublicId);
                       }
                     }}
                   >
@@ -892,7 +892,7 @@ export default function StudentDashboard({
                         camp={camp}
                         navigatingTo={navigatingTo}
                         priority={index === 0 && defaultCampTab === "available"}
-                        onPress={() => goToCamp(camp.id)}
+                        onPress={() => goToCamp(camp.id, camp.publicId)}
                       />
                     ))}
                   </div>
@@ -934,7 +934,7 @@ export default function StudentDashboard({
                         camp={camp}
                         navigatingTo={navigatingTo}
                         priority={index === 0 && defaultCampTab === "mycamps"}
-                        onPress={() => goToCamp(camp.id)}
+                        onPress={() => goToCamp(camp.id, camp.publicId)}
                       />
                     ))}
                   </div>
@@ -1002,7 +1002,7 @@ export default function StudentDashboard({
                         isEnded
                         camp={camp}
                         navigatingTo={navigatingTo}
-                        onPress={() => goToCamp(camp.id)}
+                        onPress={() => goToCamp(camp.id, camp.publicId)}
                       />
                     ))}
                   </div>

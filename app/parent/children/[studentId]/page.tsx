@@ -50,6 +50,7 @@ interface ClassroomInfo {
 
 interface Student {
   students_id: number;
+  public_id: string;
   prefix_name: string | null;
   firstname: string;
   lastname: string;
@@ -99,7 +100,7 @@ interface ParentProfile {
 export default function ParentDashboard() {
   const router = useRouter();
   const params = useParams();
-  const studentId = Number(params.studentId);
+  const studentId = String(params.studentId);
   const [student, setStudent] = useState<Student | null>(null);
   const [camps, setCamps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,8 +124,9 @@ export default function ParentDashboard() {
         const meData = await meRes.json();
         if (signal.aborted) return;
 
-        if (meData.student?.students_id === studentId) {
+        if (meData.student?.public_id === studentId || String(meData.student?.students_id) === studentId) {
           setStudent(meData.student);
+          if (meData.student.public_id !== studentId) router.replace(`/parent/children/${meData.student.public_id}`);
           setParentProfile(meData.parentProfile ?? null);
           if (!meData.hasParentProfile) setShowProfileModal(true);
         } else {
@@ -146,7 +148,7 @@ export default function ParentDashboard() {
     } finally {
       if (!signal.aborted) setLoading(false);
     }
-  }, [studentId]);
+  }, [router, studentId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -161,13 +163,13 @@ export default function ParentDashboard() {
     return () => controller.abort();
   }, [fetchData]);
 
-  const goToCamp = (campId: number) => {
-    if (navigatingTo !== null) return;
+  const goToCamp = (campId: number, publicId: string) => {
+    if (navigatingTo !== null || !student) return;
     setNavigatingTo(campId);
-    router.push(`/parent/children/${studentId}/camps/${campId}`);
+    router.push(`/parent/children/${student.public_id}/camps/${publicId}`);
   };
 
-  if (loading || (student?.students_id !== studentId && !error)) {
+  if (loading || (student?.public_id !== studentId && String(student?.students_id) !== studentId && !error)) {
     return (
       <div className="min-h-screen bg-[#f5f5f2]">
         <ParentNavbar />
@@ -278,7 +280,7 @@ export default function ParentDashboard() {
           <button
             className="text-sm font-semibold text-[#4d6a5f] underline-offset-4 hover:underline"
             type="button"
-            onClick={() => router.push(`/parent/children/${studentId}/profile`)}
+            onClick={() => router.push(`/parent/children/${student.public_id}/profile`)}
           >
             ดูข้อมูลนักเรียน
           </button>
@@ -397,7 +399,7 @@ export default function ParentDashboard() {
                         key={camp.id}
                         camp={camp}
                         navigatingTo={navigatingTo}
-                        onPress={() => goToCamp(camp.id)}
+                        onPress={() => goToCamp(camp.id, camp.publicId)}
                       />
                     ))}
                   </div>
@@ -465,7 +467,7 @@ export default function ParentDashboard() {
                         isEnded
                         camp={camp}
                         navigatingTo={navigatingTo}
-                        onPress={() => goToCamp(camp.id)}
+                        onPress={() => goToCamp(camp.id, camp.publicId)}
                       />
                     ))}
                   </div>

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireStudent } from "@/lib/auth";
 import { isBangkokDateBefore } from "@/lib/bangkok-date";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
+import { resolveStudentCampId, resolveStudentStationId } from "@/lib/student-public-route";
 
 /**
  * Full station payload. This is the only student read endpoint that returns
@@ -17,8 +18,10 @@ export async function GET(request, context) {
   if (authError) return authError;
 
   const params = await context.params;
-  const campId = Number(params.id);
-  const stationId = Number(params.stationId);
+  const [campId, stationId] = await Promise.all([
+    resolveStudentCampId(params.id),
+    resolveStudentStationId(params.stationId),
+  ]);
   const studentId = Number(student.students_id);
 
   if (
@@ -56,6 +59,7 @@ export async function GET(request, context) {
         where: { camp_id: campId, deletedAt: null },
         select: {
           camp_id: true,
+          public_id: true,
           name: true,
           start_date: true,
         },
@@ -68,6 +72,7 @@ export async function GET(request, context) {
         },
         select: {
           station_id: true,
+          public_id: true,
           name: true,
           description: true,
           mission: {
@@ -167,12 +172,14 @@ export async function GET(request, context) {
       {
         camp: {
           id: camp.camp_id,
+          publicId: camp.public_id,
           title: camp.name,
           rawStartDate: camp.start_date,
           isRegistered: true,
         },
         station: {
           ...station,
+          publicId: station.public_id,
           mission: station.mission.map((mission) => ({
             ...mission,
             status: statusByMission.get(mission.mission_id) ?? null,

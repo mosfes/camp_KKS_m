@@ -58,6 +58,8 @@ type Contact = {
 };
 type CampDetail = {
   id: number;
+  publicId: string;
+  studentId: number;
   title: string;
   description: string;
   location: string;
@@ -106,10 +108,11 @@ function teacherName(contact: Contact) {
 export default function ParentCampProgressPage() {
   const params = useParams();
   const router = useRouter();
-  const studentId = Number(params.studentId);
-  const campId = Number(params.campId);
+  const studentId = String(params.studentId);
+  const campId = String(params.campId);
   const [camp, setCamp] = useState<CampDetail | null>(null);
   const [studentName, setStudentName] = useState("");
+  const [studentPublicId, setStudentPublicId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [loadedFor, setLoadedFor] = useState("");
@@ -119,6 +122,7 @@ export default function ParentCampProgressPage() {
     setLoading(true);
     setCamp(null);
     setStudentName("");
+    setStudentPublicId("");
     setError("");
     Promise.all([
       fetch(`/api/parent/camps/${campId}?studentId=${studentId}`, { cache: "no-store", signal: controller.signal }),
@@ -132,9 +136,13 @@ export default function ParentCampProgressPage() {
           throw new Error(campData.error || "ไม่พบข้อมูลค่าย");
         if (!meResponse.ok)
           throw new Error(meData.error || "ไม่สามารถโหลดข้อมูลได้");
-        if (meData.student?.students_id !== studentId)
+        if (meData.student?.public_id !== studentId && String(meData.student?.students_id) !== studentId)
           throw new Error("ข้อมูลนักเรียนไม่ตรงกับหน้าที่เลือก");
         setCamp(campData);
+        setStudentPublicId(meData.student.public_id);
+        if (meData.student.public_id !== studentId || campData.publicId !== campId) {
+          router.replace(`/parent/children/${meData.student.public_id}/camps/${campData.publicId}`);
+        }
         setLoadedFor(`${studentId}:${campId}`);
         if (meData.student)
           setStudentName(
@@ -149,7 +157,7 @@ export default function ParentCampProgressPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [campId, studentId]);
+  }, [campId, router, studentId]);
 
   if (loading || (loadedFor !== `${studentId}:${campId}` && !error))
     return <PageState text="กำลังโหลดข้อมูลค่าย..." />;
@@ -157,7 +165,7 @@ export default function ParentCampProgressPage() {
     return (
       <PageState
         error
-        onBack={() => router.push(`/parent/children/${studentId}`)}
+        onBack={() => router.push(studentPublicId ? `/parent/children/${studentPublicId}` : "/parent/family")}
         text={error || "ไม่พบข้อมูลค่าย"}
       />
     );
@@ -169,7 +177,7 @@ export default function ParentCampProgressPage() {
         <nav aria-label="เส้นทางหน้า" className="flex flex-wrap items-center gap-2 text-xs text-[#5d7c6f]">
           <button type="button" className="hover:underline" onClick={() => router.push("/parent/family")}>ลูกทั้งหมด</button>
           <ChevronRight size={13} />
-          <button type="button" className="font-semibold hover:underline" onClick={() => router.push(`/parent/children/${studentId}`)}>{studentName}</button>
+          <button type="button" className="font-semibold hover:underline" onClick={() => router.push(studentPublicId ? `/parent/children/${studentPublicId}` : "/parent/family")}>{studentName}</button>
           <ChevronRight size={13} />
           <span className="text-gray-500">รายละเอียดค่าย</span>
         </nav>
@@ -180,7 +188,7 @@ export default function ParentCampProgressPage() {
             className="bg-white text-gray-700 shadow-sm"
             radius="lg"
             variant="flat"
-            onPress={() => router.push(`/parent/children/${studentId}`)}
+            onPress={() => router.push(studentPublicId ? `/parent/children/${studentPublicId}` : "/parent/family")}
           >
             <ChevronLeft size={20} />
           </Button>
@@ -261,7 +269,7 @@ export default function ParentCampProgressPage() {
             }
           >
             <div className="py-4">
-              <CampLocationTracker campId={campId} studentId={studentId} viewer="parent" />
+              <CampLocationTracker campId={camp.id} studentId={camp.studentId} viewer="parent" />
             </div>
           </Tab>
           <Tab

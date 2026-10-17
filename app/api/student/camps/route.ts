@@ -43,6 +43,7 @@ export async function GET() {
       },
       select: {
         camp_id: true,
+        public_id: true,
         name: true,
         location: true,
         start_date: true,
@@ -76,6 +77,7 @@ export async function GET() {
 
         return {
           id: camp.camp_id,
+          publicId: camp.public_id,
           title: camp.name,
           location: camp.location,
           rawStartDate: camp.start_date,

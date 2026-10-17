@@ -25,6 +25,7 @@ export async function GET() {
     },
     select: {
       students_id: true,
+      public_id: true,
       prefix_name: true,
       firstname: true,
       lastname: true,

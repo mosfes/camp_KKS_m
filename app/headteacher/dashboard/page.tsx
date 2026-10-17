@@ -40,6 +40,7 @@ import EnrollmentModal from "./EnrollmentModal";
 import HomeroomStudentModal from "./HomeroomStudentModal";
 
 import { toThumbnail } from "@/lib/cloudinary-url";
+import { getCleanCampPath, rememberActiveCampId } from "@/lib/client-active-camp";
 
 /* ---------- Default SVG Component ---------- */
 function DefaultCampImage() {
@@ -576,7 +577,8 @@ function DashboardContent() {
   const goToCampDetail = (campId: number) => {
     if (navigatingTo !== null) return;
     setNavigatingTo(campId);
-    router.push(`/headteacher/dashboard/camp/${campId}`);
+    rememberActiveCampId(campId);
+    router.push(getCleanCampPath());
   };
 
   const camps = useMemo(() => {
@@ -1174,11 +1176,10 @@ function DashboardContent() {
                           className="font-semibold text-[#3d6357]"
                           size="sm"
                           variant="flat"
-                          onPress={() =>
-                            router.push(
-                              `/headteacher/dashboard/camp/${assignment.campId}/bus-checkin`,
-                            )
-                          }
+                          onPress={() => {
+                            rememberActiveCampId(assignment.campId);
+                            router.push(getCleanCampPath("bus-checkin"));
+                          }}
                         >
                           ดูรายละเอียดรถ
                         </Button>
