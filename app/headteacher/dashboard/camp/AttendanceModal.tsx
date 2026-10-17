@@ -12,7 +12,7 @@ import {
   Pagination,
   Avatar,
 } from "@heroui/react";
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import {
   UserCheck,
   QrCode,
@@ -48,12 +48,26 @@ interface RoundInfo {
   closedAt: string | null;
 }
 
+export type AttendanceInitialData = {
+  qr: {
+    active: boolean;
+    roundId?: string;
+    qrPayload?: string | null;
+    pin?: string | null;
+    expiresAt?: string | null;
+    method?: "QR" | "NFC";
+    rounds: RoundInfo[];
+  };
+  results: { results: any[]; totalCheckedIn: number };
+};
+
 interface AttendanceModalProps {
   isOpen: boolean;
   onClose: () => void;
   campId: number;
   campName?: string;
   pageMode?: boolean;
+  initialData?: AttendanceInitialData | null;
 }
 
 function AttendanceShell({
@@ -99,28 +113,39 @@ export default function AttendanceModal({
   campId,
   campName,
   pageMode = false,
+  initialData,
 }: AttendanceModalProps) {
   const { showError, showConfirm, close } = useStatusModal();
+  const initialDataPending = useRef(Boolean(initialData));
+  const initialRoundId = initialData?.qr.active
+    ? initialData.qr.roundId || null
+    : initialData?.qr.rounds.at(-1)?.roundId || null;
 
   // QR / PIN state
-  const [qrPayload, setQrPayload] = useState<string | null>(null);
-  const [qrPin, setQrPin] = useState<string | null>(null);
-  const [qrExpiresAt, setQrExpiresAt] = useState<Date | null>(null);
+  const [qrPayload, setQrPayload] = useState<string | null>(initialData?.qr.qrPayload || null);
+  const [qrPin, setQrPin] = useState<string | null>(initialData?.qr.pin || null);
+  const [qrExpiresAt, setQrExpiresAt] = useState<Date | null>(
+    initialData?.qr.expiresAt ? new Date(initialData.qr.expiresAt) : null,
+  );
   const [durationMinutes, setDurationMinutes] = useState("60");
-  const [attendanceMethod, setAttendanceMethod] = useState<"QR" | "NFC">("QR");
+  const [attendanceMethod, setAttendanceMethod] = useState<"QR" | "NFC">(
+    initialData?.qr.method === "NFC" ? "NFC" : "QR",
+  );
   const [roundDescription, setRoundDescription] = useState("");
   const [qrLoading, setQrLoading] = useState(false);
   const [pinCopied, setPinCopied] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
 
   // Rounds state
-  const [rounds, setRounds] = useState<RoundInfo[]>([]);
-  const [activeRoundId, setActiveRoundId] = useState<string | null>(null);
-  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(null);
+  const [rounds, setRounds] = useState<RoundInfo[]>(initialData?.qr.rounds || []);
+  const [activeRoundId, setActiveRoundId] = useState<string | null>(
+    initialData?.qr.active ? initialData.qr.roundId || null : null,
+  );
+  const [selectedRoundId, setSelectedRoundId] = useState<string | null>(initialRoundId);
 
   // Student list state
-  const [results, setResults] = useState<any[]>([]);
-  const [totalCheckedIn, setTotalCheckedIn] = useState(0);
+  const [results, setResults] = useState<any[]>(initialData?.results.results || []);
+  const [totalCheckedIn, setTotalCheckedIn] = useState(initialData?.results.totalCheckedIn || 0);
   const [resultsLoading, setResultsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
@@ -195,6 +220,10 @@ export default function AttendanceModal({
   // โหลดครั้งแรกเมื่อเปิด modal
   useEffect(() => {
     if (!isOpen || !campId) return;
+    if (initialDataPending.current) {
+      initialDataPending.current = false;
+      return;
+    }
     (async () => {
       // Both endpoints resolve the active/latest round independently. Start
       // them together so the initial attendance screen does not add the two

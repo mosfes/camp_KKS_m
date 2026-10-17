@@ -37,7 +37,7 @@ import {
   BellRing,
   ChevronDown,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import CampBreadcrumb from "./CampBreadcrumb";
 
@@ -196,6 +196,7 @@ function StudentAvatarFallback({
     return (
       <span
         aria-label={isFemale ? "นักเรียนหญิง" : "นักเรียนชาย"}
+        role="img"
         className="relative inline-flex h-full w-full items-center justify-center"
       >
         <UserRound aria-hidden="true" size={personSize} />
@@ -447,7 +448,16 @@ interface BusManagementModalProps {
   campId: number;
   campName?: string;
   pageMode?: boolean;
+  initialData?: BusInitialData | null;
 }
+
+export type BusInitialData = {
+  classrooms: Classroom[];
+  buses: Bus[];
+  eligibleTeachers: EligibleTeacher[];
+  unassignedStudents: UnassignedCampStudent[];
+  permissions: { canManageTeachers: boolean; canConfigureAny: boolean };
+};
 
 function BusManagementShell({
   pageMode,
@@ -795,24 +805,28 @@ export default function BusManagementModal({
   campId,
   campName,
   pageMode = false,
+  initialData,
 }: BusManagementModalProps) {
   const { showError, showSuccess, showConfirm } = useStatusModal();
-  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
-  const [buses, setBuses] = useState<Bus[]>([]);
+  const initialDataPending = useRef(Boolean(initialData));
+  const [classrooms, setClassrooms] = useState<Classroom[]>(initialData?.classrooms || []);
+  const [buses, setBuses] = useState<Bus[]>(initialData?.buses || []);
   const [publishedLayoutTemplates, setPublishedLayoutTemplates] = useState<
     PublishedLayoutTemplate[]
   >([]);
   const [eligibleTeachers, setEligibleTeachers] = useState<EligibleTeacher[]>(
-    [],
+    initialData?.eligibleTeachers || [],
   );
   const [unassignedCampStudents, setUnassignedCampStudents] = useState<
     UnassignedCampStudent[]
-  >([]);
+  >(initialData?.unassignedStudents || []);
   const [busPermissions, setBusPermissions] = useState({
-    canManageTeachers: false,
-    canConfigureAny: false,
+    canManageTeachers: Boolean(initialData?.permissions?.canManageTeachers),
+    canConfigureAny: Boolean(initialData?.permissions?.canConfigureAny),
   });
-  const [selectedBusId, setSelectedBusId] = useState<number | null>(null);
+  const [selectedBusId, setSelectedBusId] = useState<number | null>(
+    initialData?.buses?.[0]?.busId || null,
+  );
   const [selectedFloor, setSelectedFloor] = useState(1);
   const [draftAssignments, setDraftAssignments] = useState<
     Record<number, number | null>
@@ -1070,7 +1084,11 @@ export default function BusManagementModal({
 
   useEffect(() => {
     if (!isOpen || !campId) return;
-    void fetchBuses();
+    if (initialDataPending.current) {
+      initialDataPending.current = false;
+    } else {
+      void fetchBuses();
+    }
     void fetch("/api/bus-layout-templates?includeDraft=true", {
       cache: "no-store",
     })

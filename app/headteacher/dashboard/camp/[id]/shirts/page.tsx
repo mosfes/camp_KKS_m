@@ -1,21 +1,18 @@
-"use client";
+import { GET as getShirts } from "@/app/api/camps/[id]/shirts/route";
 
-import { useParams, useRouter } from "next/navigation";
+import ShirtsClient from "./ShirtsClient";
 
-import ShirtTrackingModal from "../../ShirtTrackingModal";
-
-export default function ShirtsPage() {
-  const params = useParams<{ id: string }>();
-  const router = useRouter();
-  const campId = Number(params.id);
-
-  return (
-    <ShirtTrackingModal
-      isOpen
-      pageMode
-      campId={campId}
-      campName=""
-      onClose={() => router.push("/headteacher/dashboard")}
-    />
+export default async function ShirtsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const response = await getShirts(
+    new Request(`https://www.kkscamp.com/api/camps/${id}/shirts`),
+    { params: Promise.resolve({ id }) },
   );
+  const initialData = response.ok ? await response.json() : null;
+
+  return <ShirtsClient campId={Number(id)} initialData={initialData} />;
 }

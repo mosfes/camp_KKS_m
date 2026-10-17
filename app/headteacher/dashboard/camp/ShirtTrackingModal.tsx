@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Modal,
   ModalContent,
@@ -16,7 +16,6 @@ import { Search, Shirt, FileSpreadsheet, FileText } from "lucide-react";
 
 import CampBreadcrumb from "./CampBreadcrumb";
 
-import { exportShirtsToExcel } from "@/lib/export-shirts-excel";
 import { useStatusModal } from "@/components/StatusModalProvider";
 
 interface StudentShirt {
@@ -31,7 +30,7 @@ interface StudentShirt {
   enrolledAt: string;
 }
 
-interface ShirtTrackingData {
+export interface ShirtTrackingData {
   campId?: number;
   campName?: string;
   hasShirt: boolean;
@@ -47,6 +46,7 @@ interface ShirtTrackingModalProps {
   campId: number;
   campName: string;
   pageMode?: boolean;
+  initialData?: ShirtTrackingData | null;
 }
 
 function ShirtSkeletonBlock({ className }: { className: string }) {
@@ -111,19 +111,25 @@ export default function ShirtTrackingModal({
   campId,
   campName,
   pageMode = false,
+  initialData,
 }: ShirtTrackingModalProps) {
   const { showSuccess, showError } = useStatusModal();
+  const initialDataPending = useRef(Boolean(initialData));
   const [loading, setLoading] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [data, setData] = useState<ShirtTrackingData | null>(null);
+  const [data, setData] = useState<ShirtTrackingData | null>(initialData || null);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
 
   useEffect(() => {
     if (isOpen && campId) {
-      fetchShirtData();
+      if (initialDataPending.current) {
+        initialDataPending.current = false;
+      } else {
+        fetchShirtData();
+      }
       setSearchQuery("");
       setPage(1);
     }
@@ -151,10 +157,11 @@ export default function ShirtTrackingModal({
 
   const effectiveCampName = campName || data?.campName || "";
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!data || !data.hasShirt || data.students.length === 0) return;
     try {
       setIsExportingExcel(true);
+      const { exportShirtsToExcel } = await import("@/lib/export-shirts-excel");
       exportShirtsToExcel({
         campName: effectiveCampName,
         summary: data.summary,
