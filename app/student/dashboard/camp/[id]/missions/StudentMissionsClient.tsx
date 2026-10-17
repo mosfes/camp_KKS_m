@@ -22,10 +22,10 @@ export default function StudentMissionsPage({
   const [camp, setCamp] = useState<any>(initialCamp);
   const [navigatingTo, setNavigatingTo] = useState<number | null>(null);
 
-  const goToStation = (stationId: number) => {
+  const goToStation = (stationId: number, publicId: string) => {
     if (navigatingTo !== null) return;
     setNavigatingTo(stationId);
-    router.push(`/student/dashboard/camp/${id}/missions/${stationId}`);
+    router.push(`/student/dashboard/camp/${id}/missions/${publicId}`);
   };
 
   useEffect(() => {
@@ -144,7 +144,9 @@ export default function StudentMissionsPage({
                       : ""
                   }`}
                   type="button"
-                  onClick={() => goToStation(station.station_id)}
+                  onClick={() =>
+                    goToStation(station.station_id, station.publicId)
+                  }
                 >
                   {/* Icon */}
                   <div className="w-14 h-14 rounded-2xl bg-[#F0FAF5] flex items-center justify-center shrink-0 border border-[#5D7C6F]/15 group-hover:scale-105 transition-transform">

@@ -502,9 +502,10 @@ async function discoverStudentRoutes(page, options) {
     return { routes, selectedCamp: null, selectedStation: null };
 
   const campId = Number(selectedCamp.id);
+  const campPublicId = selectedCamp.publicId;
   routes.push(
-    { name: "camp-detail", path: `/student/dashboard/camp/${campId}` },
-    { name: "camp-bus", path: `/student/dashboard/camp/${campId}/bus` },
+    { name: "camp-detail", path: `/student/dashboard/camp/${campPublicId}` },
+    { name: "camp-bus", path: `/student/dashboard/camp/${campPublicId}/bus` },
   );
 
   let selectedStation = null;
@@ -517,7 +518,7 @@ async function discoverStudentRoutes(page, options) {
     if (missionsResponse.ok) {
       routes.push({
         name: "camp-missions",
-        path: `/student/dashboard/camp/${campId}/missions`,
+        path: `/student/dashboard/camp/${campPublicId}/missions`,
       });
 
       const stations = Array.isArray(missionsResponse.body?.station)
@@ -538,7 +539,7 @@ async function discoverStudentRoutes(page, options) {
       if (selectedStation) {
         routes.push({
           name: "mission-station",
-          path: `/student/dashboard/camp/${campId}/missions/${selectedStation.station_id}`,
+          path: `/student/dashboard/camp/${campPublicId}/missions/${selectedStation.publicId}`,
         });
       }
     }
@@ -556,7 +557,7 @@ async function discoverStudentRoutes(page, options) {
     ) {
       routes.push({
         name: "camp-survey",
-        path: `/student/dashboard/camp/${campId}/survey`,
+        path: `/student/dashboard/camp/${campPublicId}/survey`,
       });
     }
   }

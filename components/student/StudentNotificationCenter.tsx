@@ -36,6 +36,7 @@ type StudentNotification = {
   sentAt: string;
   active: boolean;
   campId: number;
+  campPublicId: string;
   campName: string;
   busId: number;
   busName: string;
@@ -93,7 +94,7 @@ async function showDeviceNotification(notification: StudentNotification) {
     return;
   }
 
-  const url = `/student/dashboard/camp/${notification.campId}/bus`;
+  const url = `/student/dashboard/camp/${notification.campPublicId}/bus`;
   const options: NotificationOptions = {
     body: `${notification.message}\n${notification.campName} · ${notification.busName}`,
     icon: "/icons/icon-192.png",
@@ -410,7 +411,7 @@ export function StudentNotificationCenter({
     markAllAsRead();
     setIsOpen(false);
     setPopupNotification(null);
-    router.push(`/student/dashboard/camp/${notification.campId}/bus`);
+    router.push(`/student/dashboard/camp/${notification.campPublicId}/bus`);
   };
 
   const enableDeviceNotifications = async () => {

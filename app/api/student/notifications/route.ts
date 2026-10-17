@@ -38,6 +38,7 @@ export async function GET() {
             camp: {
               select: {
                 camp_id: true,
+                public_id: true,
                 name: true,
               },
             },
@@ -86,6 +87,7 @@ export async function GET() {
               sentAt,
               active: activeReminder?.sentAt === sentAt,
               campId: assignment.bus.camp.camp_id,
+              campPublicId: assignment.bus.camp.public_id,
               campName: assignment.bus.camp.name,
               busId: assignment.bus.bus_id,
               busName: assignment.bus.name,

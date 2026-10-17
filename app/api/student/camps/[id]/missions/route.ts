@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireStudent } from "@/lib/auth";
 import { isBangkokDateBefore } from "@/lib/bangkok-date";
+import { resolveStudentCampId } from "@/lib/student-public-route";
 
 /** Mission/station list only. Questions and answer payloads are not included. */
 export async function GET(request, context) {
@@ -13,7 +14,7 @@ export async function GET(request, context) {
   if (authError) return authError;
 
   const params = await context.params;
-  const campId = Number(params.id);
+  const campId = await resolveStudentCampId(params.id);
   const studentId = Number(student.students_id);
 
   if (!Number.isInteger(campId) || campId <= 0) {
@@ -44,6 +45,7 @@ export async function GET(request, context) {
       },
       select: {
         camp_id: true,
+        public_id: true,
         name: true,
         start_date: true,
         end_date: true,
@@ -59,6 +61,7 @@ export async function GET(request, context) {
           where: { deletedAt: null },
           select: {
             station_id: true,
+            public_id: true,
             name: true,
             description: true,
             mission: {
@@ -100,6 +103,7 @@ export async function GET(request, context) {
     return NextResponse.json(
       {
         id: camp.camp_id,
+        publicId: camp.public_id,
         title: camp.name,
         rawStartDate: camp.start_date,
         rawEndDate: camp.end_date,
@@ -108,6 +112,7 @@ export async function GET(request, context) {
         missionResults: results,
         station: camp.station.map((station) => ({
           station_id: station.station_id,
+          publicId: station.public_id,
           name: station.name,
           description: station.description,
           mission: station.mission.map((mission) => ({

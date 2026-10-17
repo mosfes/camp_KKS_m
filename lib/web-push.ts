@@ -67,7 +67,9 @@ export function getWebPushPublicKey() {
   return getWebPushConfig()?.publicKey ?? null;
 }
 
-export function createStudentBusPushPayload(input: BusPushInput) {
+export function createStudentBusPushPayload(
+  input: BusPushInput & { campPublicId: string },
+) {
   const eventType = input.action === "board" ? "REMIND_BOARD" : "REMIND_ALIGHT";
   const content = getBusReminderContent(eventType);
 
@@ -83,7 +85,7 @@ export function createStudentBusPushPayload(input: BusPushInput) {
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
     tag: `student-bus-reminder-${input.eventId}`,
-    url: `/student/dashboard/camp/${input.campId}/bus`,
+    url: `/student/dashboard/camp/${input.campPublicId}/bus`,
   };
 }
 
@@ -107,7 +109,19 @@ export async function sendStudentBusPushNotifications(input: BusPushInput) {
       auth: true,
     },
   });
-  const payload = JSON.stringify(createStudentBusPushPayload(input));
+  const camp = await prisma.camp.findUnique({
+    where: { camp_id: input.campId },
+    select: { public_id: true },
+  });
+
+  if (!camp) return { attempted: 0, sent: 0 };
+
+  const payload = JSON.stringify(
+    createStudentBusPushPayload({
+      ...input,
+      campPublicId: camp.public_id,
+    }),
+  );
   const expiredEndpointHashes: string[] = [];
   let sent = 0;
 

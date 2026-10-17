@@ -7,6 +7,7 @@ import { requireStudent } from "@/lib/auth";
 import { getBangkokDateKey, isBangkokDateBefore } from "@/lib/bangkok-date";
 import { getCertificateEligibility } from "@/lib/certificate-eligibility";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
+import { resolveStudentCampId } from "@/lib/student-public-route";
 
 /**
  * Camp detail endpoint.
@@ -20,7 +21,7 @@ export async function GET(request, context) {
   if (authError) return authError;
 
   const params = await context.params;
-  const campId = Number(params.id);
+  const campId = await resolveStudentCampId(params.id);
   const studentId = Number(student.students_id);
 
   if (!Number.isInteger(campId) || campId <= 0) {
@@ -60,6 +61,7 @@ export async function GET(request, context) {
       },
       select: {
         camp_id: true,
+        public_id: true,
         name: true,
         description: true,
         location: true,
@@ -119,6 +121,7 @@ export async function GET(request, context) {
           where: { deletedAt: null },
           select: {
             station_id: true,
+            public_id: true,
             name: true,
             description: true,
             mission: {
@@ -175,6 +178,7 @@ export async function GET(request, context) {
     );
     const stations = camp.station.map((station) => ({
       station_id: station.station_id,
+      publicId: station.public_id,
       name: station.name,
       description: station.description,
       mission: station.mission.map((mission) => ({
@@ -214,6 +218,7 @@ export async function GET(request, context) {
     return NextResponse.json(
       {
         id: camp.camp_id,
+        publicId: camp.public_id,
         title: camp.name,
         description: camp.description,
         location: camp.location,

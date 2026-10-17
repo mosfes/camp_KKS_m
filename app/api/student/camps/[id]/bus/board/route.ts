@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { requireStudent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { studentCampBusAssignmentWhere } from "@/lib/student-bus-assignment";
+import { resolveStudentCampId } from "@/lib/student-public-route";
 
 export async function POST(request: Request, context: any) {
   const { student, error: authError } = await requireStudent();
@@ -12,7 +13,7 @@ export async function POST(request: Request, context: any) {
   if (authError) return authError;
 
   const { id } = await context.params;
-  const campId = Number(id);
+  const campId = await resolveStudentCampId(id);
   const studentId = Number(student.students_id);
 
   if (!Number.isInteger(campId) || campId <= 0) {

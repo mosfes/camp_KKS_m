@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireStudent } from "@/lib/auth";
 import { isBangkokDateBefore } from "@/lib/bangkok-date";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
+import { resolveStudentCampId } from "@/lib/student-public-route";
 
 // GET /api/student/surveys?campId=<id> — ดึงแบบสอบถามเพื่อให้นักเรียนทำ (และเช็คว่าทำไปแล้วหรือยัง)
 export async function GET(request) {
@@ -23,9 +24,9 @@ export async function GET(request) {
       );
     }
 
-    const cId = parseInt(campId);
+    const cId = await resolveStudentCampId(campId);
 
-    if (isNaN(cId)) {
+    if (!cId) {
       return NextResponse.json({ error: "Invalid campId" }, { status: 400 });
     }
 
@@ -120,9 +121,9 @@ export async function POST(request) {
     }
 
     const sId = parseInt(surveyId);
-    const cId = parseInt(campId);
+    const cId = await resolveStudentCampId(String(campId));
 
-    if (isNaN(sId) || isNaN(cId)) {
+    if (isNaN(sId) || !cId) {
       return NextResponse.json({ error: "Invalid ID format" }, { status: 400 });
     }
 

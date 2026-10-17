@@ -536,6 +536,7 @@ async function claimPendingReminders(options: {
         camp: {
           select: {
             camp_id: true,
+            public_id: true,
             name: true,
             location: true,
             start_date: true,
@@ -592,7 +593,7 @@ function messagesFor(
     const isTeacher = row.recipient_key.startsWith("teacher:");
     const campPath = isTeacher
       ? `/headteacher/dashboard/camp/${row.camp.camp_id}`
-      : `/student/dashboard/camp/${row.camp.camp_id}`;
+      : `/student/dashboard/camp/${row.camp.public_id}`;
 
     const isJoinReminder = row.reminder_type === JOIN_REMINDER_TYPE;
     const isTomorrowReminder = row.reminder_type === TOMORROW_REMINDER_TYPE;

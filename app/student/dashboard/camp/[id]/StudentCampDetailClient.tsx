@@ -451,7 +451,7 @@ export default function StudentCampDetailPage({
 
   const fetchSurvey = async () => {
     try {
-      const res = await fetch(`/api/student/surveys?campId=${id}`);
+      const res = await fetch(`/api/student/surveys?campId=${camp?.id ?? id}`);
 
       if (res.ok) {
         const data = await res.json();
@@ -475,7 +475,9 @@ export default function StudentCampDetailPage({
 
   const checkAttendanceStatus = async () => {
     try {
-      const res = await fetch(`/api/student/attendance/checkin?campId=${id}`);
+      const res = await fetch(
+        `/api/student/attendance/checkin?campId=${camp?.id ?? id}`,
+      );
 
       if (res.ok) {
         const data = await res.json();
@@ -528,7 +530,7 @@ export default function StudentCampDetailPage({
       const res = await fetch("/api/student/attendance/checkin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: pinInput.trim(), campId: Number(id) }),
+        body: JSON.stringify({ pin: pinInput.trim(), campId: camp?.id }),
       });
       const data = await res.json();
 
@@ -625,7 +627,7 @@ export default function StudentCampDetailPage({
     }
 
     const request = (async () => {
-      const response = await fetch(`/api/camps/${id}/certificate`, {
+      const response = await fetch(`/api/camps/${camp?.id}/certificate`, {
         cache: "no-store",
       });
       const data = await response.json().catch(() => ({}));
@@ -742,7 +744,7 @@ export default function StudentCampDetailPage({
       const res = await fetch("/api/student/enroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campId: Number(id) }),
+        body: JSON.stringify({ campId: camp?.id }),
       });
 
       if (res.ok) {
@@ -770,7 +772,7 @@ export default function StudentCampDetailPage({
       const res = await fetch("/api/student/enroll", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campId: Number(id), shirtSize: size }),
+        body: JSON.stringify({ campId: camp?.id, shirtSize: size }),
       });
 
       if (res.ok) {
@@ -1034,7 +1036,7 @@ export default function StudentCampDetailPage({
               </div>
             </div>
 
-            <LazyCampLocationTracker campId={Number(id)} />
+            <LazyCampLocationTracker campId={camp.id} />
 
             {/* Mission Progress Section (Only if registered) */}
             {camp.isRegistered && (
@@ -1641,7 +1643,7 @@ export default function StudentCampDetailPage({
 
       {isSurveyModalOpen && (
         <TakeSurveyModal
-          campId={Number(id)}
+          campId={camp.id}
           isOpen={isSurveyModalOpen}
           survey={surveyData}
           onClose={() => setIsSurveyModalOpen(false)}

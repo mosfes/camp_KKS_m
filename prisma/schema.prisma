@@ -278,6 +278,7 @@ model promotion_item {
 
 model camp {
   camp_id                   Int         @id @default(autoincrement())
+  public_id                 String      @unique @default(uuid()) @db.Char(36)
   deletedAt                 DateTime?
   location                  String      @db.VarChar(255)
   name                      String      @db.VarChar(255)
@@ -952,6 +953,7 @@ model certificate {
 
 model station {
   station_id           Int     @id @default(autoincrement())
+  public_id             String  @unique @default(uuid()) @db.Char(36)
   name                 String  @db.VarChar(255)
   description          String  @db.VarChar(255)
   is_required_for_cert Boolean @default(true)

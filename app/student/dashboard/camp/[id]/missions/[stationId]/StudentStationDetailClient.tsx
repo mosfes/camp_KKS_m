@@ -621,7 +621,7 @@ export default function StudentStationDetailPage({
         try {
           const data = await uploadMissionImageDirect({
             file: uploadFile,
-            campId: Number(id),
+            campId: camp?.id,
             missionId: selectedMission?.mission_id,
             questionId,
             useFallback,
@@ -730,7 +730,7 @@ export default function StudentStationDetailPage({
 
     try {
       const resultData = await submitStudentMissionWithRetry({
-        campId: Number(id),
+        campId: camp?.id,
         missionId: selectedMission.mission_id,
         answers: payloadAnswers,
         isDraft,

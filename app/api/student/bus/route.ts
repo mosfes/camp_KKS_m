@@ -72,6 +72,7 @@ export async function GET(request: Request) {
         camp_camp_id: true,
         camp: {
           select: {
+            public_id: true,
             name: true,
             start_date: true,
             end_date: true,
@@ -122,6 +123,7 @@ export async function GET(request: Request) {
         if (!assignment) {
           return {
             campId: enrollment.camp_camp_id,
+            campPublicId: enrollment.camp.public_id,
             campName: enrollment.camp.name,
             configured: false,
           };
@@ -131,6 +133,7 @@ export async function GET(request: Request) {
 
         return {
           campId: enrollment.camp_camp_id,
+          campPublicId: enrollment.camp.public_id,
           campName: enrollment.camp.name,
           configured: true,
           bus: {

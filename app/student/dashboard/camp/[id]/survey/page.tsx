@@ -61,6 +61,16 @@ export default function StudentSurveyPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    if (/^[1-9]\d*$/.test(String(id))) {
+      fetch(`/api/student/camps/${id}`)
+        .then((response) => response.ok ? response.json() : null)
+        .then((camp) => {
+          if (camp?.publicId) {
+            router.replace(`/student/dashboard/camp/${camp.publicId}/survey`);
+          }
+        })
+        .catch(() => {});
+    }
     fetchSurvey();
   }, [id]);
 
