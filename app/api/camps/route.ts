@@ -231,6 +231,7 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const year = searchParams.get("year");
+    const view = searchParams.get("view");
 
     let dateFilter = {};
 
@@ -426,7 +427,34 @@ export async function GET(request) {
       return updated;
     });
 
-    return NextResponse.json(campsWithMeta, {
+    // The teacher dashboard only renders card summaries. Keep the larger
+    // classroom and enrollment relations out of its server-rendered payload.
+    const responseCamps = view === "dashboard"
+      ? campsWithMeta.map((camp) => ({
+          camp_id: camp.camp_id,
+          name: camp.name,
+          description: camp.description,
+          location: camp.location,
+          start_date: camp.start_date,
+          end_date: camp.end_date,
+          img_camp_url: camp.img_camp_url,
+          isOwner: camp.isOwner,
+          created_by: camp.created_by,
+          grades: camp.grades,
+          gradeDisplay: camp.gradeDisplay,
+          academicYear: camp.academicYear,
+          _count: { student_enrollment: camp._count.student_enrollment },
+          camp_classroom: camp.camp_classroom.map((item) => ({
+            classroom: {
+              _count: {
+                classroom_students: item.classroom._count.classroom_students,
+              },
+            },
+          })),
+        }))
+      : campsWithMeta;
+
+    return NextResponse.json(responseCamps, {
       status: 200,
       headers: {
         "Cache-Control": "no-store, max-age=0",

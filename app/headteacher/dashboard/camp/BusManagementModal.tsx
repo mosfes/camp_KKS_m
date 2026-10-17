@@ -1,15 +1,8 @@
 "use client";
 
-import {
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Avatar,
-  Select,
-  SelectItem,
-} from "@heroui/react";
+import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@heroui/modal";
+import { Avatar } from "@heroui/avatar";
+import { Select, SelectItem } from "@heroui/select";
 import { Button } from "@heroui/button";
 import {
   ArrowLeft,

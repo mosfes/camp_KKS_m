@@ -1,17 +1,10 @@
 "use client";
 
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-  Select,
-  SelectItem,
-  Pagination,
-  Avatar,
-} from "@heroui/react";
+import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from "@heroui/modal";
+import { Button } from "@heroui/button";
+import { Select, SelectItem } from "@heroui/select";
+import { Pagination } from "@heroui/pagination";
+import { Avatar } from "@heroui/avatar";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import {

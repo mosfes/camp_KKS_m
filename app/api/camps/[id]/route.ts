@@ -439,23 +439,43 @@ export async function GET(request, context) {
       .map((item) => `${item.type}(${item.grades.join(", ")})`)
       .join(" ");
 
+    const detail = {
+      ...camp,
+      isOwner:
+        camp.created_by_teacher_id === teacher.teachers_id ||
+        teacher.role === "ADMIN",
+      isHomeroomTeacher,
+      isBusTeacher: camp.camp_bus_teacher.length > 0,
+      total_eligible_students: totalEligibleStudents,
+      enrolled_student_count: enrolledStudentCount,
+      total_mission_count: totalMissionCount,
+      certificate_candidate_count: certificateCandidateIds.size,
+      grades: sortedGrades,
+      gradeDisplay: gradeDisplay,
+      gradeDisplayList: gradeDisplayList,
+      academicYear: campAcademicYear,
+    };
+    const responseDetail = view === "overview"
+      ? {
+          ...detail,
+          student_enrollment: undefined,
+          teacher_enrollment: undefined,
+          camp_bus_teacher: undefined,
+          camp_template: undefined,
+          camp_classroom: camp.camp_classroom.map((item) => ({
+            classroom: {
+              classroom_id: item.classroom.classroom_id,
+              grade: item.classroom.grade,
+              classroom_types: item.classroom.classroom_types && {
+                name: item.classroom.classroom_types.name,
+              },
+            },
+          })),
+        }
+      : detail;
+
     return NextResponse.json(
-      {
-        ...camp,
-        isOwner:
-          camp.created_by_teacher_id === teacher.teachers_id ||
-          teacher.role === "ADMIN",
-        isHomeroomTeacher,
-        isBusTeacher: camp.camp_bus_teacher.length > 0,
-        total_eligible_students: totalEligibleStudents,
-        enrolled_student_count: enrolledStudentCount,
-        total_mission_count: totalMissionCount,
-        certificate_candidate_count: certificateCandidateIds.size,
-        grades: sortedGrades,
-        gradeDisplay: gradeDisplay,
-        gradeDisplayList: gradeDisplayList,
-        academicYear: campAcademicYear,
-      },
+      responseDetail,
       {
         status: 200,
         headers: { "Cache-Control": "private, no-store" },

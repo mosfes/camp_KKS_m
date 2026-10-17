@@ -14,7 +14,7 @@ export default async function Page({
   const { tab } = await searchParams;
   const [camps, teacher, academicYears, homeroom, teacherBus] =
     await Promise.all([
-      getCamps(new Request("https://www.kkscamp.com/api/camps")),
+      getCamps(new Request("https://www.kkscamp.com/api/camps?view=dashboard")),
       getTeacher(),
       getAcademicYears(),
       tab === "homeroom" ? getHomeroom() : Promise.resolve(null),
@@ -22,7 +22,7 @@ export default async function Page({
     ]);
 
   const responses = [
-    ["/api/camps", camps],
+    ["/api/camps?view=dashboard", camps],
     ["/api/auth/me", teacher],
     ["/api/academic_years", academicYears],
     ["/api/teacher/homeroom", homeroom],
