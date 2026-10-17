@@ -824,6 +824,7 @@ export default function StudentStationDetailPage({
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 flex items-center gap-4">
           <Button
             isIconOnly
+            aria-label="ย้อนกลับ"
             className="bg-transparent text-gray-400 hover:bg-gray-50 min-w-0 w-8 h-8"
             variant="light"
             onPress={() => router.back()}
@@ -906,14 +907,14 @@ export default function StudentStationDetailPage({
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3
+                    <h2
                       className={`text-lg font-medium text-[#2D3648] truncate`}
                     >
                       {mission.title?.replace(
                         /\s*\((ก่อนเรียน|หลังเรียน)\)\s*/g,
                         "",
                       ) || "ภารกิจ"}
-                    </h3>
+                    </h2>
                     {mission.type === "PRE_TEST" && (
                       <span className="shrink-0 bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-medium">
                         ก่อนเรียน
