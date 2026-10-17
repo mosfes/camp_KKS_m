@@ -13,6 +13,7 @@ import {
   Avatar,
 } from "@heroui/react";
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import {
   UserCheck,
   QrCode,
@@ -32,7 +33,7 @@ import {
 import QRCode from "react-qr-code";
 
 import CampBreadcrumb from "./CampBreadcrumb";
-import NfcAttendancePanel from "./NfcAttendancePanel";
+const NfcAttendancePanel = dynamic(() => import("./NfcAttendancePanel"), { ssr: false });
 
 import { useStatusModal } from "@/components/StatusModalProvider";
 import { BANGKOK_TIME_ZONE } from "@/lib/bangkok-date";

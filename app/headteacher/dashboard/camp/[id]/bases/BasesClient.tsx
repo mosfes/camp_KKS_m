@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Chip } from "@heroui/chip";
@@ -27,9 +28,10 @@ import {
   HelpCircle,
 } from "lucide-react";
 
-import CreateBaseModal from "../../CreateBaseModal";
-import EditBaseModal from "../../EditBaseModal";
 import CampBreadcrumb from "../../CampBreadcrumb";
+
+const CreateBaseModal = dynamic(() => import("../../CreateBaseModal"), { ssr: false });
+const EditBaseModal = dynamic(() => import("../../EditBaseModal"), { ssr: false });
 
 import { useStatusModal } from "@/components/StatusModalProvider";
 import {
@@ -881,16 +883,16 @@ export default function BasesPage({ initialCamp }: { initialCamp: CampData | nul
       )}
 
       {/* Modals */}
-      <CreateBaseModal
+      {isCreateOpen && <CreateBaseModal
         campId={campId}
         isOpen={isCreateOpen}
         onClose={() => {
           setIsCreateOpen(false);
           fetchCamp();
         }}
-      />
+      />}
 
-      <EditBaseModal
+      {isEditOpen && <EditBaseModal
         baseData={
           selectedStation
             ? {
@@ -908,7 +910,7 @@ export default function BasesPage({ initialCamp }: { initialCamp: CampData | nul
         onSuccess={() => {
           fetchCamp();
         }}
-      />
+      />}
     </div>
   );
 }
