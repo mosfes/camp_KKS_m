@@ -183,21 +183,36 @@ export async function GET(request) {
         },
       },
       orderBy: { submitted_at: "asc" },
-      include: {
+      select: {
+        response_id: true,
+        submitted_at: true,
         student_enrollment: {
-          include: {
+          select: {
             student: {
-              include: {
+              select: {
+                students_id: true,
+                prefix_name: true,
+                firstname: true,
+                lastname: true,
                 classroom_students: {
-                  include: {
-                    classroom: true,
+                  take: 1,
+                  select: {
+                    classroom: {
+                      select: { grade: true, room_number: true },
+                    },
                   },
                 },
               },
             },
           },
         },
-        survey_answer: true,
+        survey_answer: {
+          select: {
+            question_id: true,
+            text_answer: true,
+            scale_value: true,
+          },
+        },
       },
     });
 

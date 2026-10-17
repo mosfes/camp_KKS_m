@@ -422,10 +422,10 @@ export default function SurveyPage() {
   };
 
   useEffect(() => {
-    if (campId) {
+    if (campId && activeTab === "responses") {
       fetchResults();
     }
-  }, [campId]);
+  }, [campId, activeTab]);
 
   // Sync tab change with URL search params
   const handleTabChange = (tab: "questions" | "responses") => {
@@ -722,7 +722,8 @@ export default function SurveyPage() {
         ).toFixed(2)
       : null;
 
-  const totalResponses = resultsData?.totalResponses || 0;
+  const totalResponses =
+    resultsData?.totalResponses ?? survey?._count?.survey_response ?? 0;
 
   if (loading) {
     return <SurveyPageSkeleton />;
