@@ -43,6 +43,41 @@ const Pie = dynamic(() => import("recharts").then((mod) => mod.Pie), { ssr: fals
 const Cell = dynamic(() => import("recharts").then((mod) => mod.Cell), { ssr: false });
 const CartesianGrid = dynamic(() => import("recharts").then((mod) => mod.CartesianGrid), { ssr: false });
 
+function LazyResponsiveContainer({
+  children,
+  width,
+  height,
+}: {
+  children: React.ReactNode;
+  width: string | number;
+  height: string | number;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={containerRef} style={{ width, height }}>
+      {visible && <ResponsiveContainer height="100%" width="100%">{children}</ResponsiveContainer>}
+    </div>
+  );
+}
+
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
@@ -1382,7 +1417,7 @@ export default function SurveyPage() {
                           }
 
                           return (
-                            <ResponsiveContainer height="100%" width="100%">
+                            <LazyResponsiveContainer height="100%" width="100%">
                               <PieChart>
                                 <Pie
                                   cx="50%"
@@ -1413,7 +1448,7 @@ export default function SurveyPage() {
                                   ]}
                                 />
                               </PieChart>
-                            </ResponsiveContainer>
+                            </LazyResponsiveContainer>
                           );
                         })()}
                       </div>
@@ -1457,7 +1492,7 @@ export default function SurveyPage() {
                             }));
 
                           return (
-                            <ResponsiveContainer height="100%" width="100%">
+                            <LazyResponsiveContainer height="100%" width="100%">
                               <BarChart
                                 data={gradeData}
                                 margin={{
@@ -1504,7 +1539,7 @@ export default function SurveyPage() {
                                   radius={[4, 4, 0, 0]}
                                 />
                               </BarChart>
-                            </ResponsiveContainer>
+                            </LazyResponsiveContainer>
                           );
                         })()}
                       </div>
@@ -1577,7 +1612,7 @@ export default function SurveyPage() {
                               });
 
                               return (
-                                <ResponsiveContainer height="100%" width="100%">
+                                <LazyResponsiveContainer height="100%" width="100%">
                                   <BarChart
                                     data={chartData}
                                     margin={{
@@ -1625,7 +1660,7 @@ export default function SurveyPage() {
                                       radius={[4, 4, 0, 0]}
                                     />
                                   </BarChart>
-                                </ResponsiveContainer>
+                                </LazyResponsiveContainer>
                               );
                             })()}
                           </div>
@@ -1820,7 +1855,7 @@ export default function SurveyPage() {
                                   });
 
                                   return (
-                                    <ResponsiveContainer
+                                    <LazyResponsiveContainer
                                       height="100%"
                                       width="100%"
                                     >
@@ -1870,7 +1905,7 @@ export default function SurveyPage() {
                                           radius={[6, 6, 0, 0]}
                                         />
                                       </BarChart>
-                                    </ResponsiveContainer>
+                                    </LazyResponsiveContainer>
                                   );
                                 })()}
                               </div>

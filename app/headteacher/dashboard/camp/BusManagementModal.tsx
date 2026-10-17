@@ -863,7 +863,9 @@ export default function BusManagementModal({
   >(null);
   const [recentlySentReminderActions, setRecentlySentReminderActions] =
     useState<Array<"board" | "alight">>([]);
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState(
+    Boolean(initialData && !initialData.buses.length && initialData.permissions?.canConfigureAny),
+  );
   const [showEditBus, setShowEditBus] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
