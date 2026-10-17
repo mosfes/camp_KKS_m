@@ -594,6 +594,8 @@ async function discoverParentRoutes(page, options) {
 async function discoverTeacherRoutes(page, options) {
   const routes = [
     { name: "dashboard", path: "/headteacher/dashboard" },
+    { name: "dashboard-homeroom", path: "/headteacher/dashboard?tab=homeroom" },
+    { name: "dashboard-camp", path: "/headteacher/dashboard?tab=camp" },
     { name: "profile", path: "/headteacher/profile" },
   ];
   const campsResponse = await fetchJsonInPage(page, "/api/camps");
@@ -611,7 +613,13 @@ async function discoverTeacherRoutes(page, options) {
   }
 
   const campId = Number(selectedCamp.camp_id);
-  const campPrefix = `/headteacher/dashboard/camp/${campId}`;
+  const campPrefix = "/headteacher/dashboard/camp";
+  // The public camp pages use clean URLs and an active-camp cookie. Visiting
+  // the legacy ID URL once creates the same context as selecting a camp in UI.
+  await page.goto(`${options.baseUrl}${campPrefix}/${campId}`, {
+    waitUntil: "networkidle2",
+    timeout: 60_000,
+  });
   const accessResponse = await fetchJsonInPage(
     page,
     `/api/camps/${campId}/access`,
@@ -622,7 +630,7 @@ async function discoverTeacherRoutes(page, options) {
   const access = accessResponse.body ?? {};
 
   routes.push(
-    { name: "camp-detail", path: campPrefix },
+    { name: "camp-detail", path: `${campPrefix}/overview` },
     { name: "camp-students", path: `${campPrefix}/students` },
     { name: "camp-tracking", path: `${campPrefix}/tracking` },
     { name: "camp-location", path: `${campPrefix}/location` },
@@ -651,6 +659,51 @@ async function discoverTeacherRoutes(page, options) {
       { name: "camp-survey-results", path: `${campPrefix}/survey/results` },
       { name: "camp-certificate", path: `${campPrefix}/certificate` },
     );
+
+    const basesResponse = await fetchJsonInPage(
+      page,
+      `/api/camps/${campId}?view=bases`,
+    );
+    const stations = Array.isArray(basesResponse.body?.station)
+      ? basesResponse.body.station
+      : [];
+    const selectedStation = options.stationId
+      ? stations.find(
+          (station) => Number(station.station_id) === options.stationId,
+        )
+      : stations[0];
+    if (options.stationId && !selectedStation) {
+      throw new Error(
+        `ไม่พบฐานภารกิจ ID ${options.stationId} ในค่าย ${campId}`,
+      );
+    }
+    if (selectedStation) {
+      await page.goto(
+        `${options.baseUrl}${campPrefix}/${campId}/base/${selectedStation.station_id}`,
+        { waitUntil: "networkidle2", timeout: 60_000 },
+      );
+      routes.push({ name: "camp-base-detail", path: `${campPrefix}/base` });
+    }
+
+    const trackingResponse = await fetchJsonInPage(
+      page,
+      `/api/camps/${campId}/tracking`,
+    );
+    const selectedStudent = Array.isArray(trackingResponse.body?.students)
+      ? trackingResponse.body.students[0]
+      : null;
+    if (selectedStudent) {
+      await page.goto(
+        `${options.baseUrl}${campPrefix}/${campId}/tracking/${selectedStudent.studentId}`,
+        { waitUntil: "networkidle2", timeout: 60_000 },
+      );
+      routes.push({
+        name: "camp-tracking-student",
+        path: `${campPrefix}/tracking/student`,
+      });
+    }
+
+    return { routes, selectedCamp, selectedStation };
   }
 
   return { routes, selectedCamp, selectedStation: null };
@@ -858,6 +911,13 @@ async function runAudits(options) {
           mode,
           options.threshold,
         );
+        if (
+          pathAndSearch(result.finalUrl) !== pathAndSearch(result.requestedPath)
+        ) {
+          throw new Error(
+            `${route.path} ไปจบที่ ${pathAndSearch(result.finalUrl)} แทนหน้าที่ต้องตรวจ`,
+          );
+        }
         results.push(result);
         console.log(
           `  P ${scoreText(result.scores.performance)} / A ${scoreText(result.scores.accessibility)} / BP ${scoreText(result.scores["best-practices"])} / SEO ${scoreText(result.scores.seo)}`,

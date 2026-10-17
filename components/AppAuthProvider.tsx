@@ -14,10 +14,12 @@ export default function AppAuthProvider({
 }) {
   const pathname = usePathname();
 
-  // Student pages authenticate on the server through the Clerk session and
-  // the student_session cookie. They do not use Clerk's client-side hooks, so
-  // avoid downloading the Clerk UI/runtime bundle on every student screen.
-  if (pathname.startsWith("/student/")) {
+  // Student and teacher pages use their server-verified application sessions.
+  // Neither area needs the Clerk UI/runtime bundle during normal navigation.
+  if (
+    pathname.startsWith("/student/") ||
+    pathname.startsWith("/headteacher/")
+  ) {
     return children;
   }
 

@@ -32,15 +32,31 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-import CreateCampModal from "./CreateCampModal";
-import SelectProjectTypeModal from "./SelectProjectTypeModal";
-import EditCampModal from "./camp/EditCampModal";
-import EnrollmentModal from "./EnrollmentModal";
-import HomeroomStudentModal from "./HomeroomStudentModal";
+import dynamic from "next/dynamic";
 
 import { toThumbnail } from "@/lib/cloudinary-url";
-import { getCleanCampPath, rememberActiveCampId } from "@/lib/client-active-camp";
+import {
+  getCleanCampPath,
+  rememberActiveCampId,
+} from "@/lib/client-active-camp";
+import { useMountedModal } from "@/hooks/useMountedModal";
+
+const CreateCampModal = dynamic(() => import("./CreateCampModal"), {
+  ssr: false,
+});
+const SelectProjectTypeModal = dynamic(
+  () => import("./SelectProjectTypeModal"),
+  { ssr: false },
+);
+const EditCampModal = dynamic(() => import("./camp/EditCampModal"), {
+  ssr: false,
+});
+const EnrollmentModal = dynamic(() => import("./EnrollmentModal"), {
+  ssr: false,
+});
+const HomeroomStudentModal = dynamic(() => import("./HomeroomStudentModal"), {
+  ssr: false,
+});
 
 /* ---------- Default SVG Component ---------- */
 function DefaultCampImage() {
@@ -522,6 +538,11 @@ function DashboardContent() {
   // Homeroom State
   const [homeroomSearch, setHomeroomSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const mountSelectTypeModal = useMountedModal(isSelectTypeOpen);
+  const mountCreateCampModal = useMountedModal(isCreateCampOpen);
+  const mountEnrollmentModal = useMountedModal(isEnrollmentModalOpen);
+  const mountEditCampModal = useMountedModal(isEditModalOpen);
+  const mountHomeroomStudentModal = useMountedModal(Boolean(selectedStudent));
   const [homeroomFilter, setHomeroomFilter] = useState("all");
   const [homeroomPage, setHomeroomPage] = useState(1);
   const homeroomItemsPerPage = 10;
@@ -1295,7 +1316,8 @@ function DashboardContent() {
                             </span>
                           </button>
                           <p className="text-[11px] leading-relaxed text-gray-500 sm:col-span-2">
-                            ระบบส่งเฉพาะคนที่ยังต้องกด และจำกัดการส่งซ้ำทุก 1 นาที
+                            ระบบส่งเฉพาะคนที่ยังต้องกด และจำกัดการส่งซ้ำทุก 1
+                            นาที
                           </p>
                         </div>
                       )}
@@ -1882,48 +1904,58 @@ function DashboardContent() {
       </div>
 
       {/* Modals */}
-      <SelectProjectTypeModal
-        isOpen={isSelectTypeOpen}
-        onClose={() => setIsSelectTypeOpen(false)}
-        onSelect={handleProjectTypeSelect}
-      />
+      {mountSelectTypeModal && (
+        <SelectProjectTypeModal
+          isOpen={isSelectTypeOpen}
+          onClose={() => setIsSelectTypeOpen(false)}
+          onSelect={handleProjectTypeSelect}
+        />
+      )}
 
-      <CreateCampModal
-        isLoading={isSubmitting}
-        isOpen={isCreateCampOpen}
-        projectType={selectedProjectType}
-        templateData={selectedTemplateData}
-        onClose={() => {
-          setIsCreateCampOpen(false);
-          setSelectedProjectType(null);
-          setSelectedTemplateData(null);
-        }}
-        onSubmit={handleCreateCampSubmit}
-      />
+      {mountCreateCampModal && (
+        <CreateCampModal
+          isLoading={isSubmitting}
+          isOpen={isCreateCampOpen}
+          projectType={selectedProjectType}
+          templateData={selectedTemplateData}
+          onClose={() => {
+            setIsCreateCampOpen(false);
+            setSelectedProjectType(null);
+            setSelectedTemplateData(null);
+          }}
+          onSubmit={handleCreateCampSubmit}
+        />
+      )}
 
-      <EnrollmentModal
-        campId={enrollmentCampId ?? 0}
-        campName={enrollmentCampName}
-        isOpen={isEnrollmentModalOpen}
-        onClose={() => setIsEnrollmentModalOpen(false)}
-      />
+      {mountEnrollmentModal && (
+        <EnrollmentModal
+          campId={enrollmentCampId ?? 0}
+          campName={enrollmentCampName}
+          isOpen={isEnrollmentModalOpen}
+          onClose={() => setIsEnrollmentModalOpen(false)}
+        />
+      )}
 
-      <EditCampModal
-        campData={editingCampData}
-        isLoading={isSubmitting}
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setEditingCampData(null);
-        }}
-        onSubmit={handleEditSubmit}
-      />
+      {mountEditCampModal && (
+        <EditCampModal
+          campData={editingCampData}
+          isLoading={isSubmitting}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingCampData(null);
+          }}
+          onSubmit={handleEditSubmit}
+        />
+      )}
 
-      <HomeroomStudentModal
-        isOpen={!!selectedStudent}
-        student={selectedStudent}
-        onClose={() => setSelectedStudent(null)}
-      />
+      {mountHomeroomStudentModal && (
+        <HomeroomStudentModal
+          isOpen={!!selectedStudent}
+          student={selectedStudent}
+          onClose={() => setSelectedStudent(null)}
+        />
+      )}
     </div>
   );
 }

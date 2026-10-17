@@ -612,7 +612,9 @@ function MobileSidebar({
             <span className="text-sm font-semibold text-gray-700">เมนูครู</span>
           </button>
           <button
+            aria-label="ปิดเมนูครู"
             className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            type="button"
             onClick={() => setIsOpen(false)}
           >
             <X size={18} />

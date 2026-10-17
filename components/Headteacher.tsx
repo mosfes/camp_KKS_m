@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { useClerk } from "@clerk/nextjs";
 
 export function HeadteacherNavbar({
   onMenuClick,
@@ -19,7 +18,6 @@ export function HeadteacherNavbar({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { signOut } = useClerk();
 
   const [teacher, setTeacher] = useState<{
     firstname: string;
@@ -80,12 +78,11 @@ export function HeadteacherNavbar({
     setLoadingMessage("กำลังออกจากระบบ...");
     setIsNavigating(true);
     try {
-      // clear cookie ของเรา + signOut จาก Clerk พร้อมกัน
+      // Clear the app session and revoke the Clerk session on the server.
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {
       console.error("Logout API error:", e);
     }
-    await signOut({ redirectUrl: "/" });
     window.location.href = "/";
   };
 
@@ -108,7 +105,9 @@ export function HeadteacherNavbar({
         <NavbarBrand className="gap-3">
           {onMenuClick && (
             <button
+              aria-label="เปิดเมนูครู"
               className="md:hidden p-1 -ml-1 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+              type="button"
               onClick={onMenuClick}
             >
               <Menu size={24} />

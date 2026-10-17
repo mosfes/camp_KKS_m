@@ -4,6 +4,7 @@ export const fontSans = FontSans({
   subsets: ["latin", "thai"],
   variable: "--font-sans",
   weight: ["400", "500", "600", "700"],
+  preload: false,
 });
 
 export const fontSansLight = FontSans({

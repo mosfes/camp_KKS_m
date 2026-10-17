@@ -8,6 +8,7 @@ import {
   useSearchParams,
 } from "next/navigation";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   ChevronUp,
   ChevronDown,
@@ -33,18 +34,7 @@ import {
 import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 
-import EditCampModal from "./EditCampModal";
-import EditCertificateModal from "./EditCertificateModal";
-import CreateBaseModal from "./CreateBaseModal";
-import EditBaseModal from "./EditBaseModal";
-import CreateSurveyModal from "./CreateSurveyModal";
-import SurveyResultsModal from "./SurveyResultsModal";
-import TrackingModal from "./TrackingModal";
-import ShirtTrackingModal from "./ShirtTrackingModal";
-import AttendanceModal from "./AttendanceModal";
 import CampBreadcrumb from "./CampBreadcrumb";
-import BusManagementModal from "./BusManagementModal";
-import PrePostTestModal from "./PrePostTestModal";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
 import {
@@ -58,6 +48,35 @@ import {
   getCleanCampPath,
   rememberActiveBaseId,
 } from "@/lib/client-active-camp";
+import { useMountedModal } from "@/hooks/useMountedModal";
+
+const EditCampModal = dynamic(() => import("./EditCampModal"), { ssr: false });
+const EditCertificateModal = dynamic(() => import("./EditCertificateModal"), {
+  ssr: false,
+});
+const CreateBaseModal = dynamic(() => import("./CreateBaseModal"), {
+  ssr: false,
+});
+const EditBaseModal = dynamic(() => import("./EditBaseModal"), { ssr: false });
+const CreateSurveyModal = dynamic(() => import("./CreateSurveyModal"), {
+  ssr: false,
+});
+const SurveyResultsModal = dynamic(() => import("./SurveyResultsModal"), {
+  ssr: false,
+});
+const TrackingModal = dynamic(() => import("./TrackingModal"), { ssr: false });
+const ShirtTrackingModal = dynamic(() => import("./ShirtTrackingModal"), {
+  ssr: false,
+});
+const AttendanceModal = dynamic(() => import("./AttendanceModal"), {
+  ssr: false,
+});
+const BusManagementModal = dynamic(() => import("./BusManagementModal"), {
+  ssr: false,
+});
+const PrePostTestModal = dynamic(() => import("./PrePostTestModal"), {
+  ssr: false,
+});
 
 interface TimeSlot {
   startTime: string;
@@ -126,6 +145,37 @@ interface CampDetail {
   total_mission_count?: number;
   certificate_candidate_count?: number;
   student_enrollment?: any[];
+}
+
+function normalizeCampDetail(data: any): CampDetail {
+  const gradesSet = new Set<string>();
+  let planTypeName = "MSEC";
+  if (data.camp_classroom?.length) {
+    data.camp_classroom.forEach((cc: any) => {
+      if (cc.classroom?.grade) gradesSet.add(cc.classroom.grade);
+    });
+    planTypeName =
+      data.camp_classroom[0].classroom?.classroom_types?.name || "MSEC";
+  }
+  if ((!planTypeName || planTypeName === "MSEC") && data.plan_type) {
+    planTypeName = data.plan_type.name || "MSEC";
+  }
+  const dailySchedule = (data.camp_daily_schedule || [])
+    .sort((a: any, b: any) => a.day - b.day)
+    .map((schedule: any) => ({
+      day: schedule.day,
+      timeSlots: schedule.time_slots.map((slot: any) => ({
+        startTime: slot.startTime || slot.start_time,
+        endTime: slot.endTime || slot.end_time,
+        activity: slot.activity,
+      })),
+    }));
+  return {
+    ...data,
+    grade_level: Array.from(gradesSet).join(","),
+    plan_type_name: planTypeName,
+    daily_schedule: dailySchedule,
+  };
 }
 
 function CampSkeletonBlock({ className }: { className: string }) {
@@ -211,7 +261,11 @@ function CampOverviewSkeleton() {
   );
 }
 
-export default function CampDetailPage() {
+export default function CampDetailPage({
+  initialCamp = null,
+}: {
+  initialCamp?: CampDetail | null;
+}) {
   const router = useRouter();
 
   const compressImage = async (file: File) => {
@@ -239,10 +293,12 @@ export default function CampDetailPage() {
   const campMenu = searchParams.get("menu");
   const showOverviewManagementCards: boolean = false;
 
-  const [camp, setCamp] = useState<CampDetail | null>(null);
+  const [camp, setCamp] = useState<CampDetail | null>(() =>
+    initialCamp ? normalizeCampDetail(initialCamp) : null,
+  );
   const { showError, showSuccess, showConfirm, setIsLoading } =
     useStatusModal();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialCamp);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editModalTargetSection, setEditModalTargetSection] = useState<
     "info" | "schedule" | "shirt" | "all"
@@ -282,6 +338,19 @@ export default function CampDetailPage() {
   const [isInfoOpen, setIsInfoOpen] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+  const mountEditCampModal = useMountedModal(isEditModalOpen);
+  const mountEditCertificateModal = useMountedModal(isEditCertificateModalOpen);
+  const mountCreateBaseModal = useMountedModal(isCreateBaseModalOpen);
+  const mountEditBaseModal = useMountedModal(isEditBaseModalOpen);
+  const mountCreateSurveyModal = useMountedModal(isCreateSurveyModalOpen);
+  const mountEditSurveyModal = useMountedModal(isEditSurveyModalOpen);
+  const mountSurveyResultsModal = useMountedModal(isSurveyResultsModalOpen);
+  const mountTrackingModal = useMountedModal(isTrackingModalOpen);
+  const mountShirtModal = useMountedModal(isShirtModalOpen);
+  const mountAttendanceModal = useMountedModal(isAttendanceModalOpen);
+  const mountBusModal = useMountedModal(isBusModalOpen);
+  const mountPrePostTestModal = useMountedModal(isPrePostTestModalOpen);
+
   const shirtImages = useMemo(() => {
     if (!camp?.img_shirt_url) return [];
     try {
@@ -298,7 +367,14 @@ export default function CampDetailPage() {
   useEffect(() => {
     window.scrollTo(0, 0); // เลื่อนขึ้นไปบนสุดทุกครั้งที่เข้าหน้าค่าย
     if (campId) {
-      fetchCampDetail();
+      if (String(initialCamp?.camp_id) === String(campId)) {
+        if (camp?.camp_id !== initialCamp?.camp_id) {
+          setCamp(normalizeCampDetail(initialCamp));
+          setLoading(false);
+        }
+      } else {
+        fetchCampDetail();
+      }
       fetchSurvey();
       fetchShirtCount();
     }
@@ -307,7 +383,7 @@ export default function CampDetailPage() {
       // Clean up the URL to remove the query param so it doesn't re-trigger on refresh
       router.replace(getCleanCampPath());
     }
-  }, [campId, isEdit]);
+  }, [campId, isEdit, initialCamp?.camp_id]);
 
   useEffect(() => {
     const intervalId = window.setInterval(
@@ -430,50 +506,7 @@ export default function CampDetailPage() {
 
       const data = await response.json();
 
-      // ดึง grade_level และ plan_type จาก camp_classroom
-      const gradesSet = new Set<string>();
-      let planTypeName = "MSEC"; // default
-
-      if (data.camp_classroom && data.camp_classroom.length > 0) {
-        data.camp_classroom.forEach((cc: any) => {
-          if (cc.classroom?.grade) {
-            gradesSet.add(cc.classroom.grade);
-          }
-        });
-
-        const firstClassroom = data.camp_classroom[0].classroom;
-
-        if (firstClassroom) {
-          planTypeName = firstClassroom.classroom_types?.name || "MSEC";
-        }
-      }
-
-      // ถ้าไม่มีจาก classroom ให้ลองดูจาก plan_type
-      if ((!planTypeName || planTypeName === "MSEC") && data.plan_type) {
-        planTypeName = data.plan_type.name || "MSEC";
-      }
-
-      // ดึง daily_schedule จาก camp_daily_schedule
-      let dailySchedule = [];
-
-      if (data.camp_daily_schedule && data.camp_daily_schedule.length > 0) {
-        dailySchedule = data.camp_daily_schedule
-          .sort((a: any, b: any) => a.day - b.day)
-          .map((schedule: any) => ({
-            day: schedule.day,
-            timeSlots: schedule.time_slots.map((slot: any) => ({
-              startTime: slot.startTime || slot.start_time,
-              endTime: slot.endTime || slot.end_time,
-              activity: slot.activity,
-            })),
-          }));
-      }
-
-      data.grade_level = Array.from(gradesSet).join(",");
-      data.plan_type_name = planTypeName;
-      data.daily_schedule = dailySchedule;
-
-      setCamp(data);
+      setCamp(normalizeCampDetail(data));
     } catch (error) {
       console.error("Error fetching camp detail:", error);
     } finally {
@@ -724,7 +757,9 @@ export default function CampDetailPage() {
           {camp.img_camp_url && (
             <Image
               fill
-              alt="Camp Cover"
+              priority
+              fetchPriority="high"
+              alt={`รูปปกค่าย ${camp.name}`}
               className="object-cover z-0"
               src={camp.img_camp_url}
             />
@@ -1048,7 +1083,7 @@ export default function CampDetailPage() {
         {/* Quick Actions */}
         <div className="mb-6">
           <div className="mb-3">
-            <h3 className="text-base font-semibold text-gray-900">เมนูด่วน</h3>
+            <h2 className="text-base font-semibold text-gray-900">เมนูด่วน</h2>
             <p className="text-xs text-gray-500">
               งานที่ใช้บ่อยระหว่างดำเนินค่าย
             </p>
@@ -1128,9 +1163,9 @@ export default function CampDetailPage() {
               <div className="w-8 h-8 rounded-lg bg-[#f0f4f2] flex items-center justify-center flex-shrink-0">
                 <MapPin className="text-[#6b857a]" size={16} />
               </div>
-              <h3 className="text-sm font-semibold text-gray-900">
+              <h2 className="text-sm font-semibold text-gray-900">
                 ข้อมูลค่าย
-              </h3>
+              </h2>
             </div>
             <div className="flex items-center gap-2">
               {camp?.isOwner && (
@@ -1278,9 +1313,9 @@ export default function CampDetailPage() {
               <div className="w-8 h-8 rounded-lg bg-[#f0f4f2] flex items-center justify-center flex-shrink-0">
                 <Shirt className="text-[#6b857a]" size={16} />
               </div>
-              <h3 className="text-sm font-semibold text-gray-900">
+              <h2 className="text-sm font-semibold text-gray-900">
                 การจองและจัดการเสื้อ
-              </h3>
+              </h2>
               {camp.has_shirt ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
@@ -1464,9 +1499,9 @@ export default function CampDetailPage() {
                 <Clock className="text-[#6b857a]" size={16} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-gray-900 text-left">
+                <h2 className="text-sm font-semibold text-gray-900 text-left">
                   กำหนดการค่าย
-                </h3>
+                </h2>
               </div>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
                 {camp.daily_schedule?.length || 0} วัน
@@ -1526,9 +1561,9 @@ export default function CampDetailPage() {
                       <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm font-semibold text-gray-700">
                         {day.day}
                       </div>
-                      <h4 className="font-semibold text-gray-900">
+                      <h3 className="font-semibold text-gray-900">
                         วันที่ {day.day}
-                      </h4>
+                      </h3>
                       {camp.start_date && (
                         <span className="text-xs text-gray-500 font-normal">
                           ({formatCampScheduleDate(camp.start_date, day.day)})
@@ -1616,9 +1651,9 @@ export default function CampDetailPage() {
           <div className="bg-white rounded-2xl p-6 shadow-sm">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h3 className="font-semibold text-gray-900 text-lg">
+                <h2 className="font-semibold text-gray-900 text-lg">
                   ฐานกิจกรรม
-                </h3>
+                </h2>
                 <p className="text-sm text-gray-500">
                   จัดการฐานกิจกรรมและภารกิจ
                 </p>
@@ -1702,9 +1737,9 @@ export default function CampDetailPage() {
                         </div>
                       )}
                     </div>
-                    <h4 className="font-semibold text-gray-900 mb-1 line-clamp-2 break-words">
+                    <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 break-words">
                       {station.name}
-                    </h4>
+                    </h3>
                     <p className="text-sm text-gray-500 line-clamp-2 break-words">
                       {station.description || "ไม่มีคำอธิบาย"}
                     </p>
@@ -1738,9 +1773,9 @@ export default function CampDetailPage() {
           <div className="bg-white rounded-2xl p-6 shadow-sm mt-8">
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h3 className="font-semibold text-gray-900 text-lg">
+                <h2 className="font-semibold text-gray-900 text-lg">
                   แบบสอบถาม
-                </h3>
+                </h2>
                 <p className="text-sm text-gray-500">
                   นักเรียนต้องทำแบบสอบถามก่อนดาวน์โหลดประกาศนียบัตร
                 </p>
@@ -1803,9 +1838,9 @@ export default function CampDetailPage() {
                       </div>
                     )}
                   </div>
-                  <h4 className="font-semibold text-gray-900 mb-1">
+                  <h3 className="font-semibold text-gray-900 mb-1">
                     {survey.title}
-                  </h4>
+                  </h3>
                   <p className="text-sm text-gray-500 line-clamp-2">
                     {survey.description || "ไม่มีคำอธิบาย"}
                   </p>
@@ -1860,89 +1895,105 @@ export default function CampDetailPage() {
         )}
       </div>
 
-      <EditCampModal
-        campData={camp}
-        targetSection={editModalTargetSection}
-        isLoading={isEditing}
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSubmit={handleEditSubmit}
-      />
+      {mountEditCampModal && (
+        <EditCampModal
+          campData={camp}
+          targetSection={editModalTargetSection}
+          isLoading={isEditing}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSubmit={handleEditSubmit}
+        />
+      )}
 
-      <EditCertificateModal
-        campData={camp}
-        isOpen={isEditCertificateModalOpen}
-        onClose={() => {
-          setIsEditCertificateModalOpen(false);
-          clearCampMenu();
-        }}
-        onSuccess={fetchCampDetail}
-      />
+      {mountEditCertificateModal && (
+        <EditCertificateModal
+          campData={camp}
+          isOpen={isEditCertificateModalOpen}
+          onClose={() => {
+            setIsEditCertificateModalOpen(false);
+            clearCampMenu();
+          }}
+          onSuccess={fetchCampDetail}
+        />
+      )}
 
-      <CreateBaseModal
-        campId={Number(campId)}
-        isOpen={isCreateBaseModalOpen}
-        onClose={() => {
-          setIsCreateBaseModalOpen(false);
-          clearCampMenu();
-        }}
-      />
+      {mountCreateBaseModal && (
+        <CreateBaseModal
+          campId={Number(campId)}
+          isOpen={isCreateBaseModalOpen}
+          onClose={() => {
+            setIsCreateBaseModalOpen(false);
+            clearCampMenu();
+          }}
+        />
+      )}
 
-      <EditBaseModal
-        baseData={selectedBase}
-        isOpen={isEditBaseModalOpen}
-        onClose={() => {
-          setIsEditBaseModalOpen(false);
-          clearCampMenu();
-        }}
-        onSuccess={fetchCampDetail}
-      />
+      {mountEditBaseModal && (
+        <EditBaseModal
+          baseData={selectedBase}
+          isOpen={isEditBaseModalOpen}
+          onClose={() => {
+            setIsEditBaseModalOpen(false);
+            clearCampMenu();
+          }}
+          onSuccess={fetchCampDetail}
+        />
+      )}
 
-      <CreateSurveyModal
-        campId={Number(campId)}
-        isOpen={isCreateSurveyModalOpen}
-        teacherId={camp?.created_by_teacher_id || 0}
-        onClose={() => {
-          setIsCreateSurveyModalOpen(false);
-          clearCampMenu();
-        }}
-        onSurveyCreated={fetchSurvey}
-      />
+      {mountCreateSurveyModal && (
+        <CreateSurveyModal
+          campId={Number(campId)}
+          isOpen={isCreateSurveyModalOpen}
+          teacherId={camp?.created_by_teacher_id || 0}
+          onClose={() => {
+            setIsCreateSurveyModalOpen(false);
+            clearCampMenu();
+          }}
+          onSurveyCreated={fetchSurvey}
+        />
+      )}
 
-      <CreateSurveyModal
-        campId={Number(campId)}
-        initialData={survey}
-        isOpen={isEditSurveyModalOpen}
-        teacherId={camp?.created_by_teacher_id || 0}
-        onClose={() => {
-          setIsEditSurveyModalOpen(false);
-          clearCampMenu();
-        }}
-        onSurveyCreated={fetchSurvey}
-      />
+      {mountEditSurveyModal && (
+        <CreateSurveyModal
+          campId={Number(campId)}
+          initialData={survey}
+          isOpen={isEditSurveyModalOpen}
+          teacherId={camp?.created_by_teacher_id || 0}
+          onClose={() => {
+            setIsEditSurveyModalOpen(false);
+            clearCampMenu();
+          }}
+          onSurveyCreated={fetchSurvey}
+        />
+      )}
 
-      <SurveyResultsModal
-        campId={Number(campId)}
-        isOpen={isSurveyResultsModalOpen}
-        onClose={() => {
-          setIsSurveyResultsModalOpen(false);
-          clearCampMenu();
-        }}
-      />
+      {mountSurveyResultsModal && (
+        <SurveyResultsModal
+          campId={Number(campId)}
+          isOpen={isSurveyResultsModalOpen}
+          onClose={() => {
+            setIsSurveyResultsModalOpen(false);
+            clearCampMenu();
+          }}
+        />
+      )}
 
-      <TrackingModal
-        campId={Number(campId)}
-        campName={camp?.name || ""}
-        isOpen={isTrackingModalOpen}
-        locationTrackingEnabled={Boolean(camp?.location_sharing_enabled)}
-        view="progress"
-        onClose={() => {
-          setIsTrackingModalOpen(false);
-          clearCampMenu();
-        }}
-      />
+      {mountTrackingModal && (
+        <TrackingModal
+          campId={Number(campId)}
+          campName={camp?.name || ""}
+          isOpen={isTrackingModalOpen}
+          locationTrackingEnabled={Boolean(camp?.location_sharing_enabled)}
+          view="progress"
+          onClose={() => {
+            setIsTrackingModalOpen(false);
+            clearCampMenu();
+          }}
+        />
+      )}
 
-      {camp && (
+      {camp && mountShirtModal && (
         <ShirtTrackingModal
           campId={camp.camp_id}
           campName={camp.name}
@@ -1954,7 +2005,7 @@ export default function CampDetailPage() {
         />
       )}
 
-      {camp && (
+      {camp && mountAttendanceModal && (
         <AttendanceModal
           campId={camp.camp_id}
           campName={camp.name}
@@ -1965,7 +2016,7 @@ export default function CampDetailPage() {
           }}
         />
       )}
-      {camp && (
+      {camp && mountBusModal && (
         <BusManagementModal
           campId={camp.camp_id}
           campName={camp.name}
@@ -1976,14 +2027,16 @@ export default function CampDetailPage() {
           }}
         />
       )}
-      <PrePostTestModal
-        campId={Number(campId)}
-        isOpen={isPrePostTestModalOpen}
-        onClose={() => {
-          setIsPrePostTestModalOpen(false);
-          clearCampMenu();
-        }}
-      />
+      {mountPrePostTestModal && (
+        <PrePostTestModal
+          campId={Number(campId)}
+          isOpen={isPrePostTestModalOpen}
+          onClose={() => {
+            setIsPrePostTestModalOpen(false);
+            clearCampMenu();
+          }}
+        />
+      )}
 
       {selectedImage && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
