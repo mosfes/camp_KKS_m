@@ -300,6 +300,9 @@ function DashboardContent() {
   const { showSuccess, showError, showConfirm, setIsLoading } =
     useStatusModal();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const selectedTab =
+    searchParams.get("tab") === "homeroom" ? "homeroom" : "camp";
 
   const compressImage = async (file: File) => {
     if (!file || !file.type.startsWith("image/")) return file;
@@ -322,7 +325,7 @@ function DashboardContent() {
   const { data: teacherInfo } = useSWR("/api/auth/me", fetcher);
   const { data: dbAcademicYears } = useSWR("/api/academic_years", fetcher);
   const { data: homeroomData, isLoading: loadingHomeroom } = useSWR(
-    "/api/teacher/homeroom",
+    selectedTab === "homeroom" ? "/api/teacher/homeroom" : null,
     fetcher,
   );
   const { data: teacherBusData, mutate: mutateTeacherBus } =
@@ -339,9 +342,6 @@ function DashboardContent() {
   }, [dbAcademicYears]);
 
   const loading = !rawCamps || !teacherInfo || !dbAcademicYears;
-  const searchParams = useSearchParams();
-  const selectedTab =
-    searchParams.get("tab") === "homeroom" ? "homeroom" : "camp";
   const [isSelectTypeOpen, setIsSelectTypeOpen] = useState(false);
   const [isCreateCampOpen, setIsCreateCampOpen] = useState(false);
   const [selectedProjectType, setSelectedProjectType] = useState<string | null>(

@@ -17,10 +17,11 @@ import { Chip } from "@heroui/chip";
 import { Avatar } from "@heroui/avatar";
 import { Pagination } from "@heroui/pagination";
 import { Select, SelectItem, Button, Tooltip } from "@heroui/react";
+import dynamic from "next/dynamic";
 
 import CampBreadcrumb from "../../CampBreadcrumb";
 
-import BreakdownModal from "./BreakdownModal";
+const BreakdownModal = dynamic(() => import("./BreakdownModal"), { ssr: false });
 
 import { useStatusModal } from "@/components/StatusModalProvider";
 

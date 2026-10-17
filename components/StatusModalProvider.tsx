@@ -8,8 +8,11 @@ import React, {
   useCallback,
   useRef,
 } from "react";
+import dynamic from "next/dynamic";
 
-import StatusModal, { ModalType } from "./StatusModal";
+import type { ModalType } from "./StatusModal";
+
+const StatusModal = dynamic(() => import("./StatusModal"), { ssr: false });
 
 interface StatusModalContextType {
   showSuccess: (title: string, message: string) => void;
@@ -42,6 +45,7 @@ export function useStatusModal() {
 
 export function StatusModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
   const [config, setConfig] = useState<{
     type: ModalType;
     title: string;
@@ -70,6 +74,7 @@ export function StatusModalProvider({ children }: { children: ReactNode }) {
       setConfig({ type, title, message, onConfirm, confirmText });
       confirmInFlightRef.current = false;
       setIsLoading(false);
+      setHasOpened(true);
       setIsOpen(true);
     },
     [],
@@ -137,16 +142,18 @@ export function StatusModalProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      <StatusModal
-        confirmText={config.confirmText}
-        isLoading={isLoading}
-        isOpen={isOpen}
-        message={config.message}
-        title={config.title}
-        type={config.type}
-        onClose={close}
-        onConfirm={config.onConfirm ? handleConfirm : undefined}
-      />
+      {hasOpened && (
+        <StatusModal
+          confirmText={config.confirmText}
+          isLoading={isLoading}
+          isOpen={isOpen}
+          message={config.message}
+          title={config.title}
+          type={config.type}
+          onClose={close}
+          onConfirm={config.onConfirm ? handleConfirm : undefined}
+        />
+      )}
     </StatusModalContext.Provider>
   );
 }

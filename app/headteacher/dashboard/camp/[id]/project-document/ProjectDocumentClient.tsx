@@ -3,7 +3,6 @@
 import {
   Autocomplete,
   AutocompleteItem,
-  DateRangePicker,
   Select,
   SelectItem,
 } from "@heroui/react";
@@ -15,6 +14,7 @@ import { LayoutTemplate, Plus, RefreshCw, Trash2 } from "lucide-react";
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
+import DeferredDateRangePicker from "@/components/documents/DeferredDateRangePicker";
 import DocumentPersonnelPicker from "@/components/documents/DocumentPersonnelPicker";
 import { useDocumentAutoSave } from "@/components/documents/useDocumentAutoSave";
 import {
@@ -1238,7 +1238,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                   </div>
                   <div>
                     <span className={labelClass}>ระยะเวลา</span>
-                    <DateRangePicker
+                    <DeferredDateRangePicker
                       showMonthAndYearPickers
                       aria-label={`ระยะเวลาขั้นตอนที่ ${index + 1}`}
                       className="w-full"

@@ -47,6 +47,7 @@ import {
   getBusLayoutTemplate,
 } from "@/lib/camp-bus-layout-templates";
 import { getCurrentDeviceLocation } from "@/lib/device-location";
+import { useMountedModal } from "@/hooks/useMountedModal";
 
 type Classroom = {
   classroomId: number;
@@ -896,6 +897,15 @@ export default function BusManagementModal({
     null,
   );
   const [tripHistoryLoading, setTripHistoryLoading] = useState(false);
+  const mountUnassignedConfirm = useMountedModal(showUnassignedConfirm);
+  const mountTransfer = useMountedModal(showTransfer);
+  const mountSeatPicker = useMountedModal(
+    selectedPositionId !== null && !showUnassignedConfirm,
+  );
+  const mountStatusConfirm = useMountedModal(pendingBusStatus !== null);
+  const mountEditBus = useMountedModal(showEditBus);
+  const mountDeleteConfirm = useMountedModal(showDeleteConfirm);
+  const mountTripHistory = useMountedModal(showTripHistory);
 
   const selectedBus = useMemo(
     () => buses.find((bus) => bus.busId === selectedBusId) || null,
@@ -3455,7 +3465,7 @@ export default function BusManagementModal({
           )}
         </Body>
 
-        <Modal
+        {mountUnassignedConfirm && <Modal
           classNames={{
             wrapper: "z-[1200]",
             base: "z-[1200] rounded-3xl",
@@ -3514,9 +3524,9 @@ export default function BusManagementModal({
               </Button>
             </ModalFooter>
           </ModalContent>
-        </Modal>
+        </Modal>}
 
-        <Modal
+        {mountTransfer && <Modal
           classNames={{
             base: "rounded-3xl",
             header: "border-b border-gray-100 px-5 py-4",
@@ -3703,9 +3713,9 @@ export default function BusManagementModal({
               </Button>
             </ModalFooter>
           </ModalContent>
-        </Modal>
+        </Modal>}
 
-        <Modal
+        {mountSeatPicker && <Modal
           classNames={{
             wrapper: "z-[1100]",
             base: "z-[1100] max-h-[88vh] overflow-hidden rounded-3xl",
@@ -4475,9 +4485,9 @@ export default function BusManagementModal({
               </Button>
             </ModalFooter>
           </ModalContent>
-        </Modal>
+        </Modal>}
 
-        <Modal
+        {mountStatusConfirm && <Modal
           classNames={{
             base: "rounded-3xl",
             header: "border-b border-gray-100 px-5 py-4",
@@ -4808,9 +4818,9 @@ export default function BusManagementModal({
               )}
             </ModalFooter>
           </ModalContent>
-        </Modal>
+        </Modal>}
 
-        <Modal
+        {mountEditBus && <Modal
           classNames={{
             base: "rounded-3xl",
             header: "border-b border-gray-100 px-5 py-4",
@@ -4964,9 +4974,9 @@ export default function BusManagementModal({
               </Button>
             </ModalFooter>
           </ModalContent>
-        </Modal>
+        </Modal>}
 
-        <Modal
+        {mountDeleteConfirm && <Modal
           classNames={{
             base: "rounded-3xl",
             header: "border-b border-gray-100 px-5 py-4",
@@ -5018,10 +5028,10 @@ export default function BusManagementModal({
               </Button>
             </ModalFooter>
           </ModalContent>
-        </Modal>
+        </Modal>}
 
         {/* Trip History Modal */}
-        <Modal
+        {mountTripHistory && <Modal
           classNames={{
             wrapper: "z-[1200]",
             base: "z-[1200] max-h-[88vh] overflow-hidden rounded-3xl",
@@ -5202,7 +5212,7 @@ export default function BusManagementModal({
               </Button>
             </ModalFooter>
           </ModalContent>
-        </Modal>
+        </Modal>}
       </>
     </BusManagementShell>
   );

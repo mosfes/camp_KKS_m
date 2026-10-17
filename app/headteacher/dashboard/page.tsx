@@ -6,13 +6,18 @@ import { GET as getTeacherBus } from "@/app/api/teacher/bus/route";
 
 import StudentDashboard from "./DashboardClient";
 
-export default async function Page() {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab } = await searchParams;
   const [camps, teacher, academicYears, homeroom, teacherBus] =
     await Promise.all([
       getCamps(new Request("https://www.kkscamp.com/api/camps")),
       getTeacher(),
       getAcademicYears(),
-      getHomeroom(),
+      tab === "homeroom" ? getHomeroom() : Promise.resolve(null),
       getTeacherBus(new Request("https://www.kkscamp.com/api/teacher/bus")),
     ]);
 
@@ -27,7 +32,7 @@ export default async function Page() {
 
   await Promise.all(
     responses.map(async ([key, response]) => {
-      if (response.ok) initialData[key] = await response.json();
+      if (response?.ok) initialData[key] = await response.json();
     }),
   );
 

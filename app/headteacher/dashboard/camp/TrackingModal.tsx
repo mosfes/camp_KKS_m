@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, type ReactNode } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   Modal,
   ModalContent,
@@ -26,12 +27,16 @@ import {
 
 import CampBreadcrumb from "./CampBreadcrumb";
 
-import CampLocationTracker from "@/components/camp-location/CampLocationTracker";
 import type { TrackerData } from "@/components/camp-location/CampLocationTracker";
 import {
   getCleanTrackingStudentPath,
   rememberActiveTrackingStudentId,
 } from "@/lib/client-active-camp";
+
+const CampLocationTracker = dynamic(
+  () => import("@/components/camp-location/CampLocationTracker"),
+  { ssr: false },
+);
 
 interface StudentProgress {
   studentId: number;
