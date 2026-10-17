@@ -8,7 +8,7 @@ export default async function Page({
 }) {
   const { id } = await params;
   const response = await getCampDetail(
-    new Request(`http://localhost/api/camps/${id}`),
+    new Request(`https://www.kkscamp.com/api/camps/${id}?view=overview`),
     { params: Promise.resolve({ id }) },
   );
   const initialCamp = response.ok ? await response.json() : null;

@@ -6,7 +6,7 @@ import useSWR, { SWRConfig } from "swr";
 import { Card, CardBody } from "@heroui/card";
 import { Chip } from "@heroui/chip";
 import { Button } from "@heroui/button";
-import { Select, SelectItem } from "@heroui/react";
+import { Select, SelectItem } from "@heroui/select";
 import { Pagination } from "@heroui/pagination";
 import {
   MapPin,
@@ -321,7 +321,10 @@ function DashboardContent() {
       return file;
     }
   };
-  const { data: rawCamps, mutate: mutateCamps } = useSWR("/api/camps", fetcher);
+  const { data: rawCamps, mutate: mutateCamps } = useSWR(
+    "/api/camps?view=dashboard",
+    fetcher,
+  );
   const { data: teacherInfo } = useSWR("/api/auth/me", fetcher);
   const { data: dbAcademicYears } = useSWR("/api/academic_years", fetcher);
   const { data: homeroomData, isLoading: loadingHomeroom } = useSWR(

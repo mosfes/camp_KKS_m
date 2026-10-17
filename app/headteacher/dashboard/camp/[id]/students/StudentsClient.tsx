@@ -16,7 +16,9 @@ import { Input } from "@heroui/input";
 import { Chip } from "@heroui/chip";
 import { Avatar } from "@heroui/avatar";
 import { Pagination } from "@heroui/pagination";
-import { Select, SelectItem, Button, Tooltip } from "@heroui/react";
+import { Select, SelectItem } from "@heroui/select";
+import { Button } from "@heroui/button";
+import { Tooltip } from "@heroui/tooltip";
 import dynamic from "next/dynamic";
 
 import CampBreadcrumb from "../../CampBreadcrumb";
