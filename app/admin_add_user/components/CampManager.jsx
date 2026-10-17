@@ -34,6 +34,7 @@ import { Search, MapPin, Users, Calendar, GraduationCap, SquarePen, Trash2, Rota
 import { useRouter } from "next/navigation";
 import adminService from "@/app/service/adminService";
 import { isBangkokDateBefore, isBangkokDateInRange } from "@/lib/bangkok-date";
+import { getCleanCampPath, rememberActiveCampId } from "@/lib/client-active-camp";
 
 function CampLoadingTable({ trash = false }) {
     const columns = trash
@@ -621,7 +622,7 @@ const CampManager = () => {
                                                 <div className="flex items-center gap-3">
                                                     <span
                                                         className="cursor-pointer active:opacity-50 text-blue-500 hover:text-blue-700 transition-colors"
-                                                        onClick={() => router.push(`/headteacher/dashboard/camp/${camp.camp_id}`)}
+                                                        onClick={() => { rememberActiveCampId(camp.camp_id); router.push(getCleanCampPath()); }}
                                                         title="ดูหน้าแสดงผลแบบหัวหน้าค่าย"
                                                     >
                                                         <Eye size={18} />

@@ -115,6 +115,7 @@ export async function GET(request: Request) {
 
       return {
         id: camp.camp_id,
+        publicId: camp.public_id,
         title: camp.name,
         description: camp.description,
         location: camp.location,

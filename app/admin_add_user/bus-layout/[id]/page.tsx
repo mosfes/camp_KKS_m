@@ -1,4 +1,6 @@
 import BusLayoutManager from "../../components/BusLayoutManager";
+import { notFound, redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 
 export default async function BusLayoutEditorPage({
   params,
@@ -6,7 +8,15 @@ export default async function BusLayoutEditorPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const templateId = Number(id);
+  const numericId = /^[1-9]\d*$/.test(id) ? Number(id) : null;
+  const template = await prisma.bus_layout_template.findFirst({
+    where: numericId !== null && Number.isSafeInteger(numericId)
+      ? { template_id: numericId }
+      : { public_id: id },
+    select: { template_id: true, public_id: true },
+  });
+  if (!template) notFound();
+  if (numericId !== null) redirect(`/admin_add_user/bus-layout/${template.public_id}`);
 
   return (
     <div className="m-4 md:m-8">
@@ -18,7 +28,7 @@ export default async function BusLayoutEditorPage({
       </div>
       <BusLayoutManager
         mode="editor"
-        templateId={Number.isInteger(templateId) ? templateId : undefined}
+        templateId={template.template_id}
       />
     </div>
   );

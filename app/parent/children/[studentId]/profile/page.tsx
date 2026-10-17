@@ -24,6 +24,7 @@ type Teacher = {
 };
 type Student = {
   students_id: number;
+  public_id: string;
   prefix_name: string | null;
   firstname: string;
   lastname: string;
@@ -70,7 +71,7 @@ function formatBirthday(value: string | null) {
 export default function ParentStudentPage() {
   const router = useRouter();
   const params = useParams();
-  const studentId = Number(params.studentId);
+  const studentId = String(params.studentId);
   const [student, setStudent] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,9 +86,10 @@ export default function ParentStudentPage() {
         const data = await response.json();
         if (controller.signal.aborted) return;
         if (!response.ok) throw new Error(data.error);
-        if (data.student?.students_id !== studentId)
+        if (data.student?.public_id !== studentId && String(data.student?.students_id) !== studentId)
           throw new Error("ข้อมูลนักเรียนไม่ตรงกับหน้าที่เลือก");
         setStudent(data.student);
+        if (data.student.public_id !== studentId) router.replace(`/parent/children/${data.student.public_id}/profile`);
       })
       .catch((reason) => {
         if (!controller.signal.aborted)
@@ -97,10 +99,10 @@ export default function ParentStudentPage() {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [studentId]);
+  }, [router, studentId]);
 
   const classroom = student?.classroom_students[0]?.classroom;
-  const showingStudent = student?.students_id === studentId;
+  const showingStudent = student?.public_id === studentId || String(student?.students_id) === studentId;
   const teachers = useMemo(() => {
     if (!classroom) return [];
     return [
@@ -116,7 +118,7 @@ export default function ParentStudentPage() {
         <nav aria-label="เส้นทางหน้า" className="flex flex-wrap items-center gap-2 text-xs text-[#5d7c6f]">
           <button type="button" className="hover:underline" onClick={() => router.push("/parent/family")}>ลูกทั้งหมด</button>
           <ChevronRight size={13} />
-          <button type="button" className="font-semibold hover:underline" onClick={() => router.push(`/parent/children/${studentId}`)}>
+          <button type="button" className="font-semibold hover:underline" onClick={() => router.push(student ? `/parent/children/${student.public_id}` : "/parent/family")}>
             {showingStudent && student ? `${student.firstname} ${student.lastname}` : "ข้อมูลบุตร"}
           </button>
           <ChevronRight size={13} />
@@ -129,7 +131,7 @@ export default function ParentStudentPage() {
             className="bg-white text-gray-700 shadow-sm"
             radius="lg"
             variant="flat"
-            onPress={() => router.push(`/parent/children/${studentId}`)}
+            onPress={() => router.push(student ? `/parent/children/${student.public_id}` : "/parent/family")}
           >
             <ChevronLeft size={20} />
           </Button>

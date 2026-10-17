@@ -55,6 +55,7 @@ enum StudentStatus {
 
 model students {
   students_id       Int           @id
+  public_id         String        @unique @default(uuid()) @db.Char(36)
   prefix_name       String?       @db.VarChar(255)
   firstname         String        @db.VarChar(255)
   lastname          String        @db.VarChar(255)
@@ -648,6 +649,7 @@ enum bus_layout_element_type {
 
 model bus_layout_template {
   template_id           Int                        @id @default(autoincrement())
+  public_id             String                     @unique @default(uuid()) @db.Char(36)
   name                  String                     @db.VarChar(120)
   description           String                     @default("") @db.VarChar(500)
   status                bus_layout_template_status @default(DRAFT)
@@ -854,6 +856,7 @@ model teacher_enrollment {
 
 model student_enrollment {
   student_enrollment_id           Int       @id @default(autoincrement())
+  public_id                       String    @unique @default(uuid()) @db.Char(36)
   enrolled_at                     DateTime? // null = ยังไม่ได้กดเข้าร่วม
   shirt_size                      String?   @db.VarChar(10) // null = ยังไม่ได้ระบุ
   location_sharing_enabled        Boolean   @default(false)

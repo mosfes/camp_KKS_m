@@ -304,7 +304,7 @@ export async function GET(request: Request, context: any) {
     const verificationUrl = showQr
       ? buildCertificateVerificationUrl(
           new URL(request.url).origin,
-          enrollment.student_enrollment_id,
+          enrollment.public_id,
         )
       : null;
 

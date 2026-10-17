@@ -11,6 +11,7 @@ import {
 
 export type LinkedStudent = {
   students_id: number;
+  public_id: string;
   prefix_name: string | null;
   firstname: string;
   lastname: string;
@@ -36,7 +37,7 @@ export function ParentStudentPicker({
   onLinked,
 }: {
   students: LinkedStudent[];
-  onSelect: (studentId: number) => Promise<void>;
+  onSelect: (studentId: string) => Promise<void>;
   onLinked: () => Promise<void>;
 }) {
   const [showLinkForm, setShowLinkForm] = useState(false);
@@ -178,7 +179,7 @@ export function ParentStudentPicker({
                   setBusy(true);
                   setError("");
                   try {
-                    await onSelect(student.students_id);
+                    await onSelect(student.public_id);
                   } catch (reason) {
                     setError(
                       reason instanceof Error

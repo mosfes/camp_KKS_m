@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
 import Image from "next/image";
 import {
@@ -10,7 +11,7 @@ import {
 } from "lucide-react";
 
 import { prisma } from "@/lib/db";
-import { verifyCertificateSignature } from "@/lib/certificate-verification";
+import { signCertificateEnrollment, verifyCertificateSignature } from "@/lib/certificate-verification";
 
 export const dynamic = "force-dynamic";
 
@@ -110,18 +111,32 @@ export default async function CertificateVerificationPage({
 }: PageProps) {
   const [{ enrollmentId: rawEnrollmentId }, resolvedSearchParams] =
     await Promise.all([params, searchParams]);
-  const enrollmentId = Number(rawEnrollmentId);
+  const isLegacyId = /^[1-9]\d*$/.test(rawEnrollmentId);
   const signatureValue = resolvedSearchParams.signature;
   const signature = Array.isArray(signatureValue)
     ? signatureValue[0]
     : signatureValue || "";
 
-  if (!verifyCertificateSignature(enrollmentId, signature)) {
+  if (!verifyCertificateSignature(rawEnrollmentId, signature)) {
     return <VerificationCard status="invalid" />;
   }
 
+  const enrollment = await prisma.student_enrollment.findFirst({
+    where: isLegacyId
+      ? { student_enrollment_id: Number(rawEnrollmentId) }
+      : { public_id: rawEnrollmentId },
+    select: { student_enrollment_id: true, public_id: true },
+  });
+  if (!enrollment) return <VerificationCard status="invalid" />;
+  if (isLegacyId) {
+    const publicSignature = signCertificateEnrollment(enrollment.public_id);
+    redirect(
+      `/certificate/verify/${enrollment.public_id}?signature=${encodeURIComponent(publicSignature)}`,
+    );
+  }
+
   const certificate = await prisma.certificate.findUnique({
-    where: { student_enrollment_id: enrollmentId },
+    where: { student_enrollment_id: enrollment.student_enrollment_id },
     select: {
       issue_date: true,
       certificate_no: true,

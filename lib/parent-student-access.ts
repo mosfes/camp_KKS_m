@@ -23,6 +23,18 @@ export async function canParentViewStudent(
   return link?.student.deletedAt === null;
 }
 
+export async function resolveStudentRouteId(rawId: string) {
+  const numericId = /^[1-9]\d*$/.test(rawId) ? Number(rawId) : null;
+  if (numericId !== null && !Number.isSafeInteger(numericId)) return null;
+  return prisma.students.findFirst({
+    where: {
+      ...(numericId !== null ? { students_id: numericId } : { public_id: rawId }),
+      deletedAt: null,
+    },
+    select: { students_id: true, public_id: true },
+  });
+}
+
 export async function resolveParentStudent(
   request: Request,
   session: ParentSession,
@@ -30,8 +42,8 @@ export async function resolveParentStudent(
   const rawId = new URL(request.url).searchParams.get("studentId");
   if (rawId === null) return { studentId: session.studentId, error: null };
 
-  const studentId = Number(rawId);
-  if (!Number.isSafeInteger(studentId) || studentId <= 0) {
+  const student = await resolveStudentRouteId(rawId);
+  if (!student) {
     return {
       studentId: null,
       error: NextResponse.json(
@@ -40,6 +52,7 @@ export async function resolveParentStudent(
       ),
     };
   }
+  const studentId = student.students_id;
 
   if (!(await canParentViewStudent(session, studentId))) {
     return {

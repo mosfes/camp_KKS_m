@@ -247,6 +247,14 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
+  // Preserve the original parent URL for an authorized server redirect from
+  // legacy numeric child and camp routes to their public identifiers.
+  if (/^\/parent\/children\/[^/]+(?:\/|$)/.test(pathname)) {
+    const requestHeaders = new Headers(req.headers);
+    requestHeaders.set("x-parent-route-path", pathname);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
   const isSecure = req.nextUrl.protocol === "https:";
   const legacyBaseRoute = pathname.match(
     /^\/headteacher\/dashboard\/camp\/(\d+)\/base\/(\d+)$/,

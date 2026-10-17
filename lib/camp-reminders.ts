@@ -592,7 +592,7 @@ function messagesFor(
   return rows.map((row) => {
     const isTeacher = row.recipient_key.startsWith("teacher:");
     const campPath = isTeacher
-      ? `/headteacher/dashboard/camp/${row.camp.camp_id}`
+      ? `/headteacher/open-camp/${row.camp.public_id}`
       : `/student/dashboard/camp/${row.camp.public_id}`;
 
     const isJoinReminder = row.reminder_type === JOIN_REMINDER_TYPE;

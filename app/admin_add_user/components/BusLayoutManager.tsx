@@ -47,6 +47,7 @@ type LayoutFloor = {
 
 type LayoutTemplate = {
   templateId: number;
+  publicId: string;
   name: string;
   description: string;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
@@ -670,7 +671,7 @@ export default function BusLayoutManager({
       const data = await response.json();
 
       if (!response.ok) throw new Error(data.error || "ทำสำเนาไม่สำเร็จ");
-      router.push(`/admin_add_user/bus-layout/${data.templateId}`);
+      router.push(`/admin_add_user/bus-layout/${data.publicId}`);
     } catch (error) {
       showError(
         "ทำสำเนาไม่สำเร็จ",
@@ -769,7 +770,7 @@ export default function BusLayoutManager({
                   type="button"
                   onClick={() =>
                     router.push(
-                      `/admin_add_user/bus-layout/${template.templateId}`,
+                      `/admin_add_user/bus-layout/${template.publicId}`,
                     )
                   }
                 >
