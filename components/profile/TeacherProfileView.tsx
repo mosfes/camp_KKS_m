@@ -41,6 +41,7 @@ export interface TeacherProfile {
 interface TeacherProfileViewProps {
   backUrl?: string;
   backLabel?: string;
+  initialProfile?: TeacherProfile | null;
 }
 
 const roleConfig: Record<
@@ -80,12 +81,13 @@ const roleConfig: Record<
 export function TeacherProfileView({
   backUrl,
   backLabel = "กลับสู่ระบบ",
+  initialProfile,
 }: TeacherProfileViewProps) {
   const router = useRouter();
   const firstnameId = useId();
   const lastnameId = useId();
-  const [profile, setProfile] = useState<TeacherProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<TeacherProfile | null>(initialProfile || null);
+  const [loading, setLoading] = useState(!initialProfile);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [successToast, setSuccessToast] = useState(false);
@@ -95,14 +97,15 @@ export function TeacherProfileView({
 
   // Form state
   const [form, setForm] = useState({
-    prefix_name: "",
-    firstname: "",
-    lastname: "",
-    tel: "",
+    prefix_name: initialProfile?.prefix_name ?? "",
+    firstname: initialProfile?.firstname ?? "",
+    lastname: initialProfile?.lastname ?? "",
+    tel: initialProfile?.tel ?? "",
   });
 
   // Initial load
   useEffect(() => {
+    if (initialProfile) return;
     fetch("/api/teacher/profile")
       .then((r) => (r.ok ? r.json() : null))
       .then((data: TeacherProfile | null) => {
@@ -120,7 +123,7 @@ export function TeacherProfileView({
         setApiError("ไม่สามารถโหลดข้อมูลโปรไฟล์ได้ กรุณาลองใหม่");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [initialProfile]);
 
   // Check if form was changed
   const isFormDirty = useMemo(() => {
