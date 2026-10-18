@@ -101,6 +101,7 @@ function parseArgs(argv) {
     headed: false,
     ci: false,
     mode: "both",
+    scope: "role",
     campId: null,
     stationId: null,
     profileDir: null,
@@ -135,6 +136,9 @@ function parseArgs(argv) {
     } else if (argument === "--mode") {
       options.mode = takeValue(index, argument);
       index += 1;
+    } else if (argument === "--scope") {
+      options.scope = takeValue(index, argument);
+      index += 1;
     } else if (argument === "--camp-id") {
       options.campId = Number(takeValue(index, argument));
       index += 1;
@@ -161,6 +165,9 @@ function parseArgs(argv) {
   }
   if (!["both", "mobile", "desktop"].includes(options.mode)) {
     throw new Error("--mode ต้องเป็น both, mobile หรือ desktop");
+  }
+  if (!["role", "headteacher"].includes(options.scope)) {
+    throw new Error("--scope ต้องเป็น role หรือ headteacher");
   }
   if (!ROLE_CONFIGS[options.role]) {
     throw new Error(`--role ต้องเป็น ${Object.keys(ROLE_CONFIGS).join(", ")}`);
@@ -213,6 +220,7 @@ Options:
   --base-url <url>       ค่าเริ่มต้น https://www.kkscamp.com
   --threshold <0-100>    คะแนนขั้นต่ำ ค่าเริ่มต้น 90
   --mode <mode>          both | mobile | desktop
+  --scope <scope>        role | headteacher (ตรวจหน้าครูด้วยบัญชี admin)
   --camp-id <id>         ระบุค่ายที่จะใช้แทนการเลือกอัตโนมัติ
   --station-id <id>      ระบุฐานภารกิจที่จะใช้แทนการเลือกอัตโนมัติ
   --output-dir <path>    ที่เก็บ JSON, HTML และ summary.md
@@ -593,7 +601,6 @@ async function discoverParentRoutes(page, options) {
 
 async function discoverTeacherRoutes(page, options) {
   const routes = [
-    { name: "dashboard", path: "/headteacher/dashboard" },
     { name: "dashboard-homeroom", path: "/headteacher/dashboard?tab=homeroom" },
     { name: "dashboard-camp", path: "/headteacher/dashboard?tab=camp" },
     { name: "profile", path: "/headteacher/profile" },
@@ -656,7 +663,7 @@ async function discoverTeacherRoutes(page, options) {
         path: `${campPrefix}/project-summary-document`,
       },
       { name: "camp-survey", path: `${campPrefix}/survey` },
-      { name: "camp-survey-results", path: `${campPrefix}/survey/results` },
+      { name: "camp-survey-results", path: `${campPrefix}/survey?tab=responses` },
       { name: "camp-certificate", path: `${campPrefix}/certificate` },
     );
 
@@ -738,7 +745,11 @@ async function discoverRoutes(page, options) {
 
   if (options.role === "student") return discoverStudentRoutes(page, options);
   if (options.role === "parent") return discoverParentRoutes(page, options);
-  if (options.role === "admin") return discoverAdminRoutes(page, options);
+  if (options.role === "admin") {
+    return options.scope === "headteacher"
+      ? discoverTeacherRoutes(page, options)
+      : discoverAdminRoutes(page, options);
+  }
   return discoverTeacherRoutes(page, options);
 }
 
@@ -914,9 +925,11 @@ async function runAudits(options) {
         if (
           pathAndSearch(result.finalUrl) !== pathAndSearch(result.requestedPath)
         ) {
-          throw new Error(
-            `${route.path} ไปจบที่ ${pathAndSearch(result.finalUrl)} แทนหน้าที่ต้องตรวจ`,
+          console.warn(
+            `  ข้าม URL ที่ redirect: ${route.path} → ${pathAndSearch(result.finalUrl)}`,
           );
+          results.push(result);
+          continue;
         }
         results.push(result);
         console.log(

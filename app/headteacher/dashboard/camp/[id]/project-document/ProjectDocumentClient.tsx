@@ -376,6 +376,7 @@ function StringList({
           </span>
           <div className="relative min-w-0 flex-1">
             <textarea
+              aria-label={`${placeholder} รายการที่ ${index + 1}`}
               className={`${inputClass} min-h-20 resize-y pr-12`}
               placeholder={placeholder}
               value={value}
@@ -474,6 +475,7 @@ function ResponsibleSelect({
         listboxWrapper: "max-h-64",
         popoverContent: "rounded-xl border border-gray-200 bg-white shadow-lg",
       }}
+      clearButtonProps={{ "aria-label": "ล้างผู้รับผิดชอบโครงการ" }}
       defaultItems={items}
       inputProps={{
         classNames: {
@@ -1109,6 +1111,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
               />
               <span className={`${labelClass} mt-4`}>รายละเอียดเพิ่มเติม</span>
               <textarea
+                aria-label="รายละเอียดมาตรฐานเพิ่มเติม"
                 className={`${inputClass} min-h-28 resize-y`}
                 placeholder="รายการที่เลือกจะแสดงที่นี่ และสามารถพิมพ์เพิ่มเติมได้"
                 value={document.standards || ""}
@@ -1129,6 +1132,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
               />
               <span className={`${labelClass} mt-4`}>รายละเอียดเพิ่มเติม</span>
               <textarea
+                aria-label="รายละเอียดกลยุทธ์โรงเรียนเพิ่มเติม"
                 className={`${inputClass} min-h-28 resize-y`}
                 placeholder="รายการที่เลือกจะแสดงที่นี่ และสามารถพิมพ์เพิ่มเติมได้"
                 value={document.strategy || ""}
@@ -1140,6 +1144,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
 
         <Section number="1" title="หลักการและเหตุผล">
           <textarea
+            aria-label="หลักการและเหตุผล"
             className={`${inputClass} min-h-48 resize-y`}
             value={document.rationale || ""}
             onChange={(event) => update("rationale", event.target.value)}
@@ -1181,6 +1186,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                     ขั้นตอนที่ {index + 1}
                   </span>
                   <button
+                    aria-label={`ลบขั้นตอนที่ ${index + 1}`}
                     className="text-gray-400 hover:text-red-500"
                     type="button"
                     onClick={() =>
@@ -1275,6 +1281,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                   <div className="md:col-span-2">
                     <Field label="วิธีดำเนินการ (รายละเอียดกิจกรรม)">
                       <textarea
+                        aria-label={`รายละเอียดวิธีดำเนินการขั้นตอนที่ ${index + 1}`}
                         className={`${inputClass} min-h-24 resize-y`}
                         placeholder="รายละเอียดวิธีดำเนินการ"
                         value={row.method}
@@ -1453,6 +1460,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                     รายการที่ {index + 1}
                   </span>
                   <button
+                    aria-label={`ลบรายการงบประมาณที่ ${index + 1}`}
                     className="text-gray-400 hover:text-red-500"
                     type="button"
                     onClick={() =>
@@ -1612,6 +1620,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                     ตัวชี้วัดที่ {index + 1}
                   </span>
                   <button
+                    aria-label={`ลบตัวชี้วัดที่ ${index + 1}`}
                     className="text-gray-400 hover:text-red-500"
                     type="button"
                     onClick={() =>
@@ -1630,6 +1639,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                   <div className="md:col-span-2">
                     <Field label="ตัวชี้วัดความสำเร็จ">
                       <textarea
+                        aria-label={`ตัวชี้วัดความสำเร็จที่ ${index + 1}`}
                         className={`${inputClass} min-h-20 resize-y`}
                         placeholder="ระบุตัวชี้วัดความสำเร็จของโครงการ"
                         value={row.indicator}
@@ -1658,6 +1668,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                         popoverContent:
                           "rounded-xl border border-gray-200 bg-white shadow-lg",
                       }}
+                      clearButtonProps={{ "aria-label": `ล้างวิธีวัดตัวชี้วัดที่ ${index + 1}` }}
                       inputProps={{
                         maxLength: 1000,
                         classNames: {
@@ -1775,6 +1786,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                       ลำดับที่ {index + 1}
                     </span>
                     <button
+                      aria-label={`ลบช่องลงนามลำดับที่ ${index + 1}`}
                       className="text-gray-400 hover:text-red-500"
                       type="button"
                       onClick={() =>
@@ -1801,6 +1813,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                           popoverContent:
                             "rounded-xl border border-gray-200 bg-white shadow-lg",
                         }}
+                        clearButtonProps={{ "aria-label": `ล้างบทบาทช่องลงนามลำดับที่ ${index + 1}` }}
                         inputProps={{
                           maxLength: 255,
                           classNames: {

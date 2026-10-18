@@ -104,7 +104,7 @@ export default function DocumentEditorHeader({
                   aria-live="polite"
                   className={`inline-flex min-h-10 items-center justify-center ${
                     saveStatus === "saved"
-                      ? "gap-1.5 text-xs font-normal text-gray-400"
+                      ? "gap-1.5 text-xs font-normal text-gray-600"
                       : "gap-2 text-sm font-medium text-gray-600"
                   }`}
                   role="status"
