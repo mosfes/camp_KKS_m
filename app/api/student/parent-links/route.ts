@@ -64,7 +64,7 @@ export async function GET() {
         id: request.request_id,
         parentName:
           `${request.parent.firstname} ${request.parent.lastname}`.trim(),
-        parentPhone: maskParentPhone(request.parent.tel),
+        parentPhone: request.parent.tel,
         requestedAt: request.requested_at,
         expiresAt: request.expires_at,
       })),
