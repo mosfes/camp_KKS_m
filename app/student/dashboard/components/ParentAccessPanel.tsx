@@ -11,9 +11,12 @@ type PendingRequest = {
   id: number;
   parentName: string;
   parentPhone: string;
+  linkedStudentNames: string[];
   requestedAt: string;
   expiresAt: string;
 };
+
+type Decision = "approve" | "reject";
 
 type ActiveParent = {
   parentId: number;
@@ -39,9 +42,10 @@ export default function ParentAccessPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [requestToReject, setRequestToReject] = useState<PendingRequest | null>(
-    null,
-  );
+  const [confirmation, setConfirmation] = useState<{
+    request: PendingRequest;
+    decision: Decision;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/student/parent-links", {
@@ -76,7 +80,7 @@ export default function ParentAccessPanel() {
     };
   }, [refresh]);
 
-  async function decide(id: number, decision: "approve" | "reject") {
+  async function decide(id: number, decision: Decision) {
     if (busy) return;
     setBusy(true);
     setError("");
@@ -91,7 +95,7 @@ export default function ParentAccessPanel() {
 
       if (!response.ok) throw new Error(data.error || "ดำเนินการไม่สำเร็จ");
       await refresh();
-      setRequestToReject(null);
+      setConfirmation(null);
       setNotice(
         decision === "approve"
           ? "อนุญาตให้ผู้ปกครองดูข้อมูลแล้ว"
@@ -99,7 +103,7 @@ export default function ParentAccessPanel() {
       );
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "ดำเนินการไม่สำเร็จ");
-      setRequestToReject(null);
+      setConfirmation(null);
     } finally {
       setBusy(false);
     }
@@ -175,6 +179,15 @@ export default function ParentAccessPanel() {
                   timeZone: "Asia/Bangkok",
                 })}
               </p>
+              {request.linkedStudentNames.length > 0 && (
+                <p className="mt-3 rounded-xl border border-amber-200 bg-white/80 p-3 text-sm text-gray-800">
+                  บัญชีผู้ปกครองนี้ดูข้อมูลของ{" "}
+                  <strong>{request.linkedStudentNames.join(", ")}</strong>{" "}
+                  อยู่แล้ว
+                  <br />
+                  ผู้ปกครองคนนี้เป็นผู้ปกครองของคุณด้วยใช่หรือไม่?
+                </p>
+              )}
               <p className="mt-2 text-xs text-gray-600">
                 ยืนยันเฉพาะผู้ที่คุณรู้จักและยินยอมให้ดูข้อมูลของคุณ
               </p>
@@ -183,7 +196,9 @@ export default function ParentAccessPanel() {
                   className="rounded-xl bg-[#5d7c6f] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                   disabled={busy}
                   type="button"
-                  onClick={() => void decide(request.id, "approve")}
+                  onClick={() =>
+                    setConfirmation({ request, decision: "approve" })
+                  }
                 >
                   ยืนยัน
                 </button>
@@ -191,7 +206,9 @@ export default function ParentAccessPanel() {
                   className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50"
                   disabled={busy}
                   type="button"
-                  onClick={() => setRequestToReject(request)}
+                  onClick={() =>
+                    setConfirmation({ request, decision: "reject" })
+                  }
                 >
                   ปฏิเสธ
                 </button>
@@ -253,16 +270,28 @@ export default function ParentAccessPanel() {
           {error}
         </p>
       )}
-      {requestToReject && (
+      {confirmation && (
         <StatusModal
           isOpen
-          confirmText="ปฏิเสธ"
+          confirmText={
+            confirmation.decision === "approve" ? "ยืนยัน" : "ปฏิเสธ"
+          }
           isLoading={busy}
-          message={`ยืนยันว่าต้องการปฏิเสธคำขอจาก ${displayParentName(requestToReject.parentName)}? ผู้ปกครองรายนี้จะไม่ได้สิทธิ์ดูข้อมูลของคุณ`}
-          title="ปฏิเสธคำขอผู้ปกครอง"
-          type="warning"
-          onClose={() => setRequestToReject(null)}
-          onConfirm={() => decide(requestToReject.id, "reject")}
+          message={
+            confirmation.decision === "approve"
+              ? `ยืนยันว่า ${displayParentName(confirmation.request.parentName)} เป็นผู้ปกครองของคุณ และอนุญาตให้ดูข้อมูลของคุณใช่หรือไม่?`
+              : `ยืนยันว่าต้องการปฏิเสธคำขอจาก ${displayParentName(confirmation.request.parentName)}? ผู้ปกครองรายนี้จะไม่ได้สิทธิ์ดูข้อมูลของคุณ`
+          }
+          title={
+            confirmation.decision === "approve"
+              ? "ยืนยันสิทธิ์ผู้ปกครอง"
+              : "ปฏิเสธคำขอผู้ปกครอง"
+          }
+          type={confirmation.decision === "approve" ? "info" : "warning"}
+          onClose={() => setConfirmation(null)}
+          onConfirm={() =>
+            decide(confirmation.request.id, confirmation.decision)
+          }
         />
       )}
     </section>

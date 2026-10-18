@@ -19,10 +19,23 @@ export async function GET() {
       where: { students_id: studentId, status: "PENDING" },
       select: {
         request_id: true,
+        parents_id: true,
         requested_at: true,
         expires_at: true,
         parent: {
-          select: { firstname: true, lastname: true, tel: true },
+          select: {
+            firstname: true,
+            lastname: true,
+            tel: true,
+            student: {
+              select: {
+                students_id: true,
+                firstname: true,
+                lastname: true,
+                deletedAt: true,
+              },
+            },
+          },
         },
       },
       orderBy: { requested_at: "desc" },
@@ -43,6 +56,49 @@ export async function GET() {
       orderBy: { created_at: "desc" },
     }),
   ]);
+
+  const previouslyApprovedStudents = pending.length
+    ? await prisma.parent_student_link_requests.findMany({
+        where: {
+          parents_id: { in: pending.map((request) => request.parents_id) },
+          students_id: { not: studentId },
+          status: "APPROVED",
+          student: { deletedAt: null },
+        },
+        select: {
+          parents_id: true,
+          students_id: true,
+          student: { select: { firstname: true, lastname: true } },
+        },
+      })
+    : [];
+  const linkedNamesByParent = new Map<number, Map<number, string>>();
+
+  for (const request of pending) {
+    const primaryStudent = request.parent.student;
+    const names = new Map<number, string>();
+
+    if (
+      primaryStudent.deletedAt === null &&
+      primaryStudent.students_id !== studentId
+    ) {
+      names.set(
+        primaryStudent.students_id,
+        `${primaryStudent.firstname} ${primaryStudent.lastname}`.trim(),
+      );
+    }
+    linkedNamesByParent.set(request.parents_id, names);
+  }
+  for (const link of previouslyApprovedStudents) {
+    const names = linkedNamesByParent.get(link.parents_id);
+
+    if (names) {
+      names.set(
+        link.students_id,
+        `${link.student.firstname} ${link.student.lastname}`.trim(),
+      );
+    }
+  }
 
   const primaryIds = new Set(primaryParents.map((parent) => parent.parents_id));
   const additional = links.filter((link) => !primaryIds.has(link.parents_id));
@@ -65,6 +121,9 @@ export async function GET() {
         parentName:
           `${request.parent.firstname} ${request.parent.lastname}`.trim(),
         parentPhone: request.parent.tel,
+        linkedStudentNames: Array.from(
+          linkedNamesByParent.get(request.parents_id)?.values() ?? [],
+        ),
         requestedAt: request.requested_at,
         expiresAt: request.expires_at,
       })),

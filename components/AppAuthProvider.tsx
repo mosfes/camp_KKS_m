@@ -14,10 +14,11 @@ export default function AppAuthProvider({
 }) {
   const pathname = usePathname();
 
-  // Student and teacher pages use their server-verified application sessions.
-  // Neither area needs the Clerk UI/runtime bundle during normal navigation.
+  // Student, parent, and teacher pages use server-verified application sessions.
+  // These areas do not need the Clerk UI/runtime bundle during navigation.
   if (
     pathname.startsWith("/student/") ||
+    pathname.startsWith("/parent/") ||
     pathname.startsWith("/headteacher/") ||
     pathname === "/admin_add_user" ||
     pathname.startsWith("/admin_add_user/") ||
