@@ -17,6 +17,7 @@ import {
   X,
   Files,
   BusFront,
+  UserRoundCheck,
 } from "lucide-react";
 
 const menuItems = [
@@ -25,6 +26,7 @@ const menuItems = [
   { id: "documentdata", label: "จัดการข้อมูลเอกสาร", icon: Files },
   { id: "classroom", label: "ห้องเรียน", icon: BookOpen },
   { id: "student", label: "นักเรียน", icon: GraduationCap },
+  { id: "parentaccess", label: "สิทธิ์ผู้ปกครอง", icon: UserRoundCheck },
   { id: "camp", label: "ค่าย", icon: Tent },
   { id: "buslayout", label: "ผังรถ", icon: BusFront },
   { id: "vulgarwords", label: "คลังคำหยาบ", icon: ShieldAlert },

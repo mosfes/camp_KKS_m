@@ -1,0 +1,335 @@
+import type { Prisma } from "@prisma/client";
+
+import { NextResponse } from "next/server";
+
+import { requireAdmin } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import {
+  deletePrimaryParentAccount,
+  revokeAdditionalParentLink,
+} from "@/lib/parent-link-access";
+import {
+  expireParentLinkRequests,
+  maskParentPhone,
+} from "@/lib/parent-link-requests";
+
+const PAGE_SIZE = 30;
+
+function searchFilters(search: string) {
+  const number = /^[1-9]\d*$/.test(search) ? Number(search) : null;
+  const parent: Prisma.parentsWhereInput = search
+    ? {
+        OR: [
+          { firstname: { contains: search } },
+          { lastname: { contains: search } },
+          { tel: { contains: search } },
+          ...(number && Number.isSafeInteger(number)
+            ? [{ parents_id: number }]
+            : []),
+        ],
+      }
+    : {};
+  const student: Prisma.studentsWhereInput = search
+    ? {
+        OR: [
+          { firstname: { contains: search } },
+          { lastname: { contains: search } },
+          ...(number && Number.isSafeInteger(number)
+            ? [{ students_id: number }]
+            : []),
+        ],
+      }
+    : {};
+
+  return { parent, student };
+}
+
+export async function GET(request: Request) {
+  const { error } = await requireAdmin();
+
+  if (error) return error;
+
+  await expireParentLinkRequests();
+  const params = new URL(request.url).searchParams;
+  const view = params.get("view") || "active";
+  const search = (params.get("search") || "").trim().slice(0, 100);
+  const page = Math.max(
+    1,
+    Math.min(1000, Math.trunc(Number(params.get("page"))) || 1),
+  );
+  const skip = (page - 1) * PAGE_SIZE;
+  const { parent, student } = searchFilters(search);
+
+  if (view === "requests") {
+    const where: Prisma.parent_student_link_requestsWhereInput = search
+      ? { OR: [{ parent }, { student }] }
+      : {};
+    const [rows, total] = await Promise.all([
+      prisma.parent_student_link_requests.findMany({
+        where,
+        select: {
+          request_id: true,
+          status: true,
+          requested_at: true,
+          expires_at: true,
+          responded_at: true,
+          parent: {
+            select: {
+              parents_id: true,
+              firstname: true,
+              lastname: true,
+              tel: true,
+            },
+          },
+          student: {
+            select: { students_id: true, firstname: true, lastname: true },
+          },
+        },
+        orderBy: { requested_at: "desc" },
+        skip,
+        take: PAGE_SIZE,
+      }),
+      prisma.parent_student_link_requests.count({ where }),
+    ]);
+
+    return NextResponse.json(
+      {
+        rows: rows.map((row) => ({
+          id: row.request_id,
+          parentId: row.parent.parents_id,
+          parentName: `${row.parent.firstname} ${row.parent.lastname}`.trim(),
+          parentPhone: maskParentPhone(row.parent.tel),
+          studentId: row.student.students_id,
+          studentName:
+            `${row.student.firstname} ${row.student.lastname}`.trim(),
+          status: row.status,
+          requestedAt: row.requested_at,
+          expiresAt: row.expires_at,
+          respondedAt: row.responded_at,
+        })),
+        total,
+        page,
+        pageSize: PAGE_SIZE,
+      },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+
+  if (view === "events") {
+    const [rows, total] = await Promise.all([
+      prisma.parent_student_link_events.findMany({
+        orderBy: { created_at: "desc" },
+        skip,
+        take: PAGE_SIZE,
+      }),
+      prisma.parent_student_link_events.count(),
+    ]);
+    const [parents, students] = await Promise.all([
+      prisma.parents.findMany({
+        where: { parents_id: { in: rows.map((row) => row.parents_id) } },
+        select: { parents_id: true, firstname: true, lastname: true },
+      }),
+      prisma.students.findMany({
+        where: { students_id: { in: rows.map((row) => row.students_id) } },
+        select: { students_id: true, firstname: true, lastname: true },
+      }),
+    ]);
+    const parentNames = new Map(
+      parents.map((item) => [
+        item.parents_id,
+        `${item.firstname} ${item.lastname}`.trim(),
+      ]),
+    );
+    const studentNames = new Map(
+      students.map((item) => [
+        item.students_id,
+        `${item.firstname} ${item.lastname}`.trim(),
+      ]),
+    );
+
+    return NextResponse.json(
+      {
+        rows: rows.map((row) => ({
+          id: row.event_id,
+          parentId: row.parents_id,
+          parentName: parentNames.get(row.parents_id) ?? "บัญชีถูกลบ",
+          studentId: row.students_id,
+          studentName: studentNames.get(row.students_id) ?? "บัญชีถูกลบ",
+          action: row.action,
+          actorType: row.actor_type,
+          actorId: row.actor_id,
+          createdAt: row.created_at,
+        })),
+        total,
+        page,
+        pageSize: PAGE_SIZE,
+      },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+
+  const studentWhere: Prisma.studentsWhereInput = {
+    deletedAt: null,
+    ...(search
+      ? {
+          OR: [
+            student,
+            { parents: { some: parent } },
+            { parent_links: { some: { parent } } },
+          ],
+        }
+      : {}),
+  };
+  const [studentRows, total] = await Promise.all([
+    prisma.students.findMany({
+      where: studentWhere,
+      select: {
+        students_id: true,
+        firstname: true,
+        lastname: true,
+        parents: {
+          select: {
+            parents_id: true,
+            firstname: true,
+            lastname: true,
+            tel: true,
+          },
+          orderBy: { parents_id: "asc" },
+        },
+        parent_links: {
+          select: {
+            parents_id: true,
+            created_at: true,
+            parent: {
+              select: { firstname: true, lastname: true, tel: true },
+            },
+          },
+          orderBy: { parents_id: "asc" },
+        },
+      },
+      orderBy: { students_id: "asc" },
+      skip,
+      take: PAGE_SIZE,
+    }),
+    prisma.students.count({ where: studentWhere }),
+  ]);
+  const linkPairs = studentRows.flatMap((row) =>
+    row.parent_links.map((link) => ({
+      parents_id: link.parents_id,
+      students_id: row.students_id,
+    })),
+  );
+  const approvals = linkPairs.length
+    ? await prisma.parent_student_link_requests.findMany({
+        where: {
+          OR: linkPairs.map((pair) => ({
+            parents_id: pair.parents_id,
+            students_id: pair.students_id,
+            status: "APPROVED" as const,
+          })),
+        },
+        select: { parents_id: true, students_id: true },
+      })
+    : [];
+  const approved = new Set(
+    approvals.map((row) => `${row.parents_id}:${row.students_id}`),
+  );
+
+  return NextResponse.json(
+    {
+      rows: studentRows.map((row) => {
+        const primaryIds = new Set(row.parents.map((item) => item.parents_id));
+
+        return {
+          studentId: row.students_id,
+          studentName: `${row.firstname} ${row.lastname}`.trim(),
+          accesses: [
+            ...row.parents.map((item) => ({
+              parentId: item.parents_id,
+              parentName: `${item.firstname} ${item.lastname}`.trim(),
+              parentPhone: maskParentPhone(item.tel),
+              source: "PRIMARY",
+              grantedAt: null,
+              revocable: true,
+            })),
+            ...row.parent_links
+              .filter((item) => !primaryIds.has(item.parents_id))
+              .map((item) => ({
+                parentId: item.parents_id,
+                parentName:
+                  `${item.parent.firstname} ${item.parent.lastname}`.trim(),
+                parentPhone: maskParentPhone(item.parent.tel),
+                source: approved.has(`${item.parents_id}:${row.students_id}`)
+                  ? "STUDENT_APPROVED"
+                  : "LEGACY",
+                grantedAt: item.created_at,
+                revocable: true,
+              })),
+          ],
+        };
+      }),
+      total,
+      page,
+      pageSize: PAGE_SIZE,
+    },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
+}
+
+export async function DELETE(request: Request) {
+  const { teacher, error } = await requireAdmin();
+
+  if (error) return error;
+
+  let body: Record<string, unknown>;
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 });
+  }
+  const parentId = Number(body.parentId);
+  const studentId = Number(body.studentId);
+
+  if (
+    !Number.isSafeInteger(parentId) ||
+    parentId <= 0 ||
+    !Number.isSafeInteger(studentId) ||
+    studentId <= 0
+  ) {
+    return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 });
+  }
+
+  if (body.source === "PRIMARY") {
+    const result = await deletePrimaryParentAccount({
+      parentId,
+      studentId,
+      actorId: teacher.teachers_id,
+    });
+
+    if (result === "missing") {
+      return NextResponse.json({ error: "ไม่พบบัญชีนี้" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, deletedAccount: true });
+  }
+
+  const result = await revokeAdditionalParentLink({
+    parentId,
+    studentId,
+    actorType: "ADMIN",
+    actorId: teacher.teachers_id,
+  });
+
+  if (result === "primary") {
+    return NextResponse.json(
+      { error: "สิทธิ์บัญชีหลักต้องจัดการที่บัญชีผู้ปกครอง" },
+      { status: 403 },
+    );
+  }
+  if (result === "missing") {
+    return NextResponse.json({ error: "ไม่พบสิทธิ์นี้" }, { status: 404 });
+  }
+
+  return NextResponse.json({ success: true });
+}

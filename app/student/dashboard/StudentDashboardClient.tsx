@@ -31,6 +31,7 @@ import dynamic from "next/dynamic";
 import { toast } from "react-hot-toast";
 
 import StudentDashboardSkeleton from "./components/StudentDashboardSkeleton";
+import ParentAccessPanel from "./components/ParentAccessPanel";
 
 import {
   BANGKOK_TIME_ZONE,
@@ -536,6 +537,8 @@ export default function StudentDashboard({
             </div>
           </div>
         </div>
+
+        <ParentAccessPanel />
 
         {/* Transportation Section */}
         {busAssignments.length > 0 && (

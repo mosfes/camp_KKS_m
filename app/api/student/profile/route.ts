@@ -220,15 +220,23 @@ export async function PUT(req: any) {
           data: { tel: parentTelDigits },
         });
       } else {
-        await prisma.parents.create({
-          data: {
-            firstname: "รอระบุ",
-            lastname: "รอระบุ",
-            tel: parentTelDigits,
-            password: await require("bcryptjs").hash(`kks${studentId}`, 10),
-            username_student_id: studentId,
-          },
-        });
+        const deletedAccount =
+          await prisma.parent_account_tombstones.findUnique({
+            where: { students_id: studentId },
+            select: { students_id: true },
+          });
+
+        if (!deletedAccount) {
+          await prisma.parents.create({
+            data: {
+              firstname: "รอระบุ",
+              lastname: "รอระบุ",
+              tel: parentTelDigits,
+              password: await require("bcryptjs").hash(`kks${studentId}`, 10),
+              username_student_id: studentId,
+            },
+          });
+        }
       }
     }
 

@@ -71,6 +71,19 @@ export async function POST(req: Request) {
       );
     }
 
+    // A deleted parent account must not be recreated by the legacy default login.
+    const deletedAccount = await prisma.parent_account_tombstones.findUnique({
+      where: { students_id: studentId },
+      select: { students_id: true },
+    });
+
+    if (deletedAccount) {
+      return NextResponse.json(
+        { error: "รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง" },
+        { status: 401 },
+      );
+    }
+
     // ตรวจสอบรหัสผ่าน: ค้นหา parent จาก DB และใช้ bcrypt
     let parent = await prisma.parents.findFirst({
       where: { username_student_id: studentId },

@@ -11,6 +11,7 @@ const StudentManager = dynamic(() => import("./components/StudentManager"));
 const CampManager = dynamic(() => import("./components/CampManager"));
 const BusLayoutManager = dynamic(() => import("./components/BusLayoutManager"));
 const VulgarWordsManager = dynamic(() => import("./components/VulgarWordsManager"));
+const ParentAccessManager = dynamic(() => import("./components/ParentAccessManager"));
 
 const sectionMap = {
   overview: {
@@ -37,6 +38,11 @@ const sectionMap = {
     label: "นักเรียน",
     desc: "จัดการข้อมูลนักเรียน",
     Component: StudentManager,
+  },
+  parentaccess: {
+    label: "สิทธิ์ผู้ปกครอง",
+    desc: "ดูว่าใครเข้าถึงข้อมูลนักเรียนได้ และตรวจสอบคำขอยืนยัน",
+    Component: ParentAccessManager,
   },
   camp: { label: "ค่าย", desc: "จัดการค่ายและกิจกรรม", Component: CampManager },
   buslayout: {
