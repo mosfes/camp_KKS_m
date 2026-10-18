@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { requireParentSession } from "@/lib/parent-auth";
 import {
   expireParentLinkRequests,
+  PARENT_LINK_RETRY_COOLDOWN_MS,
   PARENT_LINK_REQUEST_TTL_MS,
 } from "@/lib/parent-link-requests";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -186,12 +187,13 @@ export async function POST(request: Request) {
     (existingRequest?.status === "REJECTED" ||
       existingRequest?.status === "REVOKED") &&
     existingRequest.responded_at &&
-    existingRequest.responded_at.getTime() > Date.now() - 24 * 60 * 60 * 1000
+    existingRequest.responded_at.getTime() >
+      Date.now() - PARENT_LINK_RETRY_COOLDOWN_MS
   ) {
     return NextResponse.json(
       {
         error:
-          "เพิ่งมีการปฏิเสธหรือเพิกถอนสิทธิ์ กรุณารอ 24 ชั่วโมงก่อนส่งคำขอใหม่",
+          "เพิ่งมีการปฏิเสธหรือเพิกถอนสิทธิ์ กรุณารอ 10 นาทีก่อนส่งคำขอใหม่",
       },
       { status: 429 },
     );

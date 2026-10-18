@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 
 export const PARENT_LINK_REQUEST_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const PARENT_LINK_RETRY_COOLDOWN_MS = 10 * 60 * 1000;
 
 export async function expireParentLinkRequests() {
   const now = new Date();
