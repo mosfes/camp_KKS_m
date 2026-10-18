@@ -656,9 +656,9 @@ const StudentManager = () => {
                         {/* Top Row: Title & Actions */}
                         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                             <div>
-                                <h3 className="text-gray-800 font-semibold">
+                                <h2 className="text-gray-800 font-semibold">
                                     การจัดการนักเรียน ({totalStudents})
-                                </h3>
+                                </h2>
                                 <p className="text-sm text-gray-500 mt-1">เพิ่มและจัดการข้อมูลนักเรียน</p>
                             </div>
 
@@ -666,6 +666,7 @@ const StudentManager = () => {
                                 <Button
                                     size="sm"
                                     variant="bordered"
+                                    aria-label="จัดการการเลื่อนชั้น"
                                     className="bg-white text-gray-600 border-gray-300 hover:bg-gray-50 shadow-sm rounded-full"
                                     onPress={handlePromoteClick}
                                 >
@@ -676,6 +677,7 @@ const StudentManager = () => {
                                 <Button
                                     size="sm"
                                     variant="bordered"
+                                    aria-label="ดูผู้จบการศึกษา"
                                     className="bg-white text-gray-600 border-gray-300 hover:bg-gray-50 shadow-sm rounded-full"
                                     onPress={handleGraduatedClick}
                                 >
@@ -686,6 +688,7 @@ const StudentManager = () => {
                                 <Button
                                     size="sm"
                                     variant="bordered"
+                                    aria-label="นำเข้ารายชื่อนักเรียน"
                                     className="bg-white text-gray-600 border-gray-300 hover:bg-gray-50 shadow-sm rounded-full"
                                     onPress={openPasteModal}
                                 >
@@ -696,6 +699,7 @@ const StudentManager = () => {
                                 <Button
                                     onPress={openAddModal}
                                     size="sm"
+                                    aria-label="เพิ่มนักเรียนใหม่"
                                     className="bg-[#5d7c6f] text-white hover:bg-[#4a6358] shadow-sm rounded-full"
                                 >
                                     <PlusIcon />
@@ -704,6 +708,7 @@ const StudentManager = () => {
                                 <Button
                                     size="sm"
                                     variant="bordered"
+                                    aria-label="ดูรายการนักเรียนที่ลบ"
                                     className="bg-white text-gray-600 border-gray-300 hover:bg-gray-50 shadow-sm rounded-full"
                                     onPress={() => setShowTrash(true)}
                                 >

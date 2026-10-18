@@ -321,6 +321,7 @@ export function TeacherProfileView({
                 {profile.profile_image_url ? (
                   <Image
                     fill
+                    priority
                     alt={`รูปโปรไฟล์ของ ${fullName}`}
                     className="object-cover"
                     sizes="(max-width: 640px) 80px, 96px"

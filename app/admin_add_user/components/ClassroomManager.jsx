@@ -77,20 +77,21 @@ function ClassroomLoadingTable() {
     );
 }
 
-const ClassroomManager = () => {
+const ClassroomManager = ({ initialClassrooms = null }) => {
     const { showSuccess, showError, showConfirm } = useStatusModal();
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(!initialClassrooms);
     const { isOpen, onOpen, onOpenChange } = useDisclosure();
-    const [classrooms, setClassrooms] = useState([]);
-    const [teachers, setTeachers] = useState([]);
-    const [years, setYears] = useState([]);
-    const [selectedYear, setSelectedYear] = useState("all");
+    const [classrooms, setClassrooms] = useState(initialClassrooms?.data || []);
+    const [teachers, setTeachers] = useState(initialClassrooms?.teachers || []);
+    const [years, setYears] = useState(initialClassrooms?.years || []);
+    const [selectedYear, setSelectedYear] = useState(initialClassrooms?.selectedYear || "all");
     const [selectedGrade, setSelectedGrade] = useState("all");
     const [selectedRoomType, setSelectedRoomType] = useState("all");
     const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
-    const [totalClassrooms, setTotalClassrooms] = useState(0);
-    const [totalPages, setTotalPages] = useState(1);
+    const [hasMore, setHasMore] = useState((initialClassrooms?.pagination?.totalPages || 1) > 1);
+    const [totalClassrooms, setTotalClassrooms] = useState(initialClassrooms?.pagination?.total || 0);
+    const [totalPages, setTotalPages] = useState(initialClassrooms?.pagination?.totalPages || 1);
+    const skipInitialFetch = useRef(Boolean(initialClassrooms));
     const [isSubmitting, setIsSubmitting] = useState(false);
     const submitInFlightRef = useRef(false);
 
@@ -103,7 +104,7 @@ const ClassroomManager = () => {
     const [newYearInput, setNewYearInput] = useState("");
 
     const { isOpen: isSettingsOpen, onOpen: onSettingsOpen, onOpenChange: onSettingsChange } = useDisclosure();
-    const [classroomTypes, setClassroomTypes] = useState([]);
+    const [classroomTypes, setClassroomTypes] = useState(initialClassrooms?.types || []);
     const [newTypeData, setNewTypeData] = useState({ name: "", valid_grades: [] });
     const [isEditingType, setIsEditingType] = useState(false);
     const [editTypeId, setEditTypeId] = useState(null);
@@ -243,7 +244,7 @@ const ClassroomManager = () => {
         type_classroom: "",
         teacher_id: "",
         teacher_id_2: "",
-        academic_year_id: ""
+        academic_year_id: initialClassrooms?.selectedYear || ""
     });
 
     const gradeOptions = [
@@ -390,6 +391,10 @@ const ClassroomManager = () => {
     };
 
     useEffect(() => {
+        if (skipInitialFetch.current) {
+            skipInitialFetch.current = false;
+            return;
+        }
         setPage(1);
         if (teachers.length === 0) {
             fetchData(true);

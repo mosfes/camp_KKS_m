@@ -240,11 +240,12 @@ function PromoteStudentsContent() {
   };
 
   return (
-    <div className="w-full p-4 md:p-6">
+    <main className="w-full p-4 md:p-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Button
             isIconOnly
+            aria-label="กลับไปหน้าก่อนหน้า"
             variant="light"
             className="rounded-full"
             onPress={() => router.back()}
@@ -255,7 +256,7 @@ function PromoteStudentsContent() {
             <h1 className="text-2xl font-bold text-gray-800">
               จัดการการเลื่อนชั้น
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-700">
               ครูอยู่ห้องระดับเดิม นักเรียนได้รับประวัติห้องของปีใหม่
             </p>
           </div>
@@ -263,6 +264,7 @@ function PromoteStudentsContent() {
         <Button
           variant="flat"
           color="success"
+          className="text-green-800"
           startContent={<GraduationCap size={18} />}
           onPress={() => router.push("/admin_graduated_students")}
         >
@@ -567,7 +569,7 @@ function PromoteStudentsContent() {
           )}
         </CardBody>
       </Card>
-    </div>
+    </main>
   );
 }
 
