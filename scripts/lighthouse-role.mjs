@@ -575,25 +575,51 @@ async function discoverStudentRoutes(page, options) {
 
 async function discoverParentRoutes(page, options) {
   const routes = [
-    { name: "dashboard", path: "/parent/dashboard" },
+    { name: "family", path: "/parent/family" },
     { name: "profile", path: "/parent/profile" },
-    { name: "student", path: "/parent/student" },
+    { name: "change-password", path: "/parent/change-password" },
+    { name: "forgot-password", path: "/parent/forgot-password" },
+    { name: "reset-password", path: "/parent/reset-password" },
+    { name: "verify-email", path: "/parent/verify-email" },
   ];
-  const campsResponse = await fetchJsonInPage(page, "/api/parent/camps");
-  if (!campsResponse.ok || !Array.isArray(campsResponse.body)) {
-    throw new Error(`โหลดรายการค่ายไม่สำเร็จ (HTTP ${campsResponse.status})`);
+  const studentsResponse = await fetchJsonInPage(page, "/api/parent/students");
+  if (!studentsResponse.ok || !Array.isArray(studentsResponse.body?.students)) {
+    throw new Error(`โหลดรายชื่อบุตรไม่สำเร็จ (HTTP ${studentsResponse.status})`);
   }
 
-  const selectedCamp = chooseCamp(
-    campsResponse.body,
-    options,
-    (camp) => camp.id,
+  const student = studentsResponse.body.students[0];
+  if (!student) return { routes, selectedCamp: null, selectedStation: null };
+  const studentPath = `/parent/children/${student.public_id}`;
+  routes.push(
+    { name: "child", path: studentPath },
+    { name: "child-profile", path: `${studentPath}/profile` },
   );
-  if (selectedCamp) {
+
+  let selectedCamp = null;
+  for (const linkedStudent of studentsResponse.body.students) {
+    const campsResponse = await fetchJsonInPage(
+      page,
+      `/api/parent/camps?studentId=${encodeURIComponent(linkedStudent.public_id)}`,
+    );
+    if (!campsResponse.ok || !Array.isArray(campsResponse.body)) {
+      throw new Error(`โหลดรายการค่ายไม่สำเร็จ (HTTP ${campsResponse.status})`);
+    }
+
+    const registeredCamps = campsResponse.body.filter(
+      (camp) =>
+        camp.isRegistered &&
+        (options.campId === null || Number(camp.id) === options.campId),
+    );
+    if (registeredCamps.length === 0) continue;
+    selectedCamp = chooseCamp(registeredCamps, options, (camp) => camp.id);
     routes.push({
       name: "camp-detail",
-      path: `/parent/dashboard/camp/${selectedCamp.id}`,
+      path: `/parent/children/${linkedStudent.public_id}/camps/${selectedCamp.publicId}`,
     });
+    break;
+  }
+  if (options.campId && !selectedCamp) {
+    throw new Error(`ไม่พบค่าย ID ${options.campId} ที่ผู้ปกครองดูได้`);
   }
 
   return { routes, selectedCamp, selectedStation: null };
