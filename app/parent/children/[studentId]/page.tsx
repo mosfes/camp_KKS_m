@@ -275,7 +275,7 @@ export default function ParentDashboard() {
             type="button"
             onClick={() => router.push("/parent/family")}
           >
-            <ArrowLeft size={17} /> ลูกทั้งหมด
+            <ArrowLeft size={17} /> บุตรทั้งหมด
           </button>
           <button
             className="text-sm font-semibold text-[#4d6a5f] underline-offset-4 hover:underline"
@@ -367,7 +367,7 @@ export default function ParentDashboard() {
             color="primary"
             variant="underlined"
           >
-            {/* ── Tab 1: ค่ายของลูก ── */}
+            {/* ── Tab 1: ค่ายของบุตร ── */}
             <Tab
               key="mycamps"
               title={

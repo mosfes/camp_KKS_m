@@ -116,7 +116,7 @@ export default function ParentStudentPage() {
       <ParentNavbar />
       <main className="mx-auto max-w-3xl space-y-5 px-4 py-6 sm:px-6 sm:py-8">
         <nav aria-label="เส้นทางหน้า" className="flex flex-wrap items-center gap-2 text-xs text-[#5d7c6f]">
-          <button type="button" className="hover:underline" onClick={() => router.push("/parent/family")}>ลูกทั้งหมด</button>
+          <button type="button" className="hover:underline" onClick={() => router.push("/parent/family")}>บุตรทั้งหมด</button>
           <ChevronRight size={13} />
           <button type="button" className="font-semibold hover:underline" onClick={() => router.push(student ? `/parent/children/${student.public_id}` : "/parent/family")}>
             {showingStudent && student ? `${student.firstname} ${student.lastname}` : "ข้อมูลบุตร"}

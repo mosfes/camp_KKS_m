@@ -235,13 +235,6 @@ export async function PUT(request) {
         const deleteIds = questionsToDelete.map((q) => q.question_id);
 
         // ลบข้อมูลที่ผูกกับคำถามที่ถูกลบเท่านั้น
-        await tx.suggestion_analysis_summary.deleteMany({
-          where: {
-            survey_answer: {
-              question_id: { in: deleteIds },
-            },
-          },
-        });
         await tx.survey_answer.deleteMany({
           where: { question_id: { in: deleteIds } },
         });

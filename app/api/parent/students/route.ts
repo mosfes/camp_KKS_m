@@ -23,7 +23,11 @@ export async function GET() {
       select: { students_id: true },
     }),
     prisma.parent_student_link_requests.findMany({
-      where: { parents_id: parentId, status: { not: "APPROVED" } },
+      where: {
+        parents_id: parentId,
+        status: { not: "APPROVED" },
+        dismissed_at: null,
+      },
       select: {
         students_id: true,
         status: true,
@@ -219,6 +223,7 @@ export async function POST(request: Request) {
         requested_at: now,
         expires_at: new Date(now.getTime() + PARENT_LINK_REQUEST_TTL_MS),
         responded_at: null,
+        dismissed_at: null,
       },
       create: {
         parents_id: auth.session.parentId,

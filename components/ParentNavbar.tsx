@@ -223,7 +223,7 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                     startContent={<UsersRound size={16} />}
                     onPress={() => navigate("/parent/family")}
                   >
-                    ลูกทั้งหมด
+                    บุตรทั้งหมด
                   </DropdownItem>
                   <DropdownSection showDivider title="เลือกดูข้อมูลบุตร">
                     {students.length === 0

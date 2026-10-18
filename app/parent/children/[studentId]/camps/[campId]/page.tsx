@@ -175,7 +175,7 @@ export default function ParentCampProgressPage() {
       <ParentNavbar />
       <main className="mx-auto max-w-6xl space-y-6 p-4 sm:p-6 lg:p-8">
         <nav aria-label="เส้นทางหน้า" className="flex flex-wrap items-center gap-2 text-xs text-[#5d7c6f]">
-          <button type="button" className="hover:underline" onClick={() => router.push("/parent/family")}>ลูกทั้งหมด</button>
+          <button type="button" className="hover:underline" onClick={() => router.push("/parent/family")}>บุตรทั้งหมด</button>
           <ChevronRight size={13} />
           <button type="button" className="font-semibold hover:underline" onClick={() => router.push(studentPublicId ? `/parent/children/${studentPublicId}` : "/parent/family")}>{studentName}</button>
           <ChevronRight size={13} />

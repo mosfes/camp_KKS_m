@@ -35,7 +35,6 @@ model teachers {
   camp                              camp[]
   teacher_enrollment                teacher_enrollment[]
   survey_template                   survey_template[]
-  camp_location_update              camp_location_update[]
   project_document_template         project_document_template[]
   project_summary_document_template project_summary_document_template[]
   camp_bus_events                   camp_bus_event[]
@@ -112,7 +111,7 @@ model parents {
   session_version   Int       @default(0)
 
   username_student_id Int
-  student             students             @relation(fields: [username_student_id], references: [students_id])
+  student             students                       @relation(fields: [username_student_id], references: [students_id])
   auth_tokens         parent_auth_tokens[]
   linked_students     parent_student_links[]
   link_requests       parent_student_link_requests[]
@@ -156,6 +155,7 @@ model parent_student_link_requests {
   requested_at DateTime                @default(now())
   expires_at   DateTime
   responded_at DateTime?
+  dismissed_at DateTime?
 
   parent  parents  @relation(fields: [parents_id], references: [parents_id], onDelete: Cascade)
   student students @relation(fields: [students_id], references: [students_id], onDelete: Cascade)
@@ -402,7 +402,6 @@ model camp {
   station                  station[]
   camp_daily_schedule      camp_daily_schedule[]
   survey                   survey[]
-  location_updates         camp_location_update[]
   student_location_updates student_location_update[]
   project_document         camp_project_document?
   project_summary_document camp_project_summary_document?
@@ -567,22 +566,6 @@ model document_reference_option {
 
   @@unique([category, label])
   @@index([category, is_active, sort_order])
-}
-
-model camp_location_update {
-  location_update_id  Int      @id @default(autoincrement())
-  camp_camp_id        Int
-  teacher_teachers_id Int
-  latitude            Float
-  longitude           Float
-  accuracy            Float?
-  recorded_at         DateTime @default(now()) @db.DateTime(3)
-
-  camp    camp     @relation(fields: [camp_camp_id], references: [camp_id], onDelete: Cascade)
-  teacher teachers @relation(fields: [teacher_teachers_id], references: [teachers_id])
-
-  @@index([camp_camp_id, recorded_at])
-  @@index([teacher_teachers_id])
 }
 
 model student_location_update {
@@ -1006,7 +989,7 @@ model certificate {
 
 model station {
   station_id           Int     @id @default(autoincrement())
-  public_id             String  @unique @default(uuid()) @db.Char(36)
+  public_id            String  @unique @default(uuid()) @db.Char(36)
   name                 String  @db.VarChar(255)
   description          String  @db.VarChar(255)
   is_required_for_cert Boolean @default(true)
@@ -1141,20 +1124,6 @@ model mission_answer_text {
   answer_text       String         @db.Text
 }
 
-model suggestion_analysis_summary {
-  suggestion_analysis_summary_id Int             @id @default(autoincrement())
-  summary_text                   String          @db.Text
-  overall_sentiment              String          @db.VarChar(255)
-  positive_themes                String          @db.Text
-  improvement_areas              String          @db.Text
-  positive_percentage            Float
-  negative_percentage            Float
-  survey_response_id             Int
-  survey_response                survey_response @relation(fields: [survey_response_id], references: [response_id])
-  survey_answer_id               Int
-  survey_answer                  survey_answer   @relation(fields: [survey_answer_id], references: [answer_id])
-}
-
 model vulgar_words {
   vulgar_word_id Int      @id @default(autoincrement())
   word           String   @db.VarChar(255)
@@ -1201,10 +1170,9 @@ model survey_response {
   survey_survey_id Int
   survey           survey @relation(fields: [survey_survey_id], references: [survey_id])
 
-  student_enrollment_id       Int
-  student_enrollment          student_enrollment            @relation(fields: [student_enrollment_id], references: [student_enrollment_id])
-  suggestion_analysis_summary suggestion_analysis_summary[]
-  survey_answer               survey_answer[]
+  student_enrollment_id Int
+  student_enrollment    student_enrollment @relation(fields: [student_enrollment_id], references: [student_enrollment_id])
+  survey_answer         survey_answer[]
 
   @@unique([survey_survey_id, student_enrollment_id])
 }
@@ -1217,9 +1185,8 @@ model survey_answer {
   survey_response_id Int
   survey_response    survey_response @relation(fields: [survey_response_id], references: [response_id], onDelete: Cascade)
 
-  question_id                 Int
-  survey_question             survey_question               @relation(fields: [question_id], references: [question_id])
-  suggestion_analysis_summary suggestion_analysis_summary[]
+  question_id     Int
+  survey_question survey_question @relation(fields: [question_id], references: [question_id])
 }
 
 // เทมเพลตแบบสอบถาม เพื่อนำกลับมาใช้ในครั้งต่อไป
