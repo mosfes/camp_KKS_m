@@ -1,84 +1,106 @@
-"use client";
+import AdminPageContent from "./AdminPageContent";
+import { requireAdmin } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
-import ClassroomManager from "./components/ClassroomManager";
-import StudentManager from "./components/StudentManager";
-import TeacherManager from "./components/TeacherManager";
-import CampManager from "./components/CampManager";
-import VulgarWordsManager from "./components/VulgarWordsManager";
-import OverviewManager, {
-  OverviewSkeleton,
-} from "./components/OverviewManager";
-import DocumentDataManager from "./components/DocumentDataManager";
-import BusLayoutManager from "./components/BusLayoutManager";
+async function getInitialTeachers() {
+  const { teacher } = await requireAdmin();
+  if (!teacher) return null;
 
-const sectionMap = {
-  overview: {
-    label: "ภาพรวมระบบ",
-    desc: "สรุปข้อมูลทั้งหมดในระบบ",
-    Component: OverviewManager,
-  },
-  teacher: {
-    label: "ครู",
-    desc: "เพิ่มและจัดการข้อมูลครู",
-    Component: TeacherManager,
-  },
-  documentdata: {
-    label: "จัดการข้อมูลเอกสาร",
-    desc: "จัดการบุคลากร มาตรฐานการศึกษา และกลยุทธ์โรงเรียน",
-    Component: DocumentDataManager,
-  },
-  classroom: {
-    label: "ห้องเรียน",
-    desc: "จัดการห้องเรียนและกลุ่ม",
-    Component: ClassroomManager,
-  },
-  student: {
-    label: "นักเรียน",
-    desc: "จัดการข้อมูลนักเรียน",
-    Component: StudentManager,
-  },
-  camp: { label: "ค่าย", desc: "จัดการค่ายและกิจกรรม", Component: CampManager },
-  buslayout: {
-    label: "ผังรถ",
-    desc: "สร้างและเผยแพร่เทมเพลตผังรถให้หัวหน้าค่ายเลือกใช้",
-    Component: BusLayoutManager,
-  },
-  vulgarwords: {
-    label: "คลังคำหยาบ",
-    desc: "จัดการคำหยาบในระบบ",
-    Component: VulgarWordsManager,
-  },
-};
+  const where = { deletedAt: null };
+  const [data, total] = await Promise.all([
+    prisma.teachers.findMany({
+      where,
+      select: {
+        teachers_id: true,
+        prefix_name: true,
+        firstname: true,
+        lastname: true,
+        email: true,
+        tel: true,
+        role: true,
+        classrooms: {
+          where: { deletedAt: null },
+          select: { classroom_id: true },
+        },
+        classroom_teacher: {
+          where: { classroom: { deletedAt: null } },
+          select: { classroom_teacher_id: true },
+        },
+        camp: {
+          where: { deletedAt: null },
+          select: { camp_id: true },
+        },
+      },
+      orderBy: { teachers_id: "asc" },
+      take: 20,
+    }),
+    prisma.teachers.count({ where }),
+  ]);
 
-function AdminContent() {
-  const searchParams = useSearchParams();
-  const tab = searchParams.get("tab") || "overview";
-  const section = sectionMap[tab] || sectionMap["overview"];
-  const { label, desc, Component } = section;
-
-  return (
-    <div className="m-4 md:m-8">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">{label}</h1>
-          <p className="text-gray-500 text-sm mt-1">{desc}</p>
-        </div>
-        <div
-          id="admin-header-actions"
-          className="flex items-center gap-2"
-        ></div>
-      </div>
-      <Component />
-    </div>
-  );
+  return {
+    data,
+    pagination: { page: 1, limit: 20, total, totalPages: Math.ceil(total / 20) },
+  };
 }
 
-export default function AdminPage() {
-  return (
-    <Suspense fallback={<OverviewSkeleton />}>
-      <AdminContent />
-    </Suspense>
-  );
+async function getInitialClassrooms() {
+  const { teacher } = await requireAdmin();
+  if (!teacher) return null;
+
+  const [years, types, teachers] = await Promise.all([
+    prisma.academic_years.findMany({ orderBy: { year: "desc" } }),
+    prisma.classroom_types.findMany({ orderBy: { name: "asc" } }),
+    prisma.teachers.findMany({
+      where: { deletedAt: null },
+      select: { teachers_id: true, prefix_name: true, firstname: true, lastname: true, role: true },
+      orderBy: { teachers_id: "asc" },
+    }),
+  ]);
+  const selectedYear = years.length ? String(years[0].year) : "all";
+  const where = {
+    deletedAt: null,
+    ...(selectedYear !== "all" ? { academic_years_years_id: Number(selectedYear) } : {}),
+  };
+  const [data, total] = await Promise.all([
+    prisma.classrooms.findMany({
+      where,
+      select: {
+        classroom_id: true,
+        grade: true,
+        type_classroom: true,
+        academic_years_years_id: true,
+        teachers_teachers_id: true,
+        academic_years: { select: { year: true } },
+        teacher: { select: { teachers_id: true, prefix_name: true, firstname: true, lastname: true } },
+        classroom_teacher: {
+          select: {
+            teacher_teachers_id: true,
+            teacher: { select: { teachers_id: true, prefix_name: true, firstname: true, lastname: true } },
+          },
+        },
+        _count: { select: { classroom_students: true } },
+      },
+      orderBy: { grade: "asc" },
+      take: 20,
+    }),
+    prisma.classrooms.count({ where }),
+  ]);
+
+  return JSON.parse(JSON.stringify({
+    data,
+    years,
+    types,
+    teachers,
+    selectedYear,
+    pagination: { page: 1, limit: 20, total, totalPages: Math.ceil(total / 20) },
+  }));
+}
+
+export default async function AdminPage({ searchParams }) {
+  const params = await searchParams;
+  const tab = typeof params?.tab === "string" ? params.tab : "overview";
+  const initialTeachers = tab === "teacher" ? await getInitialTeachers() : null;
+  const initialClassrooms = tab === "classroom" ? await getInitialClassrooms() : null;
+
+  return <AdminPageContent tab={tab} initialTeachers={initialTeachers} initialClassrooms={initialClassrooms} />;
 }

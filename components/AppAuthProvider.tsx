@@ -18,7 +18,11 @@ export default function AppAuthProvider({
   // Neither area needs the Clerk UI/runtime bundle during normal navigation.
   if (
     pathname.startsWith("/student/") ||
-    pathname.startsWith("/headteacher/")
+    pathname.startsWith("/headteacher/") ||
+    pathname === "/admin_add_user" ||
+    pathname.startsWith("/admin_add_user/") ||
+    pathname === "/admin_promote_students" ||
+    pathname === "/admin_graduated_students"
   ) {
     return children;
   }

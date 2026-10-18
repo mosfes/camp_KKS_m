@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { toThumbnail } from "@/lib/cloudinary-url";
 
 export function HeadteacherNavbar({
   onMenuClick,
@@ -173,7 +174,7 @@ export function HeadteacherNavbar({
                   className="bg-[#5d7c6f] text-white transition-transform"
                   name={initials}
                   size="sm"
-                  src={teacher?.profile_image_url || undefined}
+                  src={teacher?.profile_image_url ? toThumbnail(teacher.profile_image_url, 64) : undefined}
                 />
               </button>
 

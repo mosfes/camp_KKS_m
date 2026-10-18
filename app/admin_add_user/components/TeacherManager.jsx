@@ -22,7 +22,6 @@ import {
     SelectItem,
     Autocomplete,
     AutocompleteItem,
-    Pagination,
     Textarea,
     Tooltip
 } from "@heroui/react";
@@ -51,18 +50,19 @@ function TeacherTableSkeleton() {
     );
 }
 
-const TeacherManager = () => {
+const TeacherManager = ({ initialTeachers = null }) => {
     const { showSuccess, showError, showConfirm } = useStatusModal();
     const { isOpen, onOpen, onOpenChange } = useDisclosure();
-    const [teachers, setTeachers] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [teachers, setTeachers] = useState(initialTeachers?.data || []);
+    const [isLoading, setIsLoading] = useState(!initialTeachers);
     const [isEditing, setIsEditing] = useState(false);
     const [showTrash, setShowTrash] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalTeachers, setTotalTeachers] = useState(0);
+    const [hasMore, setHasMore] = useState((initialTeachers?.pagination?.totalPages || 1) > 1);
+    const [totalPages, setTotalPages] = useState(initialTeachers?.pagination?.totalPages || 1);
+    const [totalTeachers, setTotalTeachers] = useState(initialTeachers?.pagination?.total || 0);
+    const skipInitialFetch = useRef(Boolean(initialTeachers));
     const [isOtherPrefix, setIsOtherPrefix] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const submitInFlightRef = useRef(false);
@@ -109,6 +109,10 @@ const TeacherManager = () => {
     };
 
     useEffect(() => {
+        if (skipInitialFetch.current && !searchTerm) {
+            skipInitialFetch.current = false;
+            return;
+        }
         setPage(1);
         fetchTeachers(1);
     }, [searchTerm]);
@@ -404,9 +408,9 @@ const TeacherManager = () => {
                 <CardBody className="p-4 md:p-6">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 w-full">
                         <div>
-                            <h3 className="text-gray-800 font-semibold">
+                            <h2 className="text-gray-800 font-semibold">
                                 การจัดการครู ({totalTeachers})
-                            </h3>
+                            </h2>
                             <p className="text-sm text-gray-500 mt-1">เพิ่มและจัดการข้อมูลครู</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
@@ -427,6 +431,7 @@ const TeacherManager = () => {
                             <Button
                                 size="sm"
                                 variant="bordered"
+                                aria-label="นำเข้ารายชื่อครู"
                                 className="bg-white text-gray-600 border-gray-300 hover:bg-gray-50 shadow-sm rounded-full"
                                 onPress={openPasteModal}
                             >
@@ -437,6 +442,7 @@ const TeacherManager = () => {
                             <Button
                                 onPress={openAddModal}
                                 size="sm"
+                                aria-label="เพิ่มครูใหม่"
                                 className="bg-sage text-white hover:bg-sage-dark shadow-sm rounded-full"
                             >
                                 <PlusIcon />
@@ -445,6 +451,7 @@ const TeacherManager = () => {
                             <Button
                                 size="sm"
                                 variant="bordered"
+                                aria-label="ดูรายการครูที่ลบ"
                                 className="bg-white text-gray-600 border-gray-300 hover:bg-gray-50 shadow-sm rounded-full"
                                 onPress={() => setShowTrash(true)}
                             >
@@ -456,35 +463,21 @@ const TeacherManager = () => {
 
 
                     <div className="overflow-x-auto w-full">
-                        <Table
-                            aria-label="Teacher Table"
-                            shadow="none"
-                            isHeaderSticky
-                            classNames={{
-                                wrapper: "bg-white text-gray-800 border border-gray-100 rounded-xl p-0 overflow-hidden min-w-[700px] md:min-w-full",
-                                th: "bg-gray-50/50 border-b border-gray-100 text-gray-800 font-semibold py-4",
-                                td: "py-4 border-b border-gray-50/50 text-gray-800 bg-white",
-                                tr: "bg-white",
-                            }}
-                        >
-                            <TableHeader>
-                                <TableColumn>ชื่อ-นามสกุล</TableColumn>
-                                <TableColumn>อีเมล</TableColumn>
-                                <TableColumn>เบอร์โทร</TableColumn>
-                                <TableColumn>ตำแหน่ง</TableColumn>
-                                <TableColumn>ดำเนินการ</TableColumn>
-                            </TableHeader>
-                            <TableBody
-                                emptyContent={"ไม่มีข้อมูลครู"}
-                                isLoading={isLoading}
-                                loadingContent={<TeacherTableSkeleton />}
-                            >
+                        <table aria-label="Teacher Table" className="min-w-[700px] w-full rounded-xl border border-gray-100 bg-white text-left text-sm text-gray-800 md:min-w-full">
+                            <thead className="bg-gray-50">
+                                <tr className="border-b border-gray-100">
+                                    {["ชื่อ-นามสกุล", "อีเมล", "เบอร์โทร", "ตำแหน่ง", "ดำเนินการ"].map((label) => (
+                                        <th key={label} scope="col" className="px-3 py-4 font-semibold">{label}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
                                 {teachers.map((t) => (
-                                    <TableRow key={t.teachers_id} className="bg-white text-gray-800 border-b border-gray-300 last:border-b-0 hover:bg-gray-50">
-                                        <TableCell>{t.prefix_name ? `${t.prefix_name}${t.firstname}` : t.firstname} {t.lastname}</TableCell>
-                                        <TableCell>{t.email}</TableCell>
-                                        <TableCell>{t.tel || "-"}</TableCell>
-                                        <TableCell>
+                                    <tr key={t.teachers_id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+                                        <th scope="row" className="px-3 py-4 font-normal">{t.prefix_name ? `${t.prefix_name}${t.firstname}` : t.firstname} {t.lastname}</th>
+                                        <td className="px-3 py-4">{t.email}</td>
+                                        <td className="px-3 py-4">{t.tel || "-"}</td>
+                                        <td className="px-3 py-4">
                                             <Chip
                                                 size="sm"
                                                 variant="flat"
@@ -503,27 +496,35 @@ const TeacherManager = () => {
                                                             : "ครู"
                                                 }
                                             </Chip>
-                                        </TableCell>
-                                        <TableCell>
+                                        </td>
+                                        <td className="px-3 py-4">
                                             <div className="flex items-center gap-3">
-                                                <span
+                                                <button
+                                                    type="button"
+                                                    aria-label={`แก้ไขข้อมูลครู ${t.firstname} ${t.lastname}`}
                                                     className="cursor-pointer active:opacity-50 text-sage hover:text-sage-dark"
                                                     onClick={() => handleEdit(t)}
                                                 >
                                                     <SquarePen size={18} />
-                                                </span>
-                                                <span
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    aria-label={`ลบข้อมูลครู ${t.firstname} ${t.lastname}`}
                                                     className="cursor-pointer active:opacity-50 text-[#E84A5F] hover:text-[#FF847C] transition-colors"
                                                     onClick={() => handleDelete(t)}
                                                 >
                                                     <Trash2 size={18} />
-                                                </span>
+                                                </button>
                                             </div>
-                                        </TableCell>
-                                    </TableRow>
+                                        </td>
+                                    </tr>
                                 ))}
-                            </TableBody>
-                        </Table>
+                                {!isLoading && teachers.length === 0 && (
+                                    <tr><td colSpan={5} className="px-3 py-8 text-center text-gray-600">ไม่มีข้อมูลครู</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                        {isLoading && <TeacherTableSkeleton />}
                     </div>
 
                     <div className="flex flex-col md:flex-row items-center mt-6 gap-4 px-2 w-full relative">
@@ -532,21 +533,29 @@ const TeacherManager = () => {
                         </div>
                         <div className="flex-1 flex justify-center order-1 md:order-2 w-full">
                             {totalPages > 1 && (
-                                <Pagination
-                                    isCompact
-                                    showControls
-                                    total={totalPages}
-                                    page={page}
-                                    onChange={(newPage) => {
-                                        setPage(newPage);
-                                        fetchTeachers(newPage);
-                                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                                    }}
-                                    className="overflow-x-auto"
-                                    classNames={{
-                                        cursor: "bg-[#5d7c6f] text-white",
-                                    }}
-                                />
+                                <nav aria-label="หน้ารายชื่อครู" className="flex items-center gap-1 overflow-x-auto">
+                                    {[
+                                        { label: "หน้าก่อนหน้า", value: page - 1, disabled: page <= 1 },
+                                        ...Array.from({ length: totalPages }, (_, index) => ({ label: String(index + 1), value: index + 1 })),
+                                        { label: "หน้าถัดไป", value: page + 1, disabled: page >= totalPages },
+                                    ].map(({ label, value, disabled }) => (
+                                        <button
+                                            key={label}
+                                            type="button"
+                                            aria-label={label}
+                                            aria-current={value === page && label === String(page) ? "page" : undefined}
+                                            disabled={disabled}
+                                            onClick={() => {
+                                                setPage(value);
+                                                fetchTeachers(value);
+                                                window.scrollTo({ top: 0, behavior: "smooth" });
+                                            }}
+                                            className={`min-w-9 rounded-lg px-2 py-1.5 text-sm disabled:opacity-40 ${value === page && label === String(page) ? "bg-[#5d7c6f] text-white" : "text-gray-700 hover:bg-gray-100"}`}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </nav>
                             )}
                         </div>
                     </div>
