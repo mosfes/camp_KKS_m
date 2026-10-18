@@ -66,7 +66,7 @@ export default function CampBreadcrumb({
               <span className="shrink-0 text-gray-300 select-none">/</span>
               {isLast || (!item.href && !item.onClick) ? (
                 <span
-                  className="font-medium text-[#6b857a] truncate max-w-[120px] sm:max-w-[200px] md:max-w-none"
+                  className="font-medium text-[#3d6357] truncate max-w-[120px] sm:max-w-[200px] md:max-w-none"
                   title={item.label}
                 >
                   {item.label}
@@ -122,7 +122,7 @@ export default function CampBreadcrumb({
         <>
           <span className="shrink-0 text-gray-300 select-none">/</span>
           <span
-            className="font-medium text-[#6b857a] truncate max-w-[120px] sm:max-w-[200px] md:max-w-none"
+            className="font-medium text-[#3d6357] truncate max-w-[120px] sm:max-w-[200px] md:max-w-none"
             title={currentPage}
           >
             {currentPage}
