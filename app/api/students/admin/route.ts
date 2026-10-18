@@ -213,9 +213,6 @@ export async function DELETE(request) {
           if (evalAnswers.length > 0) {
             const eaIds = evalAnswers.map((a) => a.answer_id);
 
-            await tx.suggestion_analysis_summary.deleteMany({
-              where: { evaluation_answer_evaluation_id: { in: eaIds } },
-            });
             await tx.evaluation_answer.deleteMany({
               where: { answer_id: { in: eaIds } },
             });

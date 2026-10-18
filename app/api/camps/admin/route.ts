@@ -216,17 +216,6 @@ export async function DELETE(request) {
       const evalIds = evaluations.map((e) => e.evaluation_id);
 
       if (evalIds.length > 0) {
-        const evalAnswers = await tx.evaluation_answer.findMany({
-          where: { evaluation_evaluation_id: { in: evalIds } },
-          select: { answer_id: true },
-        });
-        const evalAnswerIds = evalAnswers.map((a) => a.answer_id);
-
-        if (evalAnswerIds.length > 0) {
-          await tx.suggestion_analysis_summary.deleteMany({
-            where: { evaluation_answer_evaluation_id: { in: evalAnswerIds } },
-          });
-        }
         await tx.evaluation_answer.deleteMany({
           where: { evaluation_evaluation_id: { in: evalIds } },
         });
