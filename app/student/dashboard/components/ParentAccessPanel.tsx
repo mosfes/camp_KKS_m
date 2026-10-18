@@ -11,6 +11,7 @@ type PendingRequest = {
   id: number;
   parentName: string;
   parentPhone: string;
+  linkedStudentNames: string[];
   requestedAt: string;
   expiresAt: string;
 };
@@ -175,6 +176,15 @@ export default function ParentAccessPanel() {
                   timeZone: "Asia/Bangkok",
                 })}
               </p>
+              {request.linkedStudentNames.length > 0 && (
+                <p className="mt-3 rounded-xl border border-amber-200 bg-white/80 p-3 text-sm text-gray-800">
+                  บัญชีผู้ปกครองนี้ดูข้อมูลของ{" "}
+                  <strong>{request.linkedStudentNames.join(", ")}</strong>{" "}
+                  อยู่แล้ว
+                  <br />
+                  ผู้ปกครองคนนี้เป็นผู้ปกครองของคุณด้วยใช่หรือไม่?
+                </p>
+              )}
               <p className="mt-2 text-xs text-gray-600">
                 ยืนยันเฉพาะผู้ที่คุณรู้จักและยินยอมให้ดูข้อมูลของคุณ
               </p>
