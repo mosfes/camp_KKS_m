@@ -34,6 +34,7 @@ export function HeadteacherNavbar({
   const [mounted, setMounted] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const logoutInFlightRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -75,16 +76,12 @@ export function HeadteacherNavbar({
       .catch(() => {});
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
+    if (logoutInFlightRef.current) return;
+    logoutInFlightRef.current = true;
     setLoadingMessage("กำลังออกจากระบบ...");
     setIsNavigating(true);
-    try {
-      // Clear the app session and revoke the Clerk session on the server.
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch (e) {
-      console.error("Logout API error:", e);
-    }
-    window.location.href = "/";
+    window.location.assign("/logout/teacher");
   };
 
   const displayName = teacher
@@ -274,7 +271,7 @@ export function HeadteacherNavbar({
                     type="button"
                     onClick={() => {
                       setIsProfileMenuOpen(false);
-                      void handleLogout();
+                      handleLogout();
                     }}
                   >
                     <LogOut size={16} />
