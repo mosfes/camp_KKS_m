@@ -110,9 +110,33 @@ export async function POST(request: Request) {
           session_version: { increment: 1 },
         },
       });
+      const affectedLinks = await tx.parent_student_links.findMany({
+        where: { students_id: resetToken.parent.username_student_id },
+        select: { parents_id: true },
+      });
+
       await tx.parent_student_links.deleteMany({
         where: { students_id: resetToken.parent.username_student_id },
       });
+      if (affectedLinks.length) {
+        await tx.parent_student_link_requests.updateMany({
+          where: {
+            students_id: resetToken.parent.username_student_id,
+            parents_id: { in: affectedLinks.map((link) => link.parents_id) },
+            status: "APPROVED",
+          },
+          data: { status: "REVOKED", responded_at: now },
+        });
+        await tx.parent_student_link_events.createMany({
+          data: affectedLinks.map((link) => ({
+            parents_id: link.parents_id,
+            students_id: resetToken.parent.username_student_id,
+            action: "REVOKED",
+            actor_type: "SYSTEM",
+            actor_id: resetToken.parents_id,
+          })),
+        });
+      }
       await tx.parent_auth_tokens.updateMany({
         where: {
           parents_id: resetToken.parents_id,

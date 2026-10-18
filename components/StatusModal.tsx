@@ -39,11 +39,11 @@ export default function StatusModal({
   confirmText = "ยืนยัน",
   isLoading = false,
 }: StatusModalProps) {
-  const isDeleteAction =
-    type === "warning" && (title.includes("ลบ") || confirmText.includes("ลบ"));
+  const isDestructiveAction =
+    type === "warning" && /ลบ|เพิกถอน/.test(`${title} ${confirmText}`);
 
   const getIcon = () => {
-    if (isDeleteAction) {
+    if (isDestructiveAction) {
       return <Trash2 className="text-[#E84A5F]" size={48} strokeWidth={1.75} />;
     }
     switch (type) {
@@ -83,9 +83,9 @@ export default function StatusModal({
         backdrop: "z-[2000] bg-black/60 backdrop-blur-sm",
         wrapper: "z-[2010] !items-center !justify-center p-4",
       }}
-      isOpen={isOpen}
       isDismissable={!isLoading}
       isKeyboardDismissDisabled={isLoading}
+      isOpen={isOpen}
       placement="center"
       onOpenChange={(open) => {
         if (!open && !isLoading) onClose();
@@ -110,12 +110,12 @@ export default function StatusModal({
                 <>
                   <Button
                     className={`text-white rounded-full font-medium w-36 shadow-sm ${
-                      isDeleteAction
+                      isDestructiveAction
                         ? "bg-[#E84A5F] hover:bg-[#FF847C]"
                         : "bg-[#6b857a] hover:bg-[#5a7268]"
                     }`}
-                    isLoading={isLoading}
                     isDisabled={isLoading}
+                    isLoading={isLoading}
                     onPress={() => {
                       void onConfirm();
                     }}
@@ -126,8 +126,8 @@ export default function StatusModal({
                   </Button>
                   <Button
                     className="bg-white border-2 border-[#6b857a] text-[#6b857a] rounded-full font-medium w-36 shadow-sm hover:bg-gray-50"
-                    variant="bordered"
                     isDisabled={isLoading}
+                    variant="bordered"
                     onPress={onClose}
                   >
                     ยกเลิก

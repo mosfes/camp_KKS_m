@@ -22,6 +22,13 @@ export type LinkedStudent = {
   }[];
 };
 
+export type ParentLinkRequest = {
+  students_id: number;
+  status: "PENDING" | "REJECTED" | "EXPIRED" | "REVOKED";
+  requested_at: string;
+  expires_at: string;
+};
+
 const gradeLabel: Record<string, string> = {
   Level_1: "ม.1",
   Level_2: "ม.2",
@@ -33,37 +40,40 @@ const gradeLabel: Record<string, string> = {
 
 export function ParentStudentPicker({
   students,
+  requests,
   onSelect,
-  onLinked,
+  onRequested,
 }: {
   students: LinkedStudent[];
+  requests: ParentLinkRequest[];
   onSelect: (studentId: string) => Promise<void>;
-  onLinked: () => Promise<void>;
+  onRequested: () => Promise<void>;
 }) {
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [studentId, setStudentId] = useState("");
-  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   async function linkStudent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       const response = await fetch("/api/parent/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId: studentId.trim(), password }),
+        body: JSON.stringify({ studentId: studentId.trim() }),
       });
       const data = await response.json();
+
       if (!response.ok) throw new Error(data.error || "เชื่อมบัญชีไม่สำเร็จ");
       setStudentId("");
-      setPassword("");
       setShowLinkForm(false);
-      await onLinked();
-      window.dispatchEvent(new Event("parent-students-updated"));
+      setNotice("ส่งคำขอแล้ว นักเรียนต้องยืนยันก่อนจึงจะดูข้อมูลได้");
+      await onRequested();
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : "เชื่อมบัญชีไม่สำเร็จ",
@@ -106,37 +116,36 @@ export function ParentStudentPicker({
 
       {showLinkForm && (
         <form
-          id="parent-link-student-form"
           className="mt-6 max-w-xl space-y-3 rounded-2xl border border-[#dfe9e0] bg-white p-5 shadow-sm"
+          id="parent-link-student-form"
           onSubmit={linkStudent}
         >
           <p className="text-sm font-semibold text-gray-700">
-            เชื่อมบัญชีผู้ปกครองของนักเรียนอีกคน
+            ขอสิทธิ์ดูข้อมูลนักเรียนอีกคน
           </p>
           <p className="text-xs text-gray-500">
-            ใช้รหัสนักเรียนและรหัสผ่านผู้ปกครองของนักเรียนคนนั้น
-            หากยังไม่เคยเปลี่ยนรหัส สามารถใช้รหัสเริ่มต้นได้
+            กรอกรหัสนักเรียน ระบบจะส่งคำขอไปให้นักเรียนยืนยัน คำขอมีอายุ 7 วัน
           </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <p className="text-xs text-gray-500">
+            กรุณากรอกชื่อและเบอร์โทรใน{" "}
+            <a
+              className="font-semibold text-[#365f4f] underline"
+              href="/parent/profile"
+            >
+              โปรไฟล์ผู้ปกครอง
+            </a>{" "}
+            ก่อนส่งคำขอ เพื่อให้นักเรียนตรวจสอบผู้ขอได้
+          </p>
+          <div>
             <input
+              required
               aria-label="รหัสนักเรียนที่ต้องการเพิ่ม"
               autoComplete="off"
               className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#5d7c6f]"
               inputMode="numeric"
               placeholder="รหัสนักเรียน"
-              required
               value={studentId}
               onChange={(event) => setStudentId(event.target.value)}
-            />
-            <input
-              aria-label="รหัสผ่านผู้ปกครองของนักเรียนที่ต้องการเพิ่ม"
-              autoComplete="off"
-              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#5d7c6f]"
-              placeholder="รหัสผ่านผู้ปกครอง"
-              required
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
             />
           </div>
           <button
@@ -144,14 +153,53 @@ export function ParentStudentPicker({
             disabled={busy}
             type="submit"
           >
-            {busy ? "กำลังเชื่อมบัญชี..." : "เชื่อมบัญชี"}
+            {busy ? "กำลังส่งคำขอ..." : "ส่งคำขอยืนยัน"}
           </button>
         </form>
+      )}
+      {notice && (
+        <p aria-live="polite" className="mt-3 text-sm text-[#365f4f]">
+          {notice}
+        </p>
       )}
       {error && (
         <p aria-live="polite" className="mt-3 text-sm text-red-600">
           {error}
         </p>
+      )}
+      {requests.length > 0 && (
+        <section
+          aria-label="สถานะคำขอเพิ่มบุตรหลาน"
+          className="mt-6 rounded-2xl border border-[#dfe9e0] bg-white p-5"
+        >
+          <h2 className="text-sm font-semibold text-[#24382e]">สถานะคำขอ</h2>
+          <div className="mt-3 space-y-2">
+            {requests.map((request) => (
+              <div
+                key={request.students_id}
+                className="flex flex-wrap items-center justify-between gap-2 text-sm"
+              >
+                <span>รหัสนักเรียน {request.students_id}</span>
+                <span
+                  className={
+                    request.status === "PENDING"
+                      ? "text-amber-700"
+                      : "text-gray-600"
+                  }
+                >
+                  {
+                    {
+                      PENDING: "รอนักเรียนยืนยัน",
+                      REJECTED: "นักเรียนปฏิเสธ",
+                      EXPIRED: "คำขอหมดอายุ",
+                      REVOKED: "สิทธิ์ถูกเพิกถอน",
+                    }[request.status]
+                  }
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
       <section aria-label="รายชื่อบุตรหลาน" className="mt-7">
         <div className="mb-4 flex items-end justify-between gap-3">
@@ -168,6 +216,7 @@ export function ParentStudentPicker({
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {students.map((student) => {
             const classroom = student.classroom_students[0]?.classroom;
+
             return (
               <button
                 key={student.students_id}

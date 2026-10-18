@@ -81,9 +81,34 @@ export async function POST(req: Request) {
         },
         select: { session_version: true },
       });
+      const affectedLinks = await tx.parent_student_links.findMany({
+        where: { students_id: session.primaryStudentId },
+        select: { parents_id: true },
+      });
+
       await tx.parent_student_links.deleteMany({
         where: { students_id: session.primaryStudentId },
       });
+      if (affectedLinks.length) {
+        await tx.parent_student_link_requests.updateMany({
+          where: {
+            students_id: session.primaryStudentId,
+            parents_id: { in: affectedLinks.map((link) => link.parents_id) },
+            status: "APPROVED",
+          },
+          data: { status: "REVOKED", responded_at: new Date() },
+        });
+        await tx.parent_student_link_events.createMany({
+          data: affectedLinks.map((link) => ({
+            parents_id: link.parents_id,
+            students_id: session.primaryStudentId,
+            action: "REVOKED",
+            actor_type: "SYSTEM",
+            actor_id: session.parentId,
+          })),
+        });
+      }
+
       return updated;
     });
 

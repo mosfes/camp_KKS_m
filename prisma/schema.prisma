@@ -71,7 +71,9 @@ model students {
   deletedAt         DateTime?
 
   parents                   parents[]
+  parent_account_tombstone  parent_account_tombstones?
   parent_links              parent_student_links[]
+  parent_link_requests      parent_student_link_requests[]
   classroom_students        classroom_students[]
   student_enrollment        student_enrollment[]
   attendance_record_student attendance_record_student[]
@@ -113,8 +115,17 @@ model parents {
   student             students             @relation(fields: [username_student_id], references: [students_id])
   auth_tokens         parent_auth_tokens[]
   linked_students     parent_student_links[]
+  link_requests       parent_student_link_requests[]
 
   @@index([email])
+}
+
+model parent_account_tombstones {
+  students_id       Int      @id
+  deleted_parent_id Int
+  deleted_at        DateTime @default(now())
+
+  student students @relation(fields: [students_id], references: [students_id], onDelete: Cascade)
 }
 
 model parent_student_links {
@@ -127,6 +138,45 @@ model parent_student_links {
 
   @@id([parents_id, students_id])
   @@index([students_id])
+}
+
+enum ParentLinkRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  REVOKED
+}
+
+model parent_student_link_requests {
+  request_id   Int                     @id @default(autoincrement())
+  parents_id   Int
+  students_id  Int
+  status       ParentLinkRequestStatus @default(PENDING)
+  requested_at DateTime                @default(now())
+  expires_at   DateTime
+  responded_at DateTime?
+
+  parent  parents  @relation(fields: [parents_id], references: [parents_id], onDelete: Cascade)
+  student students @relation(fields: [students_id], references: [students_id], onDelete: Cascade)
+
+  @@unique([parents_id, students_id])
+  @@index([status, expires_at])
+  @@index([students_id, status, expires_at])
+  @@index([parents_id, status])
+}
+
+model parent_student_link_events {
+  event_id    Int      @id @default(autoincrement())
+  parents_id  Int
+  students_id Int
+  action      String   @db.VarChar(30)
+  actor_type  String   @db.VarChar(20)
+  actor_id    Int
+  created_at  DateTime @default(now())
+
+  @@index([parents_id, created_at])
+  @@index([students_id, created_at])
 }
 
 enum ParentAuthTokenType {
