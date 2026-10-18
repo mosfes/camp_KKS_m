@@ -7,7 +7,7 @@ import { resolveParentStudent } from "@/lib/parent-student-access";
 
 /**
  * GET /api/parent/camps
- * ดึงค่ายทั้งหมดที่นักเรียน (ลูก) เข้าร่วม – format เดียวกับ /api/student/camps
+ * ดึงค่ายทั้งหมดที่นักเรียน (บุตร) เข้าร่วม – format เดียวกับ /api/student/camps
  */
 export async function GET(request: Request) {
   try {
