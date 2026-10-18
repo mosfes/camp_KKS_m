@@ -156,6 +156,7 @@ model parent_student_link_requests {
   requested_at DateTime                @default(now())
   expires_at   DateTime
   responded_at DateTime?
+  dismissed_at DateTime?
 
   parent  parents  @relation(fields: [parents_id], references: [parents_id], onDelete: Cascade)
   student students @relation(fields: [students_id], references: [students_id], onDelete: Cascade)

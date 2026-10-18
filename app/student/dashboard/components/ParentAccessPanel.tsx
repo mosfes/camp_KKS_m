@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+
+const StatusModal = dynamic(() => import("@/components/StatusModal"), {
+  ssr: false,
+});
 
 type PendingRequest = {
   id: number;
@@ -34,6 +39,9 @@ export default function ParentAccessPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [requestToReject, setRequestToReject] = useState<PendingRequest | null>(
+    null,
+  );
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/student/parent-links", {
@@ -83,6 +91,7 @@ export default function ParentAccessPanel() {
 
       if (!response.ok) throw new Error(data.error || "ดำเนินการไม่สำเร็จ");
       await refresh();
+      setRequestToReject(null);
       setNotice(
         decision === "approve"
           ? "อนุญาตให้ผู้ปกครองดูข้อมูลแล้ว"
@@ -90,6 +99,7 @@ export default function ParentAccessPanel() {
       );
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "ดำเนินการไม่สำเร็จ");
+      setRequestToReject(null);
     } finally {
       setBusy(false);
     }
@@ -181,7 +191,7 @@ export default function ParentAccessPanel() {
                   className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50"
                   disabled={busy}
                   type="button"
-                  onClick={() => void decide(request.id, "reject")}
+                  onClick={() => setRequestToReject(request)}
                 >
                   ปฏิเสธ
                 </button>
@@ -242,6 +252,18 @@ export default function ParentAccessPanel() {
         <p aria-live="polite" className="mt-3 text-sm text-red-600">
           {error}
         </p>
+      )}
+      {requestToReject && (
+        <StatusModal
+          isOpen
+          confirmText="ปฏิเสธ"
+          isLoading={busy}
+          message={`ยืนยันว่าต้องการปฏิเสธคำขอจาก ${displayParentName(requestToReject.parentName)}? ผู้ปกครองรายนี้จะไม่ได้สิทธิ์ดูข้อมูลของคุณ`}
+          title="ปฏิเสธคำขอผู้ปกครอง"
+          type="warning"
+          onClose={() => setRequestToReject(null)}
+          onConfirm={() => decide(requestToReject.id, "reject")}
+        />
       )}
     </section>
   );

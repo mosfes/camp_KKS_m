@@ -78,7 +78,7 @@ export default function ParentFamilyDashboard() {
         <ParentStudentPicker
           requests={requests}
           students={students}
-          onRequested={refreshStudents}
+          onRefresh={refreshStudents}
           onSelect={async (studentId) => {
             router.push(`/parent/children/${studentId}`);
           }}

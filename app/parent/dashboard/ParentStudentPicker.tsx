@@ -7,6 +7,7 @@ import {
   Plus,
   UserRound,
   UsersRound,
+  X,
 } from "lucide-react";
 
 export type LinkedStudent = {
@@ -42,12 +43,12 @@ export function ParentStudentPicker({
   students,
   requests,
   onSelect,
-  onRequested,
+  onRefresh,
 }: {
   students: LinkedStudent[];
   requests: ParentLinkRequest[];
   onSelect: (studentId: string) => Promise<void>;
-  onRequested: () => Promise<void>;
+  onRefresh: () => Promise<void>;
 }) {
   const [showLinkForm, setShowLinkForm] = useState(false);
   const [studentId, setStudentId] = useState("");
@@ -73,11 +74,32 @@ export function ParentStudentPicker({
       setStudentId("");
       setShowLinkForm(false);
       setNotice("ส่งคำขอแล้ว นักเรียนต้องยืนยันก่อนจึงจะดูข้อมูลได้");
-      await onRequested();
+      await onRefresh();
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : "เชื่อมบัญชีไม่สำเร็จ",
       );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function dismissRejectedRequest(studentIdToDismiss: number) {
+    if (busy) return;
+
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(
+        `/api/parent/link-requests/${studentIdToDismiss}`,
+        { method: "PATCH" },
+      );
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.error || "ซ่อนคำขอไม่สำเร็จ");
+      await onRefresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "ซ่อนคำขอไม่สำเร็จ");
     } finally {
       setBusy(false);
     }
@@ -180,22 +202,38 @@ export function ParentStudentPicker({
                 className="flex flex-wrap items-center justify-between gap-2 text-sm"
               >
                 <span>รหัสนักเรียน {request.students_id}</span>
-                <span
-                  className={
-                    request.status === "PENDING"
-                      ? "text-amber-700"
-                      : "text-gray-600"
-                  }
-                >
-                  {
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      request.status === "PENDING"
+                        ? "text-amber-700"
+                        : "text-gray-600"
+                    }
+                  >
                     {
-                      PENDING: "รอนักเรียนยืนยัน",
-                      REJECTED: "นักเรียนปฏิเสธ",
-                      EXPIRED: "คำขอหมดอายุ",
-                      REVOKED: "สิทธิ์ถูกเพิกถอน",
-                    }[request.status]
-                  }
-                </span>
+                      {
+                        PENDING: "รอนักเรียนยืนยัน",
+                        REJECTED: "นักเรียนปฏิเสธ",
+                        EXPIRED: "คำขอหมดอายุ",
+                        REVOKED: "สิทธิ์ถูกเพิกถอน",
+                      }[request.status]
+                    }
+                  </span>
+                  {request.status === "REJECTED" && (
+                    <button
+                      aria-label={`ซ่อนคำขอของนักเรียนรหัส ${request.students_id} ที่ถูกปฏิเสธ`}
+                      className="rounded-full p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5d7c6f] disabled:opacity-50"
+                      disabled={busy}
+                      title="ซ่อนคำขอนี้"
+                      type="button"
+                      onClick={() =>
+                        void dismissRejectedRequest(request.students_id)
+                      }
+                    >
+                      <X aria-hidden="true" size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
