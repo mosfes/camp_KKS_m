@@ -109,7 +109,7 @@ export function ParentStudentPicker({
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#325b4d] via-[#4e7666] to-[#73927d] px-6 py-8 text-white shadow-[0_16px_40px_-24px_rgba(35,78,59,0.65)] sm:px-9 sm:py-10">
         <div className="pointer-events-none absolute -right-8 -top-24 h-64 w-64 rounded-full border border-white/15 bg-white/5" />
-        <div className="relative flex flex-wrap items-center justify-between gap-5">
+        <div className="relative">
           <div>
             <div className="mb-3 inline-flex items-center gap-2 text-xs font-semibold text-white/80">
               <UsersRound size={16} /> {students.length} คนในบัญชีผู้ปกครอง
@@ -121,74 +121,8 @@ export function ParentStudentPicker({
               เลือกบุตรหลานเพื่อดูข้อมูล กิจกรรมค่าย และประวัติของแต่ละคน
             </p>
           </div>
-          <button
-            aria-controls="parent-link-student-form"
-            aria-expanded={showLinkForm}
-            className="relative inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#365f4f] shadow-sm transition hover:bg-[#edf5ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#365f4f]"
-            type="button"
-            onClick={() => {
-              setError("");
-              setShowLinkForm((value) => !value);
-            }}
-          >
-            <Plus size={17} /> เพิ่มบุตรหลาน
-          </button>
         </div>
       </section>
-
-      {showLinkForm && (
-        <form
-          className="mt-6 max-w-xl space-y-3 rounded-2xl border border-[#dfe9e0] bg-white p-5 shadow-sm"
-          id="parent-link-student-form"
-          onSubmit={linkStudent}
-        >
-          <p className="text-sm font-semibold text-gray-700">
-            ขอสิทธิ์ดูข้อมูลนักเรียนอีกคน
-          </p>
-          <p className="text-xs text-gray-500">
-            กรอกรหัสนักเรียน ระบบจะส่งคำขอไปให้นักเรียนยืนยัน คำขอมีอายุ 7 วัน
-          </p>
-          <p className="text-xs text-gray-500">
-            กรุณากรอกชื่อและเบอร์โทรใน{" "}
-            <a
-              className="font-semibold text-[#365f4f] underline"
-              href="/parent/profile"
-            >
-              โปรไฟล์ผู้ปกครอง
-            </a>{" "}
-            ก่อนส่งคำขอ เพื่อให้นักเรียนตรวจสอบผู้ขอได้
-          </p>
-          <div>
-            <input
-              required
-              aria-label="รหัสนักเรียนที่ต้องการเพิ่ม"
-              autoComplete="off"
-              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#5d7c6f]"
-              inputMode="numeric"
-              placeholder="รหัสนักเรียน"
-              value={studentId}
-              onChange={(event) => setStudentId(event.target.value)}
-            />
-          </div>
-          <button
-            className="rounded-xl bg-[#5d7c6f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-            disabled={busy}
-            type="submit"
-          >
-            {busy ? "กำลังส่งคำขอ..." : "ส่งคำขอยืนยัน"}
-          </button>
-        </form>
-      )}
-      {notice && (
-        <p aria-live="polite" className="mt-3 text-sm text-[#365f4f]">
-          {notice}
-        </p>
-      )}
-      {error && (
-        <p aria-live="polite" className="mt-3 text-sm text-red-600">
-          {error}
-        </p>
-      )}
       {requests.length > 0 && (
         <section
           aria-label="สถานะคำขอเพิ่มบุตรหลาน"
@@ -240,17 +174,84 @@ export function ParentStudentPicker({
         </section>
       )}
       <section aria-label="รายชื่อบุตรหลาน" className="mt-7">
-        <div className="mb-4 flex items-end justify-between gap-3">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-[#24382e]">เลือกดูข้อมูล</h2>
             <p className="text-sm text-gray-500">
               แตะการ์ดเพื่อเข้าสู่หน้าของบุตรหลาน
             </p>
           </div>
-          <span className="text-xs font-medium text-[#5d7c6f]">
-            {students.length} คน
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-medium text-[#5d7c6f]">
+              {students.length} คน
+            </span>
+            <button
+              aria-controls="parent-link-student-form"
+              aria-expanded={showLinkForm}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#cbdcd1] bg-white px-3 py-2 text-sm font-medium text-[#365f4f] transition-colors hover:bg-[#edf5ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5d7c6f]"
+              type="button"
+              onClick={() => {
+                setError("");
+                setShowLinkForm((value) => !value);
+              }}
+            >
+              <Plus size={16} /> เพิ่มบุตรหลาน
+            </button>
+          </div>
         </div>
+        {showLinkForm && (
+          <form
+            className="mb-5 max-w-xl space-y-3 rounded-2xl border border-[#dfe9e0] bg-white p-5 shadow-sm"
+            id="parent-link-student-form"
+            onSubmit={linkStudent}
+          >
+            <p className="text-sm font-semibold text-gray-700">
+              ขอสิทธิ์ดูข้อมูลนักเรียนอีกคน
+            </p>
+            <p className="text-xs text-gray-500">
+              กรอกรหัสนักเรียน ระบบจะส่งคำขอไปให้นักเรียนยืนยัน คำขอมีอายุ 7 วัน
+            </p>
+            <p className="text-xs text-gray-500">
+              กรุณากรอกชื่อและเบอร์โทรใน{" "}
+              <a
+                className="font-semibold text-[#365f4f] underline"
+                href="/parent/profile"
+              >
+                โปรไฟล์ผู้ปกครอง
+              </a>{" "}
+              ก่อนส่งคำขอ เพื่อให้นักเรียนตรวจสอบผู้ขอได้
+            </p>
+            <div>
+              <input
+                required
+                aria-label="รหัสนักเรียนที่ต้องการเพิ่ม"
+                autoComplete="off"
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#5d7c6f]"
+                inputMode="numeric"
+                placeholder="รหัสนักเรียน"
+                value={studentId}
+                onChange={(event) => setStudentId(event.target.value)}
+              />
+            </div>
+            <button
+              className="rounded-xl bg-[#5d7c6f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              disabled={busy}
+              type="submit"
+            >
+              {busy ? "กำลังส่งคำขอ..." : "ส่งคำขอยืนยัน"}
+            </button>
+          </form>
+        )}
+        {notice && (
+          <p aria-live="polite" className="mb-4 text-sm text-[#365f4f]">
+            {notice}
+          </p>
+        )}
+        {error && (
+          <p aria-live="polite" className="mb-4 text-sm text-red-600">
+            {error}
+          </p>
+        )}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {students.map((student) => {
             const classroom = student.classroom_students[0]?.classroom;
