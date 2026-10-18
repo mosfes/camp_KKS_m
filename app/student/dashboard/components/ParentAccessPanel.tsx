@@ -118,6 +118,10 @@ export default function ParentAccessPanel() {
     }
   }
 
+  // Keep checking for new requests, but only show the dashboard card while
+  // the student has a decision to make.
+  if (pending.length === 0) return null;
+
   return (
     <section
       aria-labelledby="parent-access-heading"
