@@ -10,6 +10,8 @@ export default function ConfiguredClerkProvider({
 }) {
   return (
     <ClerkProvider
+      // Keep ClerkJS on our origin; update the pinned files in public/vendor/clerk-js together.
+      clerkJSUrl="/vendor/clerk-js/clerk.browser.js"
       appearance={{
         elements: {
           footerAction: "hidden",

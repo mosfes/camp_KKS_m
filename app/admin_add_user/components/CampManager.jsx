@@ -112,7 +112,7 @@ function CampLoadingTable({ trash = false }) {
 
 
 
-const CampManager = () => {
+const CampManager = ({ initialCamps = null }) => {
     const router = useRouter();
     const { showError, showSuccess, showConfirm } = useStatusModal();
 
@@ -123,14 +123,19 @@ const CampManager = () => {
 
 
     const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
-    const [camps, setCamps] = useState([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const initialDataHandled = useRef(false);
+    const [camps, setCamps] = useState(initialCamps?.data || []);
+    const [isLoading, setIsLoading] = useState(!initialCamps);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalCamps, setTotalCamps] = useState(0);
+    const [hasMore, setHasMore] = useState(
+        (initialCamps?.pagination?.totalPages || 1) > 1,
+    );
+    const [totalPages, setTotalPages] = useState(
+        initialCamps?.pagination?.totalPages || 1,
+    );
+    const [totalCamps, setTotalCamps] = useState(initialCamps?.pagination?.total || 0);
     const [showTrash, setShowTrash] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const submitInFlightRef = useRef(false);
@@ -175,6 +180,10 @@ const CampManager = () => {
     }, [formData.start_regis_date, formData.end_regis_date, formData.start_date, formData.end_date]);
 
     useEffect(() => {
+        if (initialCamps && !initialDataHandled.current) {
+            initialDataHandled.current = true;
+            return;
+        }
         setPage(1);
         fetchCamps(1);
     }, [searchTerm, statusFilter, showTrash]);

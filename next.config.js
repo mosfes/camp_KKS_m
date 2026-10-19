@@ -1,7 +1,49 @@
 /** @type {import('next').NextConfig} */
 const projectRoot = __dirname;
 
+// Clerk encodes its public frontend API host in the publishable key. Use the
+// active instance so the same policy works with test and production keys.
+const encodedClerkHost = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY?.match(
+  /^pk_(?:test|live)_(.+)$/,
+)?.[1];
+const decodedClerkHost = encodedClerkHost
+  ? Buffer.from(encodedClerkHost, "base64").toString("utf8").replace(/\$$/, "")
+  : "";
+const clerkFrontendApi = /^[a-z0-9.-]+$/i.test(decodedClerkHost)
+  ? `https://${decodedClerkHost}`
+  : "https://clerk.kkscamp.com";
+const developmentConnections =
+  process.env.NODE_ENV === "development"
+    ? " http://localhost:* ws://localhost:*"
+    : "";
+
+// Clerk and Next.js create scripts/styles at runtime. Google Maps additionally
+// needs eval on the few authenticated pages that display interactive maps.
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'self'",
+  `form-action 'self' ${clerkFrontendApi}`,
+  `script-src 'self' 'unsafe-inline' blob: ${clerkFrontendApi} https://challenges.cloudflare.com https://*.protect.clerk.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com`,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data: blob: https://res.cloudinary.com https://img.clerk.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  `connect-src 'self' data: blob: ${clerkFrontendApi} https://*.protect.clerk.com:* https://clerk-telemetry.com https://*.clerk-telemetry.com https://api.cloudinary.com https://*.googleapis.com https://*.gstatic.com https://*.google.com${developmentConnections}`,
+  "frame-src 'self' https://challenges.cloudflare.com https://*.protect.clerk.com https://www.youtube.com https://player.vimeo.com https://drive.google.com https://*.google.com",
+  "worker-src 'self' blob:",
+  "media-src 'self' blob: https://res.cloudinary.com",
+  "manifest-src 'self'",
+].join("; ");
+const googleMapsContentSecurityPolicy = contentSecurityPolicy.replace(
+  "script-src 'self'",
+  "script-src 'self' 'unsafe-eval'",
+);
+
 const nextConfig = {
+  // Let security verification build beside a running local dev server.
+  distDir: process.env.KKS_NEXT_DIST_DIR || ".next",
+  poweredByHeader: false,
   eslint: {
     // Warning: This allows production builds to successfully complete even if
     // your project has ESLint errors.
@@ -32,6 +74,34 @@ const nextConfig = {
   serverExternalPackages: ["@prisma/client"],
   async headers() {
     return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "https://www.kkscamp.com",
+          },
+        ],
+      },
+      ...[
+        "/headteacher/dashboard",
+        "/headteacher/dashboard/camp/:campId",
+        "/headteacher/dashboard/camp/:campId/location",
+        "/student/dashboard/camp/:campId",
+        "/parent/children/:studentId/camps/:campId",
+      ].map((source) => ({
+        source,
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: googleMapsContentSecurityPolicy,
+          },
+        ],
+      })),
       {
         source: "/notification-sw.js",
         headers: [

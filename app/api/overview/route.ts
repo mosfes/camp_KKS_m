@@ -4,11 +4,10 @@ import { NextResponse } from "next/server";
 import { requireTeacher } from "@/lib/auth";
 import { getBangkokDateAsUtcMidnight } from "@/lib/bangkok-date";
 import { prisma } from "@/lib/db";
+import { isMeaningfulSurveyText } from "@/lib/survey-feedback";
 
 const recommendationPattern =
   /(จัด.*อีก|จัดต่อ|อยากให้.*อีก|ควร.*จัด|แนะนำ.*ค่าย|recommend)/i;
-const improvementPattern =
-  /(ควร|อยากให้|เพิ่ม|ปรับ|น้อย|ไม่|ช้า|ร้อน|แคบ|เบื่อ|ยาก|สั้น|นานเกิน)/i;
 
 function round(value, digits = 0) {
   if (!Number.isFinite(value)) return null;
@@ -103,16 +102,27 @@ function buildCampInsight(camp) {
     : null;
   const dataSufficient =
     responseCount >= 3 && responseRate >= 30 && surveyScore !== null;
-  const textAnswers = (survey?.survey_question || []).flatMap((question) =>
-    question.survey_answer
-      .map((answer) => answer.text_answer)
-      .filter((answer) => typeof answer === "string" && answer.trim()),
+  const textAnswers = (survey?.survey_question || [])
+    .filter((question) => question.question_type === "text")
+    .flatMap((question) =>
+      question.survey_answer
+        .map((answer) => answer.text_answer)
+        .filter(isMeaningfulSurveyText),
+    );
+  const comments = uniqueSamples(textAnswers, 6);
+  const aiSummary =
+    survey?.ai_summary?.source === "local" ? null : survey?.ai_summary;
+  const strengths = uniqueSamples(
+    Array.isArray(aiSummary?.strengths)
+      ? aiSummary.strengths.filter(isMeaningfulSurveyText)
+      : [],
+    6,
   );
   const improvements = uniqueSamples(
-    textAnswers.filter((answer) => improvementPattern.test(answer)),
-  );
-  const strengths = uniqueSamples(
-    textAnswers.filter((answer) => !improvementPattern.test(answer)),
+    Array.isArray(aiSummary?.improvements)
+      ? aiSummary.improvements.filter(isMeaningfulSurveyText)
+      : [],
+    6,
   );
 
   return {
@@ -128,7 +138,14 @@ function buildCampInsight(camp) {
     responseCount,
     dataSufficient,
     recommendation: getRecommendation(round(healthScore), dataSufficient),
-    feedback: { strengths, improvements },
+    feedback: {
+      comments,
+      strengths,
+      improvements,
+      aiSummaryUpdatedAt: aiSummary
+        ? survey?.ai_summary_updated_at || null
+        : null,
+    },
   };
 }
 
@@ -379,6 +396,8 @@ export async function GET(request) {
         },
         survey: {
           select: {
+            ai_summary: true,
+            ai_summary_updated_at: true,
             survey_response: { select: { response_id: true } },
             survey_question: {
               select: {
