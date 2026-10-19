@@ -1,4 +1,6 @@
 import AdminPageContent from "./AdminPageContent";
+import { GET as getOverview } from "@/app/api/overview/route";
+import { GET as getAdminCamps } from "@/app/api/camps/admin/route";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -101,6 +103,41 @@ export default async function AdminPage({ searchParams }) {
   const tab = typeof params?.tab === "string" ? params.tab : "overview";
   const initialTeachers = tab === "teacher" ? await getInitialTeachers() : null;
   const initialClassrooms = tab === "classroom" ? await getInitialClassrooms() : null;
+  let initialYears = null;
+  let initialOverview = null;
+  let initialCamps = null;
 
-  return <AdminPageContent tab={tab} initialTeachers={initialTeachers} initialClassrooms={initialClassrooms} />;
+  if (tab === "overview") {
+    const { teacher } = await requireAdmin();
+    if (teacher) {
+      initialYears = await prisma.academic_years.findMany({
+        select: { year: true },
+        orderBy: { year: "desc" },
+      });
+      if (initialYears.length > 0) {
+        const response = await getOverview(
+          new Request(
+            `http://localhost/api/overview?yearId=${initialYears[0].year}`,
+          ),
+        );
+        if (response.ok) initialOverview = await response.json();
+      }
+    }
+  } else if (tab === "camp") {
+    const response = await getAdminCamps(
+      new Request("http://localhost/api/camps/admin?page=1&limit=20"),
+    );
+    if (response.ok) initialCamps = await response.json();
+  }
+
+  return (
+    <AdminPageContent
+      tab={tab}
+      initialTeachers={initialTeachers}
+      initialClassrooms={initialClassrooms}
+      initialYears={initialYears}
+      initialOverview={initialOverview}
+      initialCamps={initialCamps}
+    />
+  );
 }

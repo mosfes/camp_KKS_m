@@ -112,11 +112,13 @@ export default clerkMiddleware(async (auth, req) => {
   const targetsStudent =
     isStudentRoute(req) || pathname.startsWith("/api/student/");
   const canUseStudentCookieOnly = targetsStudent && studentPayload !== null;
-  const authObject = canUseStudentCookieOnly ? null : await auth();
+  const canUseTeacherCookieOnly = isAdminRoute(req) && teacherPayload !== null;
+  const authObject =
+    canUseStudentCookieOnly || canUseTeacherCookieOnly ? null : await auth();
 
   if (
     !authObject?.userId &&
-    (isAdminRoute(req) ||
+    ((isAdminRoute(req) && !teacherPayload) ||
       isTeacherRoute(req) ||
       (isStudentRoute(req) && !studentPayload))
   ) {
@@ -219,7 +221,7 @@ export default clerkMiddleware(async (auth, req) => {
     }
   }
 
-  if (authObject?.userId) {
+  if (authObject?.userId || canUseTeacherCookieOnly) {
     if (isAdminRoute(req) && role !== "admin") {
       if (isTeacherRole(role)) {
         return NextResponse.redirect(

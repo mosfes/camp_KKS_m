@@ -1,7 +1,7 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Select, SelectItem } from "@heroui/react";
 import {
@@ -300,22 +300,45 @@ export function OverviewSkeleton() {
   );
 }
 
-export default function OverviewManager() {
+export default function OverviewManager({
+  initialYears = null,
+  initialOverview = null,
+}) {
   const router = useRouter();
-  const [academicYears, setAcademicYears] = useState([]);
-  const [selectedYear, setSelectedYear] = useState("");
-  const [qualityOverview, setQualityOverview] = useState(emptyQualityOverview);
-  const [campOverview, setCampOverview] = useState(emptyCampOverview);
-  const [systemCounts, setSystemCounts] = useState(emptySystemCounts);
+  const firstYear = initialYears?.[0]?.year;
+  const initialDataHandled = useRef(false);
+  const [academicYears, setAcademicYears] = useState(initialYears || []);
+  const [selectedYear, setSelectedYear] = useState(
+    firstYear ? String(firstYear) : "",
+  );
+  const [qualityOverview, setQualityOverview] = useState(
+    initialOverview?.qualityOverview || emptyQualityOverview,
+  );
+  const [campOverview, setCampOverview] = useState(
+    initialOverview?.campOverview || emptyCampOverview,
+  );
+  const [systemCounts, setSystemCounts] = useState(
+    initialOverview
+      ? {
+          totalTeachers: initialOverview.totalTeachers || 0,
+          totalClassrooms: initialOverview.totalClassrooms || 0,
+          totalStudents: initialOverview.totalStudents || 0,
+          totalCamps: initialOverview.totalCamps || 0,
+        }
+      : emptySystemCounts,
+  );
   const [previousQuality, setPreviousQuality] = useState(null);
-  const [campInsights, setCampInsights] = useState([]);
+  const [campInsights, setCampInsights] = useState(
+    initialOverview?.campInsights || [],
+  );
   const [expandedCamp, setExpandedCamp] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!initialOverview);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    if (initialYears) return;
     adminService
       .getAcademicYears()
       .then((years) => {
@@ -324,13 +347,33 @@ export default function OverviewManager() {
         setAcademicYears(sortedYears);
         if (sortedYears.length > 0) {
           setSelectedYear(String(sortedYears[0].year));
+        } else {
+          setIsLoading(false);
         }
       })
       .catch(() => setAcademicYears([]));
-  }, []);
+  }, [initialYears]);
 
   useEffect(() => {
     if (!selectedYear) return;
+    if (
+      initialOverview &&
+      selectedYear === String(firstYear) &&
+      !initialDataHandled.current
+    ) {
+      initialDataHandled.current = true;
+      let active = true;
+
+      adminService
+        .getOverviewStats(String(Number(selectedYear) - 1))
+        .then((previous) => {
+          if (active) setPreviousQuality(previous?.qualityOverview || null);
+        });
+
+      return () => {
+        active = false;
+      };
+    }
     let active = true;
 
     async function loadQualityDashboard() {
@@ -361,7 +404,7 @@ export default function OverviewManager() {
     return () => {
       active = false;
     };
-  }, [selectedYear]);
+  }, [selectedYear, firstYear, initialOverview]);
 
   const healthTrend = useMemo(() => {
     if (

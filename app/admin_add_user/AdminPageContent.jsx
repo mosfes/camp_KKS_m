@@ -57,7 +57,14 @@ const sectionMap = {
   },
 };
 
-export default function AdminPageContent({ tab = "overview", initialTeachers = null, initialClassrooms = null }) {
+export default function AdminPageContent({
+  tab = "overview",
+  initialTeachers = null,
+  initialClassrooms = null,
+  initialYears = null,
+  initialOverview = null,
+  initialCamps = null,
+}) {
   const section = sectionMap[tab] || sectionMap["overview"];
   const { label, desc, Component } = section;
 
@@ -77,6 +84,13 @@ export default function AdminPageContent({ tab = "overview", initialTeachers = n
         <Component initialTeachers={initialTeachers} />
       ) : tab === "classroom" ? (
         <Component initialClassrooms={initialClassrooms} />
+      ) : tab === "overview" ? (
+        <Component
+          initialYears={initialYears}
+          initialOverview={initialOverview}
+        />
+      ) : tab === "camp" ? (
+        <Component initialCamps={initialCamps} />
       ) : (
         <Component />
       )}
