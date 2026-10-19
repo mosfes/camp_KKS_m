@@ -88,9 +88,11 @@ const nextConfig = {
         ],
       },
       ...[
-        "/headteacher/dashboard/:path*",
-        "/student/dashboard/camp/:path*",
-        "/parent/children/:studentId/camps/:path*",
+        "/headteacher/dashboard",
+        "/headteacher/dashboard/camp/:campId",
+        "/headteacher/dashboard/camp/:campId/location",
+        "/student/dashboard/camp/:campId",
+        "/parent/children/:studentId/camps/:campId",
       ].map((source) => ({
         source,
         headers: [
