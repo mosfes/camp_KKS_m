@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo, useId } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import {
   User,
   Heart,
@@ -495,11 +496,16 @@ export default function StudentProfilePage({
             <div className="relative group">
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-white/20 backdrop-blur-md border-2 border-white/40 flex items-center justify-center text-2xl sm:text-3xl font-bold tracking-tight shadow-inner select-none overflow-hidden shrink-0 relative">
                 {currentAvatarSrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     alt="รูปโปรไฟล์"
                     className="w-full h-full object-cover"
+                    height={96}
                     src={currentAvatarSrc}
+                    unoptimized={
+                      currentAvatarSrc.startsWith("blob:") ||
+                      currentAvatarSrc.startsWith("data:")
+                    }
+                    width={96}
                   />
                 ) : (
                   <span>{initials}</span>
