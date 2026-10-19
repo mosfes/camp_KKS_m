@@ -873,11 +873,6 @@ export default function OverviewManager({
                             label="อัตราตอบแบบประเมิน"
                             value={camp.responseRate}
                           />
-                          {camp.recommendationScore === null && (
-                            <p className="text-xs text-amber-600">
-                              ยังไม่มีคำถามที่สื่อถึง “อยากให้จัดอีกหรือไม่”
-                            </p>
-                          )}
                         </div>
                         <div className="space-y-3">
                           {camp.feedback.aiSummaryUpdatedAt ? (
