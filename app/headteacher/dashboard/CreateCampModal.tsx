@@ -1,7 +1,5 @@
 "use client";
 
-import type { DateValue } from "@internationalized/date";
-
 import React, { useState, useEffect, useRef } from "react";
 import {
   ChevronRight,
@@ -18,9 +16,14 @@ import {
   Plus,
 } from "lucide-react";
 import { Select, SelectItem } from "@heroui/react";
-import { DateRangePicker } from "@heroui/react";
-import { parseDate, today } from "@internationalized/date";
+import { today } from "@internationalized/date";
 
+import CampDateRangePicker from "@/components/CampDateRangePicker";
+import {
+  getCampFormDayCount,
+  getShirtReservationDateError,
+  isCompleteCampDate,
+} from "@/lib/camp-form-date";
 import { BANGKOK_TIME_ZONE } from "@/lib/bangkok-date";
 
 interface TimeSlot {
@@ -60,10 +63,6 @@ interface Props {
   projectType: string | null;
   templateData?: any;
   isLoading?: boolean;
-}
-
-function dateValueToString(date: DateValue) {
-  return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
 }
 
 function formatDateWithOffset(startDateStr: string, dayOffset: number) {
@@ -170,6 +169,7 @@ export default function CreateCampModal({
       : null;
     const shirtEnd = data.shirtEndDate ? new Date(data.shirtEndDate) : null;
     const campStart = data.campStartDate ? new Date(data.campStartDate) : null;
+    const campEnd = data.campEndDate ? new Date(data.campEndDate) : null;
 
     // 1. Registration Logic
     if (regisEnd) {
@@ -192,6 +192,32 @@ export default function CreateCampModal({
       }
       if (regisEnd && campStart < regisEnd) {
         errors.camp = "วันเริ่มค่าย ต้องไม่มาก่อน วันปิดรับสมัคร";
+      }
+    }
+
+    if (regisStart && regisEnd && regisStart > regisEnd) {
+      errors.registration = "วันสิ้นสุดรับสมัคร ต้องไม่ก่อน วันเริ่มรับสมัคร";
+    }
+    if (data.hasShirt && shirtStart && shirtEnd && shirtStart > shirtEnd) {
+      errors.shirt = "วันสิ้นสุดจองเสื้อ ต้องไม่ก่อน วันเริ่มจองเสื้อ";
+    }
+    if (campStart && campEnd && campStart > campEnd) {
+      errors.camp = "วันสิ้นสุดค่าย ต้องไม่ก่อน วันเริ่มค่าย";
+    }
+
+    for (const [key, start, end] of [
+      ["registration", data.registrationStartDate, data.registrationEndDate],
+      ["camp", data.campStartDate, data.campEndDate],
+      ...(data.hasShirt
+        ? [["shirt", data.shirtStartDate, data.shirtEndDate]]
+        : []),
+    ]) {
+      if (
+        (start && !isCompleteCampDate(start)) ||
+        (end && !isCompleteCampDate(end))
+      ) {
+        errors[key as keyof typeof errors] =
+          "กรุณากรอกวันที่ให้ถูกต้อง และปี ค.ศ. ให้ครบ 4 หลัก";
       }
     }
 
@@ -397,12 +423,10 @@ export default function CreateCampModal({
   // Auto-generate schedule days based on Camp Period
   useEffect(() => {
     if (formData.campStartDate && formData.campEndDate) {
-      const start = new Date(formData.campStartDate);
-      const end = new Date(formData.campEndDate);
-
-      // Calculate difference in days (inclusive)
-      const diffTime = Math.abs(end.getTime() - start.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      const diffDays = getCampFormDayCount(
+        formData.campStartDate,
+        formData.campEndDate,
+      );
 
       if (diffDays > 0 && diffDays !== formData.dailySchedule.length) {
         setFormData((prev) => {
@@ -662,6 +686,16 @@ export default function CreateCampModal({
     }
 
     if (formData.hasShirt) {
+      const shirtDateError = getShirtReservationDateError(
+        formData.shirtStartDate,
+        formData.shirtEndDate,
+        formData.campStartDate,
+      );
+
+      if (shirtDateError) {
+        showWarning("วันที่ไม่ถูกต้อง", shirtDateError);
+        return;
+      }
       if (!formData.shirtEndDate || !formData.campStartDate) {
         showWarning(
           "ข้อมูลไม่ครบถ้วน",
@@ -1054,31 +1088,30 @@ export default function CreateCampModal({
                     <p className="block text-xs font-bold text-gray-500 uppercase mb-1">
                       ช่วงเวลารับสมัคร <span className="text-red-500">*</span>
                     </p>
-                    <DateRangePicker
+                    <CampDateRangePicker
                       aria-label="Registration Period"
                       className="w-full h-[56px]"
                       errorMessage={dateErrors.registration}
                       isInvalid={!!dateErrors.registration}
                       minValue={today(BANGKOK_TIME_ZONE)}
-                      value={
-                        formData.registrationStartDate &&
-                        formData.registrationEndDate
-                          ? {
-                              start: parseDate(formData.registrationStartDate),
-                              end: parseDate(formData.registrationEndDate),
-                            }
-                          : null
-                      }
-                      onChange={(range) => {
-                        if (!range) return;
-                        handleChange(
-                          "registrationStartDate",
-                          dateValueToString(range.start),
-                        );
-                        handleChange(
-                          "registrationEndDate",
-                          dateValueToString(range.end),
-                        );
+                      startDate={formData.registrationStartDate}
+                      endDate={formData.registrationEndDate}
+                      onChange={(startDate, endDate) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          registrationStartDate: startDate,
+                          registrationEndDate: endDate,
+                          shirtStartDate:
+                            !prev.shirtStartDate ||
+                            prev.shirtStartDate === prev.registrationStartDate
+                              ? startDate
+                              : prev.shirtStartDate,
+                          shirtEndDate:
+                            !prev.shirtEndDate ||
+                            prev.shirtEndDate === prev.registrationEndDate
+                              ? endDate
+                              : prev.shirtEndDate,
+                        }));
                       }}
                     />
                   </div>
@@ -1088,27 +1121,20 @@ export default function CreateCampModal({
                     <p className="block text-xs font-bold text-[#6b857a] uppercase mb-1">
                       วันจัดค่าย <span className="text-red-500">*</span>
                     </p>
-                    <DateRangePicker
+                    <CampDateRangePicker
                       aria-label="Camp Period"
                       className="w-full h-[56px]"
                       errorMessage={dateErrors.camp}
                       isInvalid={!!dateErrors.camp}
                       minValue={today(BANGKOK_TIME_ZONE)}
-                      value={
-                        formData.campStartDate && formData.campEndDate
-                          ? {
-                              start: parseDate(formData.campStartDate),
-                              end: parseDate(formData.campEndDate),
-                            }
-                          : null
-                      }
-                      onChange={(range) => {
-                        if (!range) return;
-                        handleChange(
-                          "campStartDate",
-                          dateValueToString(range.start),
-                        );
-                        handleChange("campEndDate", dateValueToString(range.end));
+                      startDate={formData.campStartDate}
+                      endDate={formData.campEndDate}
+                      onChange={(startDate, endDate) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          campStartDate: startDate,
+                          campEndDate: endDate,
+                        }));
                       }}
                     />
                   </div>
@@ -1369,30 +1395,20 @@ export default function CreateCampModal({
                     <p className="block text-xs font-bold text-gray-600 uppercase mb-2">
                       ช่วงเวลาจองเสื้อ
                     </p>
-                    <DateRangePicker
+                    <CampDateRangePicker
                       aria-label="Shirt Reservation Period"
                       className="w-full h-[56px] bg-white rounded-lg"
                       errorMessage={dateErrors.shirt}
                       isInvalid={!!dateErrors.shirt}
                       minValue={today(BANGKOK_TIME_ZONE)}
-                      value={
-                        formData.shirtStartDate && formData.shirtEndDate
-                          ? {
-                              start: parseDate(formData.shirtStartDate),
-                              end: parseDate(formData.shirtEndDate),
-                            }
-                          : null
-                      }
-                      onChange={(range) => {
-                        if (!range) return;
-                        handleChange(
-                          "shirtStartDate",
-                          dateValueToString(range.start),
-                        );
-                        handleChange(
-                          "shirtEndDate",
-                          dateValueToString(range.end),
-                        );
+                      startDate={formData.shirtStartDate}
+                      endDate={formData.shirtEndDate}
+                      onChange={(startDate, endDate) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          shirtStartDate: startDate,
+                          shirtEndDate: endDate,
+                        }));
                       }}
                     />
                     <p className="text-[11px] text-gray-400 mt-1.5">
