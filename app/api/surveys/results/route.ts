@@ -198,7 +198,10 @@ export async function GET(request) {
                   take: 1,
                   select: {
                     classroom: {
-                      select: { grade: true, room_number: true },
+                      select: {
+                        grade: true,
+                        classroom_types: { select: { name: true } },
+                      },
                     },
                   },
                 },
@@ -222,7 +225,8 @@ export async function GET(request) {
       const gradeStr = cls?.grade
         ? String(cls.grade).replace("Level_", "ม.")
         : "ไม่ระบุ";
-      const roomStr = cls?.room_number ? `/${cls.room_number}` : "";
+      const roomName = cls?.classroom_types?.name;
+      const roomStr = roomName ? `/${roomName}` : "";
 
       const answersMap: Record<
         number,
@@ -294,8 +298,9 @@ export async function GET(request) {
     };
 
     return NextResponse.json(summaryData);
-  } catch {
-    //     console.error("Error fetching survey results:", err);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("Error fetching survey results:", err);
 
     return NextResponse.json(
       { error: "เกิดข้อผิดพลาดในการดึงข้อมูลผลแบบประเมิน" },
