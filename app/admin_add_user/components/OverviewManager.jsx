@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Select, SelectItem } from "@heroui/react";
 import {
+  AlertTriangle,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -878,14 +879,44 @@ export default function OverviewManager({
                             </p>
                           )}
                         </div>
-                        <div>
-                          <FeedbackList
-                            emptyText="ยังไม่มีความคิดเห็นที่ให้รายละเอียด"
-                            icon={MessageSquareText}
-                            items={camp.feedback.comments || []}
-                            title="ตัวอย่างความคิดเห็นจากนักเรียน"
-                            tone="border-slate-200 bg-slate-50/70"
-                          />
+                        <div className="space-y-3">
+                          {camp.feedback.aiSummaryUpdatedAt ? (
+                            <>
+                              <p className="text-xs text-gray-500">
+                                สรุปด้วย AI เมื่อ{" "}
+                                {formatCampDate(camp.feedback.aiSummaryUpdatedAt)}
+                              </p>
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <FeedbackList
+                                  emptyText="ไม่พบข้อดีที่ชัดเจน"
+                                  icon={CheckCircle2}
+                                  items={camp.feedback.strengths || []}
+                                  title="ข้อดี"
+                                  tone="border-emerald-100 bg-emerald-50/50"
+                                />
+                                <FeedbackList
+                                  emptyText="ไม่พบข้อเสียที่ชัดเจน"
+                                  icon={AlertTriangle}
+                                  items={camp.feedback.improvements || []}
+                                  title="ข้อเสียและสิ่งที่ควรปรับปรุง"
+                                  tone="border-amber-100 bg-amber-50/50"
+                                />
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-xs text-gray-500">
+                                ยังไม่มีผลสรุปด้วย AI ของค่ายนี้
+                              </p>
+                              <FeedbackList
+                                emptyText="ยังไม่มีความคิดเห็นที่ให้รายละเอียด"
+                                icon={MessageSquareText}
+                                items={camp.feedback.comments || []}
+                                title="ตัวอย่างความคิดเห็นจากนักเรียน"
+                                tone="border-slate-200 bg-slate-50/70"
+                              />
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
