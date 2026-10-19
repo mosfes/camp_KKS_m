@@ -151,9 +151,11 @@ export async function POST(req) {
 
       return {
         enrollment: await tx.student_enrollment.create({
+          // Use scalar foreign keys: the snapshot carries classroom_classroom_id,
+          // which Prisma rejects when mixed with relation `connect` inputs.
           data: {
-            student: { connect: { students_id: studentId } },
-            camp: { connect: { camp_id: campId } },
+            student_students_id: studentId,
+            camp_camp_id: campId,
             enrolled_at: new Date(),
             shirt_size: null,
             ...snapshot,

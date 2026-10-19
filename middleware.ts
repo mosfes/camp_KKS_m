@@ -1,3 +1,7 @@
+import type { ClerkMiddlewareAuth } from "@clerk/nextjs/server";
+import type { JWTPayload } from "jose";
+import type { NextFetchEvent, NextRequest } from "next/server";
+
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { jwtVerify } from "jose";
 import { NextResponse } from "next/server";
@@ -86,40 +90,59 @@ const isProtectedApiRoute = createRouteMatcher([
   "/api/parent(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
-  const pathname = req.nextUrl.pathname;
-  const teacherCookie = req.cookies.get("teacher_session")?.value;
-  const studentCookie = req.cookies.get("student_session")?.value;
-  const parentCookie = req.cookies.get("parent_session")?.value;
-
+async function verifyCookie(value: string | undefined) {
+  if (!value) return null;
   const secret = new TextEncoder().encode(process.env.JWT_SECRET);
-  const verifyCookie = async (value: string | undefined) => {
-    if (!value) return null;
 
-    try {
-      return (await jwtVerify(value, secret)).payload;
-    } catch {
-      return null;
-    }
-  };
-  const [teacherPayload, studentPayload, parentPayload] = await Promise.all([
-    verifyCookie(teacherCookie),
-    verifyCookie(studentCookie),
-    verifyCookie(parentCookie),
+  try {
+    return (await jwtVerify(value, secret)).payload;
+  } catch {
+    return null;
+  }
+}
+
+async function getTeacherPayload(req: NextRequest) {
+  const payload = await verifyCookie(req.cookies.get("teacher_session")?.value);
+  const teacherId = Number(payload?.teachers_id);
+
+  return Number.isInteger(teacherId) && teacherId > 0 ? payload : null;
+}
+
+function usesTeacherSession(req: NextRequest) {
+  return (
+    isTeacherRoute(req) ||
+    isAdminRoute(req) ||
+    req.nextUrl.pathname === "/api/auth/me" ||
+    (isProtectedApiRoute(req) &&
+      !req.nextUrl.pathname.startsWith("/api/parent"))
+  );
+}
+
+async function handleApplicationRequest(
+  auth: ClerkMiddlewareAuth | null,
+  req: NextRequest,
+  teacherPayload: JWTPayload | null,
+) {
+  const pathname = req.nextUrl.pathname;
+  const [studentPayload, parentPayload] = await Promise.all([
+    verifyCookie(req.cookies.get("student_session")?.value),
+    verifyCookie(req.cookies.get("parent_session")?.value),
   ]);
   const targetsParent =
     isParentRoute(req) || pathname.startsWith("/api/parent/");
   const targetsStudent =
     isStudentRoute(req) || pathname.startsWith("/api/student/");
   const canUseStudentCookieOnly = targetsStudent && studentPayload !== null;
-  const canUseTeacherCookieOnly = isAdminRoute(req) && teacherPayload !== null;
+  const canUseTeacherCookieOnly =
+    usesTeacherSession(req) && teacherPayload !== null;
   const authObject =
-    canUseStudentCookieOnly || canUseTeacherCookieOnly ? null : await auth();
+    canUseStudentCookieOnly || canUseTeacherCookieOnly ? null : await auth?.();
 
   if (
+    auth &&
     !authObject?.userId &&
     ((isAdminRoute(req) && !teacherPayload) ||
-      isTeacherRoute(req) ||
+      (isTeacherRoute(req) && !teacherPayload) ||
       (isStudentRoute(req) && !studentPayload))
   ) {
     await auth.protect();
@@ -253,7 +276,9 @@ export default clerkMiddleware(async (auth, req) => {
   // legacy numeric child and camp routes to their public identifiers.
   if (/^\/parent\/children\/[^/]+(?:\/|$)/.test(pathname)) {
     const requestHeaders = new Headers(req.headers);
+
     requestHeaders.set("x-parent-route-path", pathname);
+
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
@@ -418,7 +443,29 @@ export default clerkMiddleware(async (auth, req) => {
 
     return NextResponse.rewrite(internalUrl);
   }
-});
+}
+
+const withClerk = clerkMiddleware(async (auth, req) =>
+  handleApplicationRequest(auth, req, await getTeacherPayload(req)),
+);
+
+export default async function middleware(
+  req: NextRequest,
+  event: NextFetchEvent,
+) {
+  // Clerk can redirect during its handshake before invoking our handler.
+  // Application sessions must be checked first so an expired Clerk token cannot
+  // interrupt navigation or API requests while the teacher session is valid.
+  if (usesTeacherSession(req)) {
+    const teacherPayload = await getTeacherPayload(req);
+
+    if (teacherPayload) {
+      return handleApplicationRequest(null, req, teacherPayload);
+    }
+  }
+
+  return withClerk(req, event);
+}
 
 export const config = {
   matcher: [
