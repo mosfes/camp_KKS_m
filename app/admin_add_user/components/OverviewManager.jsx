@@ -881,28 +881,22 @@ export default function OverviewManager({
                         </div>
                         <div className="space-y-3">
                           {camp.feedback.aiSummaryUpdatedAt ? (
-                            <>
-                              <p className="text-xs text-gray-500">
-                                สรุปด้วย AI เมื่อ{" "}
-                                {formatCampDate(camp.feedback.aiSummaryUpdatedAt)}
-                              </p>
-                              <div className="grid gap-4 sm:grid-cols-2">
-                                <FeedbackList
-                                  emptyText="ไม่พบข้อดีที่ชัดเจน"
-                                  icon={CheckCircle2}
-                                  items={camp.feedback.strengths || []}
-                                  title="ข้อดี"
-                                  tone="border-emerald-100 bg-emerald-50/50"
-                                />
-                                <FeedbackList
-                                  emptyText="ไม่พบข้อเสียที่ชัดเจน"
-                                  icon={AlertTriangle}
-                                  items={camp.feedback.improvements || []}
-                                  title="ข้อเสียและสิ่งที่ควรปรับปรุง"
-                                  tone="border-amber-100 bg-amber-50/50"
-                                />
-                              </div>
-                            </>
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              <FeedbackList
+                                emptyText="ไม่พบข้อดีที่ชัดเจน"
+                                icon={CheckCircle2}
+                                items={camp.feedback.strengths || []}
+                                title="ข้อดี"
+                                tone="border-emerald-100 bg-emerald-50/50"
+                              />
+                              <FeedbackList
+                                emptyText="ไม่พบข้อเสียที่ชัดเจน"
+                                icon={AlertTriangle}
+                                items={camp.feedback.improvements || []}
+                                title="ข้อเสียและสิ่งที่ควรปรับปรุง"
+                                tone="border-amber-100 bg-amber-50/50"
+                              />
+                            </div>
                           ) : (
                             <>
                               <p className="text-xs text-gray-500">
