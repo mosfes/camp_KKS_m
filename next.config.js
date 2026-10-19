@@ -17,15 +17,15 @@ const developmentConnections =
     ? " http://localhost:* ws://localhost:*"
     : "";
 
-// Keep this policy compatible with Clerk's hosted sign-in UI and the Google
-// Maps JavaScript API. Both providers create scripts/styles at runtime.
+// Clerk and Next.js create scripts/styles at runtime. Google Maps additionally
+// needs eval on the few authenticated pages that display interactive maps.
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'self'",
   `form-action 'self' ${clerkFrontendApi}`,
-  `script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: ${clerkFrontendApi} https://challenges.cloudflare.com https://*.protect.clerk.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com`,
+  `script-src 'self' 'unsafe-inline' blob: ${clerkFrontendApi} https://challenges.cloudflare.com https://*.protect.clerk.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com`,
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://res.cloudinary.com https://img.clerk.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com",
   "font-src 'self' data: https://fonts.gstatic.com",
@@ -35,6 +35,10 @@ const contentSecurityPolicy = [
   "media-src 'self' blob: https://res.cloudinary.com",
   "manifest-src 'self'",
 ].join("; ");
+const googleMapsContentSecurityPolicy = contentSecurityPolicy.replace(
+  "script-src 'self'",
+  "script-src 'self' 'unsafe-eval'",
+);
 
 const nextConfig = {
   // Let security verification build beside a running local dev server.
@@ -83,6 +87,19 @@ const nextConfig = {
           },
         ],
       },
+      ...[
+        "/headteacher/dashboard/:path*",
+        "/student/dashboard/camp/:path*",
+        "/parent/children/:studentId/camps/:path*",
+      ].map((source) => ({
+        source,
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: googleMapsContentSecurityPolicy,
+          },
+        ],
+      })),
       {
         source: "/notification-sw.js",
         headers: [
