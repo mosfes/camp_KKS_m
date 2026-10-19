@@ -7,8 +7,35 @@ import { prisma } from "@/lib/db";
 
 const recommendationPattern =
   /(จัด.*อีก|จัดต่อ|อยากให้.*อีก|ควร.*จัด|แนะนำ.*ค่าย|recommend)/i;
-const improvementPattern =
-  /(ควร|อยากให้|เพิ่ม|ปรับ|น้อย|ไม่|ช้า|ร้อน|แคบ|เบื่อ|ยาก|สั้น|นานเกิน)/i;
+const emptyFeedback = new Set([
+  "ไม่มี",
+  "ไม่มีครับ",
+  "ไม่มีค่ะ",
+  "ไม่มีคะ",
+  "ไม่มีอะไร",
+  "ไม่มีอะไรเพิ่มเติม",
+  "ไม่มีเพิ่มเติม",
+  "ไม่มีข้อเสนอแนะ",
+  "ไม่มีความคิดเห็น",
+  "ไม่มีความคิดเห็นเพิ่มเติม",
+  "none",
+  "no",
+  "n/a",
+]);
+
+function isMeaningfulFeedback(value) {
+  const normalized = value
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/[.!。]+$/g, "")
+    .toLowerCase();
+
+  return (
+    normalized.length > 0 &&
+    !/^[-–—_.]+$/.test(normalized) &&
+    !emptyFeedback.has(normalized)
+  );
+}
 
 function round(value, digits = 0) {
   if (!Number.isFinite(value)) return null;
@@ -103,17 +130,14 @@ function buildCampInsight(camp) {
     : null;
   const dataSufficient =
     responseCount >= 3 && responseRate >= 30 && surveyScore !== null;
-  const textAnswers = (survey?.survey_question || []).flatMap((question) =>
-    question.survey_answer
-      .map((answer) => answer.text_answer)
-      .filter((answer) => typeof answer === "string" && answer.trim()),
-  );
-  const improvements = uniqueSamples(
-    textAnswers.filter((answer) => improvementPattern.test(answer)),
-  );
-  const strengths = uniqueSamples(
-    textAnswers.filter((answer) => !improvementPattern.test(answer)),
-  );
+  const textAnswers = (survey?.survey_question || [])
+    .filter((question) => question.question_type === "text")
+    .flatMap((question) =>
+      question.survey_answer
+        .map((answer) => answer.text_answer)
+        .filter((answer) => typeof answer === "string" && answer.trim()),
+    );
+  const comments = uniqueSamples(textAnswers.filter(isMeaningfulFeedback), 6);
 
   return {
     campId: camp.camp_id,
@@ -128,7 +152,7 @@ function buildCampInsight(camp) {
     responseCount,
     dataSufficient,
     recommendation: getRecommendation(round(healthScore), dataSufficient),
-    feedback: { strengths, improvements },
+    feedback: { comments },
   };
 }
 

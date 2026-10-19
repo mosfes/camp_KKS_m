@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardBody, Select, SelectItem } from "@heroui/react";
 import {
-  AlertTriangle,
   BookOpen,
   CalendarDays,
   CheckCircle2,
@@ -879,20 +878,13 @@ export default function OverviewManager({
                             </p>
                           )}
                         </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
                           <FeedbackList
-                            emptyText="ยังไม่มีข้อความชื่นชม"
-                            icon={CheckCircle2}
-                            items={camp.feedback.strengths}
-                            title="สิ่งที่นักเรียนชอบ"
-                            tone="border-emerald-100 bg-emerald-50/50"
-                          />
-                          <FeedbackList
-                            emptyText="ยังไม่มีข้อเสนอแนะเพิ่มเติม"
-                            icon={AlertTriangle}
-                            items={camp.feedback.improvements}
-                            title="สิ่งที่ควรปรับปรุง"
-                            tone="border-amber-100 bg-amber-50/50"
+                            emptyText="ยังไม่มีความคิดเห็นที่ให้รายละเอียด"
+                            icon={MessageSquareText}
+                            items={camp.feedback.comments || []}
+                            title="ตัวอย่างความคิดเห็นจากนักเรียน"
+                            tone="border-slate-200 bg-slate-50/70"
                           />
                         </div>
                       </div>
