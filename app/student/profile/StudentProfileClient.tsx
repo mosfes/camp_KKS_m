@@ -21,7 +21,6 @@ import {
   X,
   Hash,
   ExternalLink,
-  Info,
 } from "lucide-react";
 
 import { BANGKOK_TIME_ZONE, getBangkokDateKey } from "@/lib/bangkok-date";
@@ -1028,13 +1027,6 @@ export default function StudentProfilePage({
                     text=""
                   />
                 </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-100 flex items-start gap-2 text-blue-800">
-                <Info className="text-blue-600 shrink-0 mt-0.5" size={14} />
-                <p className="text-[11px] leading-relaxed text-blue-700">
-                  ข้อมูลห้องเรียนจะถูกอัปเดตตามปีการศึกษาปัจจุบันของโรงเรียน
-                </p>
               </div>
             </div>
           </SectionCard>

@@ -866,10 +866,6 @@ export default function OverviewManager({
                             value={camp.missionCompletion}
                           />
                           <ScoreBar
-                            label="อยากให้จัดอีก"
-                            value={camp.recommendationScore}
-                          />
-                          <ScoreBar
                             label="อัตราตอบแบบประเมิน"
                             value={camp.responseRate}
                           />
