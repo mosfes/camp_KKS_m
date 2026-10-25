@@ -497,6 +497,11 @@ export default function CampDetailPage({
         cache: "no-store",
       });
 
+      if (response.status === 403 || response.status === 404) {
+        router.replace("/headteacher/dashboard?tab=camp");
+        return;
+      }
+
       if (!response.ok) {
         console.error("Failed to fetch camp detail, status:", response.status);
         setCamp(null);
