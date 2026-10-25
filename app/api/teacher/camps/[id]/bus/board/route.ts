@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 
 export async function POST(_request: Request, context: any) {
   const { teacher, error: authError } = await requireTeacher();
@@ -28,12 +29,23 @@ export async function POST(_request: Request, context: any) {
         status: true,
         last_boarded_at: true,
         position_position_id: true,
-        bus: { select: { bus_id: true, name: true, status: true } },
+        bus: {
+          select: {
+            bus_id: true,
+            name: true,
+            status: true,
+            camp: { select: { end_date: true } },
+          },
+        },
       },
     });
 
     if (!assignment) {
       return { error: "ยังไม่มีรถหรือที่นั่งที่จัดให้คุณ", status: 404 };
+    }
+
+    if (isBangkokDateBefore(assignment.bus.camp.end_date)) {
+      return { error: "ค่ายสิ้นสุดแล้ว ไม่สามารถยืนยันขึ้นรถได้", status: 409 };
     }
 
     if (assignment.bus.status === "TRAVELING") {

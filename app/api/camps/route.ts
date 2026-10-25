@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireTeacher } from "@/lib/auth";
 import { getBangkokDateAsUtcMidnight, isBangkokDateBefore } from "@/lib/bangkok-date";
 import { isCampScheduleInRange } from "@/lib/camp-schedule-range";
+import { teacherCampAccessWhere } from "@/lib/teacher-camp-access";
 
 /**
  *
@@ -259,57 +260,10 @@ export async function GET(request) {
       };
     }
 
-    const isAdmin = teacher.role === "ADMIN";
-
-    let whereCondition = {
-      deletedAt: null,
+    const whereCondition = {
+      ...teacherCampAccessWhere(teacher.teachers_id, teacher.role),
       ...dateFilter,
     };
-
-    const orConditions = [
-      // ผู้สร้างค่าย (ทุก role)
-      { created_by_teacher_id: teacher.teachers_id },
-      // ครูที่เข้าร่วมค่ายหรือถูกจัดเป็นครูบนรถ
-      {
-        teacher_enrollment: {
-          some: { teacher_teachers_id: teacher.teachers_id },
-        },
-      },
-      {
-        camp_bus_teacher: {
-          some: {
-            teacher_teachers_id: teacher.teachers_id,
-            removed_at: null,
-          },
-        },
-      },
-      // ครูประจำชั้นคนที่ 1 ของห้องเรียนที่เชื่อมกับค่ายนี้ (ทุก role)
-      {
-        camp_classroom: {
-          some: {
-            classroom: {
-              teachers_teachers_id: teacher.teachers_id,
-            },
-          },
-        },
-      },
-      // ครูประจำชั้นคนที่ 2 ของห้องเรียนที่เชื่อมกับค่ายนี้ (ทุก role)
-      {
-        camp_classroom: {
-          some: {
-            classroom: {
-              classroom_teacher: {
-                some: { teacher_teachers_id: teacher.teachers_id },
-              },
-            },
-          },
-        },
-      },
-    ];
-
-    if (!isAdmin) {
-      whereCondition.OR = orConditions;
-    }
 
     let camps = await prisma.camp.findMany({
       where: whereCondition,

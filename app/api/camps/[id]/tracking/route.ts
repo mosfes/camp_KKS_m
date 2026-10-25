@@ -165,6 +165,7 @@ export async function GET(request, context) {
 
       studentsProgress.push({
         ...student,
+        isEnrolled: enr?.enrolled_at != null,
         completedMissions,
         totalMissions,
         progressPercentage,
@@ -187,6 +188,9 @@ export async function GET(request, context) {
     const issuedCertificates = studentsProgress.filter(
       (student) => student.hasCertificate,
     ).length;
+    const pendingCertificates = studentsProgress.filter(
+      (student) => student.isEnrolled && !student.hasCertificate,
+    ).length;
 
     return NextResponse.json({
       campId,
@@ -194,7 +198,7 @@ export async function GET(request, context) {
       summary: {
         totalStudents: studentsProgress.length,
         issuedCertificates,
-        pendingCertificates: studentsProgress.length - issuedCertificates,
+        pendingCertificates,
       },
       students: studentsProgress,
     });

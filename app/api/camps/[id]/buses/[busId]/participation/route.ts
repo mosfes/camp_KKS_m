@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { requireSpecificCampBus } from "@/lib/camp-bus-auth";
 import { prisma } from "@/lib/db";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 
 const participationSchema = z.object({
   assignmentId: z.number().int().positive(),
@@ -21,6 +22,15 @@ export async function POST(request: Request, context: any) {
   const access = await requireSpecificCampBus(campId, busId, "operate");
 
   if (access.error) return access.error;
+  if (
+    access.permission?.camp &&
+    isBangkokDateBefore(access.permission.camp.end_date)
+  ) {
+    return NextResponse.json(
+      { error: "ค่ายสิ้นสุดแล้ว ไม่สามารถเปลี่ยนสถานะการเดินทางได้" },
+      { status: 409 },
+    );
+  }
 
   let body;
 

@@ -10,6 +10,7 @@ import {
 import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendStudentBusPushNotifications } from "@/lib/web-push";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 
 const requestSchema = z.object({
   action: z.enum(["board", "alight"]),
@@ -50,6 +51,7 @@ export async function POST(request: Request, context: any) {
     name: string;
     status: "PARKED" | "TRAVELING";
     campName: string;
+    campEndDate: Date;
   } | null = null;
 
   if (parsed.data.busId) {
@@ -71,7 +73,7 @@ export async function POST(request: Request, context: any) {
         bus_id: true,
         name: true,
         status: true,
-        camp: { select: { name: true } },
+        camp: { select: { name: true, end_date: true } },
       },
     });
 
@@ -81,6 +83,7 @@ export async function POST(request: Request, context: any) {
         name: selectedBus.name,
         status: selectedBus.status,
         campName: selectedBus.camp.name,
+        campEndDate: selectedBus.camp.end_date,
       };
     }
   } else {
@@ -97,7 +100,7 @@ export async function POST(request: Request, context: any) {
             bus_id: true,
             name: true,
             status: true,
-            camp: { select: { name: true } },
+            camp: { select: { name: true, end_date: true } },
           },
         },
       },
@@ -109,6 +112,7 @@ export async function POST(request: Request, context: any) {
           name: assignment.bus.name,
           status: assignment.bus.status,
           campName: assignment.bus.camp.name,
+          campEndDate: assignment.bus.camp.end_date,
         }
       : null;
   }
@@ -117,6 +121,13 @@ export async function POST(request: Request, context: any) {
     return NextResponse.json(
       { error: "คุณไม่ได้เป็นครูประจำรถของค่ายนี้" },
       { status: 403 },
+    );
+  }
+
+  if (isBangkokDateBefore(targetBus.campEndDate)) {
+    return NextResponse.json(
+      { error: "ค่ายสิ้นสุดแล้ว ไม่สามารถส่งการเตือนขึ้นลงรถได้" },
+      { status: 409 },
     );
   }
 

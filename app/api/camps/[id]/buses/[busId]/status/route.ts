@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireSpecificCampBus } from "@/lib/camp-bus-auth";
 import { busEventLocationSchema } from "@/lib/bus-event-location";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 
 const statusSchema = z
   .object({
@@ -36,6 +37,17 @@ export async function POST(request: Request, context: any) {
     return NextResponse.json(
       { error: "สถานะรถหรือพิกัดไม่ถูกต้อง กรุณาเปิด GPS แล้วลองใหม่" },
       { status: 400 },
+    );
+  }
+
+  if (
+    body.status === "TRAVELING" &&
+    access.permission?.camp &&
+    isBangkokDateBefore(access.permission.camp.end_date)
+  ) {
+    return NextResponse.json(
+      { error: "ค่ายสิ้นสุดแล้ว ไม่สามารถเริ่มเดินทางได้" },
+      { status: 409 },
     );
   }
 

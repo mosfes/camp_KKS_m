@@ -416,6 +416,7 @@ type Bus = {
 
 type LiveBusStatus = {
   busId: number;
+  isEnded: boolean;
   status: "PARKED" | "TRAVELING";
   checkedInCount: number;
   studentCheckedInCount: number;
@@ -446,6 +447,7 @@ interface BusManagementModalProps {
 }
 
 export type BusInitialData = {
+  isEnded: boolean;
   classrooms: Classroom[];
   buses: Bus[];
   eligibleTeachers: EligibleTeacher[];
@@ -803,6 +805,7 @@ export default function BusManagementModal({
 }: BusManagementModalProps) {
   const { showError, showSuccess, showConfirm } = useStatusModal();
   const initialDataPending = useRef(Boolean(initialData));
+  const [isEnded, setIsEnded] = useState(Boolean(initialData?.isEnded));
   const [classrooms, setClassrooms] = useState<Classroom[]>(initialData?.classrooms || []);
   const [buses, setBuses] = useState<Bus[]>(initialData?.buses || []);
   const [publishedLayoutTemplates, setPublishedLayoutTemplates] = useState<
@@ -858,7 +861,12 @@ export default function BusManagementModal({
   const [recentlySentReminderActions, setRecentlySentReminderActions] =
     useState<Array<"board" | "alight">>([]);
   const [showCreate, setShowCreate] = useState(
-    Boolean(initialData && !initialData.buses.length && initialData.permissions?.canConfigureAny),
+    Boolean(
+      initialData &&
+        !initialData.isEnded &&
+        !initialData.buses.length &&
+        initialData.permissions?.canConfigureAny,
+    ),
   );
   const [showEditBus, setShowEditBus] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1055,6 +1063,7 @@ export default function BusManagementModal({
 
       const busList: Bus[] = data.buses || [];
 
+      setIsEnded(Boolean(data.isEnded));
       setClassrooms(data.classrooms || []);
       setBuses(busList);
       setEligibleTeachers(data.eligibleTeachers || []);
@@ -1076,7 +1085,9 @@ export default function BusManagementModal({
             : busList[0]?.busId;
 
       setSelectedBusId(nextBusId || null);
-      setShowCreate(!nextBusId && Boolean(data.permissions?.canConfigureAny));
+      setShowCreate(
+        !data.isEnded && !nextBusId && Boolean(data.permissions?.canConfigureAny),
+      );
     } catch (error: any) {
       showError(
         "โหลดข้อมูลไม่สำเร็จ",
@@ -1144,6 +1155,8 @@ export default function BusManagementModal({
         const liveStatus = (await response.json()) as LiveBusStatus;
 
         if (!active) return;
+
+        setIsEnded(liveStatus.isEnded);
 
         const assignmentStatuses = new Map(
           liveStatus.assignmentStatuses.map((assignment) => [
@@ -1716,7 +1729,7 @@ export default function BusManagementModal({
   };
 
   const requestBusStatusChange = () => {
-    if (!selectedBus) return;
+    if (!selectedBus || (isEnded && selectedBus.status === "PARKED")) return;
 
     const nextStatus = selectedBus.status === "PARKED" ? "TRAVELING" : "PARKED";
 
@@ -1762,7 +1775,13 @@ export default function BusManagementModal({
   };
 
   const changeStudentBusStatus = async (assignment: Assignment) => {
-    if (!selectedBus || changingAssignmentAction !== null) return;
+    if (
+      !selectedBus ||
+      changingAssignmentAction !== null ||
+      (isEnded && assignment.status !== "ON_BUS")
+    ) {
+      return;
+    }
 
     const action = assignment.status === "ON_BUS" ? "alight" : "board";
 
@@ -1810,7 +1829,7 @@ export default function BusManagementModal({
     assignment: Assignment,
     participationStatus: Assignment["participationStatus"],
   ) => {
-    if (!selectedBus || changingAssignmentAction !== null) return;
+    if (!selectedBus || isEnded || changingAssignmentAction !== null) return;
 
     try {
       setChangingAssignmentAction({
@@ -1862,7 +1881,8 @@ export default function BusManagementModal({
     if (
       !selectedBus ||
       changingTeacherAssignmentId !== null ||
-      changingTeacherSelfStatus
+      changingTeacherSelfStatus ||
+      (isEnded && assignment.status !== "ON_BUS")
     ) {
       return;
     }
@@ -1905,7 +1925,11 @@ export default function BusManagementModal({
   };
 
   const changeOwnTeacherBusStatus = async () => {
-    if (!currentTeacherAssignment || changingTeacherSelfStatus) return;
+    if (
+      !currentTeacherAssignment ||
+      changingTeacherSelfStatus ||
+      (isEnded && currentTeacherAssignment.status !== "ON_BUS")
+    ) return;
 
     const action =
       currentTeacherAssignment.status === "ON_BUS" ? "alight" : "board";
@@ -1938,7 +1962,7 @@ export default function BusManagementModal({
   };
 
   const sendStudentBusReminder = async (action: "board" | "alight") => {
-    if (!selectedBus || sendingReminderAction !== null) return;
+    if (!selectedBus || isEnded || sendingReminderAction !== null) return;
 
     try {
       setSendingReminderAction(action);
@@ -2274,7 +2298,7 @@ export default function BusManagementModal({
                 เช็คชื่อขึ้นรถ
               </h2>
             </div>
-            {busPermissions.canConfigureAny && (
+            {busPermissions.canConfigureAny && !isEnded && (
               <Button
                 className="shrink-0 bg-[#6b857a] px-3 text-sm font-medium text-white"
                 size="sm"
@@ -2293,6 +2317,12 @@ export default function BusManagementModal({
           {campName && (
             <p className="text-sm font-normal text-gray-500">
               ค่าย: {campName}
+            </p>
+          )}
+          {isEnded && (
+            <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              ค่ายสิ้นสุดแล้ว แสดงข้อมูลรถย้อนหลังและปิดการขึ้นรถหรือเริ่มเดินทางใหม่
+              หากมีสถานะค้างว่ายังอยู่บนรถ ครูยังบันทึกการลงรถได้
             </p>
           )}
         </Header>
@@ -2683,7 +2713,7 @@ export default function BusManagementModal({
                         </p>
                       </div>
 
-                      {selectedBus.permissions.canConfigure && (
+                      {selectedBus.permissions.canConfigure && !isEnded && (
                         <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
                           {transferTargetBuses.length > 0 && (
                             <Button
@@ -2724,7 +2754,7 @@ export default function BusManagementModal({
                     <div className="grid grid-cols-2 gap-3 pt-4">
                       <div className="min-w-0 rounded-xl bg-gray-50 p-3.5">
                         <p className="truncate text-xs text-gray-500">
-                          อยู่บนรถตอนนี้
+                          {isEnded ? "บันทึกว่ายังอยู่บนรถ" : "อยู่บนรถตอนนี้"}
                         </p>
                         <p className="mt-1 truncate whitespace-nowrap text-lg font-bold text-[#6b857a] sm:text-2xl">
                           {selectedBus.checkedInCount}{" "}
@@ -2733,7 +2763,9 @@ export default function BusManagementModal({
                           </span>
                         </p>
                         <p className="mt-0.5 truncate text-[11px] text-gray-400">
-                          เช็คชื่อขึ้นรถแล้ว
+                          {isEnded
+                            ? "สถานะค้างจากค่ายที่ผ่านมา"
+                            : "เช็คชื่อขึ้นรถแล้ว"}
                         </p>
                       </div>
                       <div className="min-w-0 rounded-xl bg-gray-50 p-3.5">
@@ -2753,8 +2785,12 @@ export default function BusManagementModal({
                         </p>
                         <p className="mt-0.5 truncate text-[11px] text-gray-400">
                           {selectedBus.status === "TRAVELING"
-                            ? "อยู่ระหว่างเดินทาง"
-                            : "พร้อมรับผู้โดยสาร"}
+                            ? isEnded
+                              ? "มีรอบเดินทางที่ยังไม่ปิด"
+                              : "อยู่ระหว่างเดินทาง"
+                            : isEnded
+                              ? "ค่ายสิ้นสุดแล้ว"
+                              : "พร้อมรับผู้โดยสาร"}
                         </p>
                       </div>
                     </div>
@@ -2778,8 +2814,9 @@ export default function BusManagementModal({
                     )}
                   </div>
 
-                  {currentTeacherAssignment && (
-                    <div className="rounded-2xl border border-[#cfe0d6] bg-[#eef6f1] p-4 shadow-sm">
+                  {currentTeacherAssignment &&
+                    (!isEnded || currentTeacherAssignment.status === "ON_BUS") && (
+                      <div className="rounded-2xl border border-[#cfe0d6] bg-[#eef6f1] p-4 shadow-sm">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-[#365f4f]">
@@ -2826,10 +2863,10 @@ export default function BusManagementModal({
                               : "ยืนยันว่าขึ้นรถ"}
                         </Button>
                       </div>
-                    </div>
-                  )}
+                      </div>
+                    )}
 
-                  {selectedBus.permissions.canOperate && (
+                  {selectedBus.permissions.canOperate && !isEnded && (
                     <div className="rounded-2xl border border-[#cfe0d6] bg-white p-4 shadow-sm">
                       <Button
                         aria-expanded={showReminderOptions}
@@ -2920,11 +2957,13 @@ export default function BusManagementModal({
                         </div>
                         <div className="min-w-0">
                           <p className="truncate text-xs font-semibold text-gray-900">
-                            การดำเนินการรถ (
+                            {isEnded ? "ข้อมูลรถย้อนหลัง" : "การดำเนินการรถ"} (
                             {selectedBus.status === "TRAVELING"
-                              ? "กำลังเดินทาง"
+                              ? isEnded
+                                ? "รอบเดินทางค้าง"
+                                : "กำลังเดินทาง"
                               : "รถจอดอยู่"}{" "}
-                            · อยู่บนรถ {selectedBus.checkedInCount}/
+                            · {isEnded ? "บันทึกค้างบนรถ" : "อยู่บนรถ"} {selectedBus.checkedInCount}/
                             {assignedCount} คน)
                           </p>
                           <p className="truncate text-[11px] text-gray-500">
@@ -2949,25 +2988,29 @@ export default function BusManagementModal({
                             <History size={17} />
                           </Button>
                         )}
-                        <Button
-                          className={
-                            selectedBus.status === "TRAVELING"
-                              ? "min-h-11 min-w-[118px] shrink-0 bg-amber-100 px-3 text-xs font-medium text-amber-800"
-                              : "min-h-11 min-w-[118px] shrink-0 bg-[#365f4f] px-3 text-xs font-medium text-white"
-                          }
-                          isDisabled={
-                            savingAction !== null ||
-                            !hasAssignedSeat ||
-                            !selectedBus.permissions.canOperate
-                          }
-                          isLoading={savingAction === "status"}
-                          size="sm"
-                          onPress={requestBusStatusChange}
-                        >
-                          {selectedBus.status === "TRAVELING"
-                            ? "รถถึงจุดแวะ"
-                            : "เริ่มเดินทาง"}
-                        </Button>
+                        {(!isEnded || selectedBus.status === "TRAVELING") && (
+                          <Button
+                            className={
+                              selectedBus.status === "TRAVELING"
+                                ? "min-h-11 min-w-[118px] shrink-0 bg-amber-100 px-3 text-xs font-medium text-amber-800"
+                                : "min-h-11 min-w-[118px] shrink-0 bg-[#365f4f] px-3 text-xs font-medium text-white"
+                            }
+                            isDisabled={
+                              savingAction !== null ||
+                              !hasAssignedSeat ||
+                              !selectedBus.permissions.canOperate
+                            }
+                            isLoading={savingAction === "status"}
+                            size="sm"
+                            onPress={requestBusStatusChange}
+                          >
+                            {isEnded
+                              ? "บันทึกรถจอด"
+                              : selectedBus.status === "TRAVELING"
+                                ? "รถถึงจุดแวะ"
+                                : "เริ่มเดินทาง"}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2980,9 +3023,9 @@ export default function BusManagementModal({
                           ผังตำแหน่งบนรถ
                         </h3>
                         <p className="mt-1 text-xs text-gray-500">
-                          {selectedBus.permissions.canConfigure
+                          {selectedBus.permissions.canConfigure && !isEnded
                             ? "คลิกตำแหน่ง แล้วเลือกนักเรียนหรือครูที่นั่งตรงนั้น"
-                            : "ดูตำแหน่งและสถานะผู้โดยสารของรถคันนี้"}
+                            : "ดูตำแหน่งและสถานะผู้โดยสารที่บันทึกไว้"}
                         </p>
                         <p className="mt-1 text-[11px] text-gray-400">
                           {selectedLayoutTemplate ||
@@ -3091,7 +3134,8 @@ export default function BusManagementModal({
                                       fillContainer
                                       disabled={
                                         savingAction !== null ||
-                                        !selectedBus.permissions.canConfigure
+                                        !selectedBus.permissions.canConfigure ||
+                                        isEnded
                                       }
                                       isOnBus={Boolean(isOnBus)}
                                       label={position.label}
@@ -3173,7 +3217,8 @@ export default function BusManagementModal({
                                             disabled={
                                               savingAction !== null ||
                                               !selectedBus.permissions
-                                                .canConfigure
+                                                .canConfigure ||
+                                              isEnded
                                             }
                                             isOnBus={Boolean(isOnBus)}
                                             label={position.label}
@@ -3203,7 +3248,7 @@ export default function BusManagementModal({
                       </div>
                     )}
 
-                    {selectedBus.permissions.canConfigure && (
+                    {selectedBus.permissions.canConfigure && !isEnded && (
                       <div className="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center">
                         <div className="flex items-center gap-2 text-xs text-gray-500">
                           <Save size={15} />
@@ -3245,7 +3290,9 @@ export default function BusManagementModal({
                             ? ` · ไม่ร่วมเดินทางต่อ ${busStudentCounts.notTraveling}`
                             : ""}
                           <span className="block">
-                            กดปุ่มสถานะเพื่อยืนยันขึ้นหรือลงรถแทนนักเรียน
+                            {isEnded
+                              ? "ค่ายสิ้นสุดแล้ว บันทึกการลงรถได้เฉพาะผู้ที่ยังมีสถานะอยู่บนรถ"
+                              : "กดปุ่มสถานะเพื่อยืนยันขึ้นหรือลงรถแทนนักเรียน"}
                           </span>
                         </p>
                       </div>
@@ -3342,6 +3389,7 @@ export default function BusManagementModal({
                                 changingAssignmentAction !== null ||
                                 assignment.participationStatus ===
                                   "NOT_TRAVELING" ||
+                                (isEnded && assignment.status !== "ON_BUS") ||
                                 (assignment.status === "OFF_BUS" &&
                                   assignment.positionId === null)
                               }
@@ -3808,6 +3856,7 @@ export default function BusManagementModal({
                     }
                     isDisabled={
                       selectedBus?.status === "TRAVELING" ||
+                      (isEnded && activeAssignment.status !== "ON_BUS") ||
                       changingAssignmentAction !== null
                     }
                     isLoading={
@@ -3877,6 +3926,8 @@ export default function BusManagementModal({
                         }
                         isDisabled={
                           selectedBus?.status === "TRAVELING" ||
+                          (isEnded &&
+                            activeTeacherAssignment.status !== "ON_BUS") ||
                           !selectedBus?.permissions.canOperate ||
                           changingTeacherAssignmentId !== null ||
                           changingTeacherSelfStatus
@@ -4562,7 +4613,9 @@ export default function BusManagementModal({
                             <div className="mt-2 grid grid-cols-2 gap-2">
                               <Button
                                 className="h-8 bg-[#e2eee7] px-2 text-[10px] font-semibold text-[#365f4f]"
-                                isDisabled={changingAssignmentAction !== null}
+                                isDisabled={
+                                  isEnded || changingAssignmentAction !== null
+                                }
                                 isLoading={
                                   changingAssignmentAction?.assignmentId ===
                                     assignment.assignmentId &&
@@ -4578,7 +4631,9 @@ export default function BusManagementModal({
                               </Button>
                               <Button
                                 className="h-8 bg-gray-100 px-2 text-[10px] font-semibold text-gray-700"
-                                isDisabled={changingAssignmentAction !== null}
+                                isDisabled={
+                                  isEnded || changingAssignmentAction !== null
+                                }
                                 isLoading={
                                   changingAssignmentAction?.assignmentId ===
                                     assignment.assignmentId &&
@@ -4641,7 +4696,9 @@ export default function BusManagementModal({
                               </p>
                               <Button
                                 className="h-7 shrink-0 bg-white px-2 text-[10px] font-semibold text-slate-700"
-                                isDisabled={changingAssignmentAction !== null}
+                                isDisabled={
+                                  isEnded || changingAssignmentAction !== null
+                                }
                                 isLoading={
                                   changingAssignmentAction?.assignmentId ===
                                     assignment.assignmentId &&

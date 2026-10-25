@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { clearActiveCampCookies } from "@/lib/server-active-camp";
 
 /**
  * POST /api/auth/logout
@@ -30,5 +31,5 @@ export async function POST() {
     maxAge: 0, // ลบ cookie ทันที
   });
 
-  return response;
+  return clearActiveCampCookies(response);
 }
