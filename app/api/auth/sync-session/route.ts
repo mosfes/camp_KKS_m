@@ -4,6 +4,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 
 import { prisma } from "@/lib/db";
 import { cacheGoogleProfileImage } from "@/lib/google-profile-image";
+import { clearActiveCampCookies } from "@/lib/server-active-camp";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -138,7 +139,7 @@ export async function GET(req: any) {
       response.cookies.delete("student_session");
       response.cookies.delete("parent_session");
 
-      return response;
+      return clearActiveCampCookies(response);
     }
 
     // หา student
@@ -185,7 +186,7 @@ export async function GET(req: any) {
       response.cookies.delete("teacher_session");
       response.cookies.delete("parent_session");
 
-      return response;
+      return clearActiveCampCookies(response);
     }
 
     // ไม่พบในระบบ

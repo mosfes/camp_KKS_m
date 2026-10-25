@@ -8,6 +8,7 @@ import { requireTeacher } from "@/lib/auth";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
 import { isBangkokDateBefore } from "@/lib/bangkok-date";
 import { isCampScheduleInRange } from "@/lib/camp-schedule-range";
+import { teacherCampAccessWhere } from "@/lib/teacher-camp-access";
 
 // Define the schema for camp validation
 const campSchema = z
@@ -83,6 +84,22 @@ export async function GET(request, context) {
     const params = await context.params;
     const campId = Number(params.id);
     const view = new URL(request.url).searchParams.get("view");
+
+    if (!Number.isSafeInteger(campId) || campId <= 0) {
+      return NextResponse.json({ error: "Invalid camp id" }, { status: 400 });
+    }
+
+    const accessibleCamp = await prisma.camp.findFirst({
+      where: {
+        camp_id: campId,
+        ...teacherCampAccessWhere(teacher.teachers_id, teacher.role),
+      },
+      select: { camp_id: true },
+    });
+
+    if (!accessibleCamp) {
+      return NextResponse.json({ error: "Camp not found" }, { status: 404 });
+    }
 
     if (view === "bases") {
       const camp = await prisma.camp.findFirst({
