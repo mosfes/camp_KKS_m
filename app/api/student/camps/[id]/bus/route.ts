@@ -8,6 +8,7 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
 import { studentCampBusAssignmentWhere } from "@/lib/student-bus-assignment";
 import { resolveStudentCampId } from "@/lib/student-public-route";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 import {
   BUS_REMINDER_TTL_MS,
   getActiveBusReminder,
@@ -67,6 +68,7 @@ export async function GET(request: Request, context: any) {
         bus: {
           select: {
             status: true,
+            camp: { select: { end_date: true } },
             events: {
               where: {
                 event_type: { in: ["REMIND_BOARD", "REMIND_ALIGHT"] },
@@ -94,6 +96,7 @@ export async function GET(request: Request, context: any) {
         statusOnly: true,
         configured: true,
         busStatus: assignment.bus.status,
+        isEnded: isBangkokDateBefore(assignment.bus.camp.end_date),
         studentStatus: assignment.status,
         participationStatus: assignment.participation_status,
         isOnBus,
@@ -116,7 +119,7 @@ export async function GET(request: Request, context: any) {
     },
     select: {
       student_enrollment_id: true,
-      camp: { select: { name: true, has_transport: true } },
+      camp: { select: { name: true, has_transport: true, end_date: true } },
       camp_bus_student: {
         where: { bus: { camp_camp_id: campId } },
         select: {
@@ -233,6 +236,7 @@ export async function GET(request: Request, context: any) {
   return NextResponse.json(
     {
       configured: true,
+      isEnded: isBangkokDateBefore(enrollment.camp.end_date),
       hasTransport: enrollment.camp.has_transport,
       campName: enrollment.camp.name,
       bus: {

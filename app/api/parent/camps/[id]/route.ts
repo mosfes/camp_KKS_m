@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { getBangkokDateKey, isBangkokDateBefore } from "@/lib/bangkok-date";
 import { requireParentSession } from "@/lib/parent-auth";
 import { resolveParentStudent } from "@/lib/parent-student-access";
+import { isCampScheduleDayInRange } from "@/lib/camp-schedule-range";
 
 /**
  * Parent-safe camp detail. The camp must both belong to the child's class and
@@ -330,10 +331,19 @@ export async function GET(
         img_shirt_url: camp.img_shirt_url,
         enrolledAt: enrollment.enrolled_at,
         shirtSize: enrollment.shirt_size,
-        locationSharingEnabled: camp.location_sharing_enabled,
-        studentSharingEnabled: enrollment.location_sharing_enabled,
+        locationSharingEnabled:
+          !isBangkokDateBefore(camp.end_date) && camp.location_sharing_enabled,
+        studentSharingEnabled:
+          !isBangkokDateBefore(camp.end_date) &&
+          enrollment.location_sharing_enabled,
         station: stations,
-        camp_daily_schedule: camp.camp_daily_schedule,
+        camp_daily_schedule: camp.camp_daily_schedule.filter((schedule) =>
+          isCampScheduleDayInRange(
+            schedule.day,
+            camp.start_date,
+            camp.end_date,
+          ),
+        ),
         contacts,
         activities,
         summary: {
