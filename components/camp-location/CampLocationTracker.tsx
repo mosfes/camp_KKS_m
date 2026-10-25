@@ -1517,7 +1517,9 @@ export default function CampLocationTracker({
                     <Users size={17} /> สถานะตำแหน่งนักเรียน
                   </span>
                   <p className="mt-1 text-xs text-slate-500">
-                    ตำแหน่งจะอัปเดตเมื่อหน้าเว็บของนักเรียนเปิดอยู่
+                    {data.isEnded
+                      ? "ค่ายสิ้นสุดแล้ว ระบบหยุดรับและลบพิกัดของค่ายนี้"
+                      : "ตำแหน่งจะอัปเดตเมื่อหน้าเว็บของนักเรียนเปิดอยู่"}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
@@ -1638,8 +1640,10 @@ export default function CampLocationTracker({
                                     : "bg-slate-100 text-slate-500"
                               }`}
                             >
-                              {!student.sharingEnabled
-                                ? "นักเรียนปิดแชร์"
+                              {data.isEnded
+                                ? "ค่ายสิ้นสุดแล้ว"
+                                : !student.sharingEnabled
+                                  ? "นักเรียนปิดแชร์"
                                 : student.latest
                                   ? "แชร์ตำแหน่งแล้ว"
                                   : "ยังไม่แชร์ตำแหน่ง"}

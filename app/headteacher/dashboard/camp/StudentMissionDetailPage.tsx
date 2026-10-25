@@ -241,6 +241,13 @@ export default function StudentMissionDetailPage({
                     </span>
                   )}
                 </div>
+                {detail.student.hasCertificate &&
+                  detail.summary.completedMissions <
+                    detail.summary.totalMissions && (
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      เกียรติบัตรออกให้แล้ว แม้ภารกิจปัจจุบันยังไม่ครบ
+                    </p>
+                  )}
                 <p className="mt-0.5 text-xs text-gray-500">
                   ชื่อเล่น: {detail.student.nickname || "-"} · รหัสนักเรียน{" "}
                   {detail.student.studentId}

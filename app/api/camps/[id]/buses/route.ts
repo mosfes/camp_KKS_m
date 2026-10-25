@@ -12,6 +12,7 @@ import {
 import { positionLabel } from "@/lib/camp-bus-seating";
 import { formatStudentName } from "@/lib/student-display-name";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 
 const createBusSchema = z.object({
   classroomId: z.number().int().positive(),
@@ -682,6 +683,7 @@ async function getBusData(
     });
 
   return {
+    isEnded: isBangkokDateBefore(permission.camp.end_date),
     classrooms,
     buses: buses.map((bus) => formatBus(bus, permission)),
     unassignedStudents,

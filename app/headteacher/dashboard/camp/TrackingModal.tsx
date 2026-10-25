@@ -44,6 +44,7 @@ interface StudentProgress {
   nickname: string | null;
   profileImageUrl: string | null;
   initials: string;
+  isEnrolled: boolean;
   completedMissions: number;
   totalMissions: number;
   progressPercentage: number;
@@ -65,6 +66,7 @@ interface TrackingData {
 
 type ProgressFilter =
   | "all"
+  | "not_enrolled"
   | "mission_incomplete"
   | "mission_complete_certificate_pending"
   | "issued";
@@ -92,6 +94,8 @@ function matchesProgressFilter(
   if (filter === "all") return true;
   if (filter === "issued") return student.hasCertificate;
   if (student.hasCertificate) return false;
+  if (filter === "not_enrolled") return !student.isEnrolled;
+  if (!student.isEnrolled) return false;
 
   const missionsCompleted = hasCompletedAllMissions(student);
 
@@ -260,6 +264,7 @@ export default function TrackingModal({
   const progressCounts = useMemo(() => {
     const counts = {
       all: data?.students.length ?? 0,
+      notEnrolled: 0,
       missionIncomplete: 0,
       missionCompleteCertificatePending: 0,
       issued: 0,
@@ -268,6 +273,8 @@ export default function TrackingModal({
     data?.students.forEach((student) => {
       if (student.hasCertificate) {
         counts.issued += 1;
+      } else if (!student.isEnrolled) {
+        counts.notEnrolled += 1;
       } else if (hasCompletedAllMissions(student)) {
         counts.missionCompleteCertificatePending += 1;
       } else {
@@ -431,7 +438,7 @@ export default function TrackingModal({
                     <div id="progress-status-filters">
                       <div
                         aria-label="กรองนักเรียนตามความก้าวหน้าและเกียรติบัตร"
-                        className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4"
+                        className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5"
                         role="tablist"
                       >
                         {[
@@ -442,6 +449,14 @@ export default function TrackingModal({
                             value: progressCounts.all,
                             activeClass: "border-[#5d7c6f] bg-[#eef4f1]",
                             iconClass: "bg-[#e2ece7] text-[#5d7c6f]",
+                          },
+                          {
+                            key: "not_enrolled" as const,
+                            label: "ยังไม่ลงทะเบียน",
+                            helper: "ยังไม่ได้เข้าร่วมค่าย",
+                            value: progressCounts.notEnrolled,
+                            activeClass: "border-slate-400 bg-slate-50",
+                            iconClass: "bg-slate-100 text-slate-600",
                           },
                           {
                             key: "mission_incomplete" as const,
@@ -556,6 +571,8 @@ export default function TrackingModal({
                   ? "ไม่พบนักเรียนที่ตรงกับคำค้นหาในสถานะนี้"
                   : progressFilter === "issued"
                     ? "ยังไม่มีนักเรียนที่ได้รับเกียรติบัตร"
+                    : progressFilter === "not_enrolled"
+                      ? "นักเรียนในรายชื่อนี้ลงทะเบียนครบแล้ว"
                     : progressFilter === "mission_incomplete"
                       ? "ไม่มีนักเรียนที่ภารกิจยังไม่ครบและยังไม่ได้รับเกียรติบัตร"
                       : progressFilter ===
@@ -641,6 +658,11 @@ export default function TrackingModal({
                             <Trophy size={14} />
                             <span>ได้รับเกียรติบัตรแล้ว</span>
                           </div>
+                          {!hasCompletedAllMissions(student) && (
+                            <p className="mt-1 text-[11px] text-gray-500 sm:text-right">
+                              ออกเกียรติบัตรแล้ว แม้ภารกิจปัจจุบันยังไม่ครบ
+                            </p>
+                          )}
                           {(student.certificateNo != null ||
                             student.certificateIssuedAt) && (
                             <p className="mt-1 text-[11px] text-gray-400 sm:text-right">
@@ -659,6 +681,11 @@ export default function TrackingModal({
                                 })}
                             </p>
                           )}
+                        </div>
+                      ) : !student.isEnrolled ? (
+                        <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+                          <Clock size={14} />
+                          <span>ยังไม่ลงทะเบียน</span>
                         </div>
                       ) : hasCompletedAllMissions(student) ? (
                         <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
