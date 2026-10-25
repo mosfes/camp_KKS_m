@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
 import { requireTeacher } from "@/lib/auth";
-import { getBangkokDateAsUtcMidnight } from "@/lib/bangkok-date";
+import { getBangkokDateAsUtcMidnight, isBangkokDateBefore } from "@/lib/bangkok-date";
+import { isCampScheduleInRange } from "@/lib/camp-schedule-range";
 
 /**
  *
@@ -73,6 +74,20 @@ export async function POST(req) {
       }
     }
 
+    if (
+      !Array.isArray(body.dailySchedule) ||
+      !isCampScheduleInRange(
+        body.dailySchedule,
+        body.campStartDate,
+        body.campEndDate,
+      )
+    ) {
+      return NextResponse.json(
+        { error: "กำหนดการต้องอยู่ภายในช่วงวันจัดค่ายและไม่ซ้ำวัน" },
+        { status: 400 },
+      );
+    }
+
     // สร้าง camp
     const newCamp = await prisma.camp.create({
       data: {
@@ -126,7 +141,9 @@ export async function POST(req) {
           ? destination.longitude
           : null,
         location_sharing_enabled: Boolean(
-          body.locationTrackingEnabled && hasValidDestination,
+          body.locationTrackingEnabled &&
+            hasValidDestination &&
+            !isBangkokDateBefore(body.campEndDate),
         ),
         has_transport: Boolean(
           body.hasTransport || body.locationTrackingEnabled,

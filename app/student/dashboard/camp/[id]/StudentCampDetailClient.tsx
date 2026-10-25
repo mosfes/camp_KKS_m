@@ -233,6 +233,13 @@ function CertificateActionSection({
         ดาวน์โหลดเกียรติบัตร
       </Button>
 
+      {hasIssuedCertificate &&
+        (!missionRequirementMet || !surveyRequirementMet) && (
+          <p className="text-center text-[11px] text-slate-500">
+            เกียรติบัตรออกให้แล้ว จึงดาวน์โหลดได้แม้เงื่อนไขปัจจุบันเปลี่ยนไป
+          </p>
+        )}
+
       {!canDownload && (
         <p className="flex items-center justify-center gap-1 text-center text-[11px] font-medium text-gray-400">
           <Lock size={11} /> ทำเงื่อนไขด้านบนให้ครบก่อนดาวน์โหลด
@@ -798,7 +805,21 @@ export default function StudentCampDetailPage({
       (acc: number, s: any) => acc + (s.mission?.length || 0),
       0,
     ) || 0;
-  const completedMissions = 0;
+  const completedMissions =
+    camp.station?.reduce(
+      (total: number, station: any) =>
+        total +
+        (station.mission?.filter(
+          (mission: any) => mission.status === "completed",
+        ).length || 0),
+      0,
+    ) || 0;
+  const completedStations =
+    camp.station?.filter(
+      (station: any) =>
+        station.mission?.length > 0 &&
+        station.mission.every((mission: any) => mission.status === "completed"),
+    ).length || 0;
 
   const daysLeftToReserve = getDaysRemaining(camp.endShirtDate);
   const shirtPeriodActive = isInShirtPeriod(
@@ -994,7 +1015,7 @@ export default function StudentCampDetailPage({
                             กำหนดการค่าย
                           </p>
                           <p className="text-xs text-gray-500 font-medium">
-                            {camp.camp_daily_schedule.length} วัน ·
+                            บันทึกไว้ {camp.camp_daily_schedule.length} วัน ·
                             กดเพื่อดูตารางเวลา
                           </p>
                         </div>
@@ -1023,7 +1044,9 @@ export default function StudentCampDetailPage({
                           ผังรถและที่นั่งของฉัน
                         </p>
                         <p className="text-xs text-gray-500 font-medium">
-                          ตรวจสอบรถ ตำแหน่งที่นั่ง และยืนยันขึ้นรถ
+                          {camp.isEnded
+                            ? "ดูข้อมูลรถและที่นั่งย้อนหลัง"
+                            : "ตรวจสอบรถ ตำแหน่งที่นั่ง และยืนยันขึ้นรถ"}
                         </p>
                       </div>
                     </div>
@@ -1052,7 +1075,7 @@ export default function StudentCampDetailPage({
                       <span>ฐานที่ทำเสร็จ</span>
                     </div>
                     <span className="font-bold text-sm text-[#5d7c6f]">
-                      0/{camp.station?.length || 0}
+                      {completedStations}/{camp.station?.length || 0}
                     </span>
                   </div>
                   <div className="flex items-center justify-between p-4 bg-gray-50/80 rounded-2xl border border-gray-100">
@@ -1061,7 +1084,7 @@ export default function StudentCampDetailPage({
                       <span>ภารกิจทั้งหมด</span>
                     </div>
                     <span className="font-bold text-sm text-[#5d7c6f]">
-                      {completedMissions} สำเร็จ
+                      {completedMissions}/{totalMissions} สำเร็จ
                     </span>
                   </div>
                 </div>
@@ -1377,7 +1400,8 @@ export default function StudentCampDetailPage({
                         กำหนดการค่าย
                       </p>
                       <p className="text-xs text-gray-500">
-                        {camp.camp_daily_schedule.length} วัน · คลิกเพื่อดูตาราง
+                        บันทึกไว้ {camp.camp_daily_schedule.length} วัน ·
+                        คลิกเพื่อดูตาราง
                       </p>
                     </div>
                   </div>
@@ -1399,7 +1423,9 @@ export default function StudentCampDetailPage({
                       ผังรถและที่นั่ง
                     </p>
                     <p className="text-xs text-gray-500">
-                      ตรวจสอบรถ & ยืนยันขึ้นรถ
+                      {camp.isEnded
+                        ? "ดูข้อมูลรถและที่นั่งย้อนหลัง"
+                        : "ตรวจสอบรถ & ยืนยันขึ้นรถ"}
                     </p>
                   </div>
                 </div>
@@ -1673,6 +1699,11 @@ export default function StudentCampDetailPage({
 
             {/* Body */}
             <div className="overflow-y-auto px-6 py-4 space-y-4">
+              {camp.scheduleHasOutOfRangeDays && (
+                <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+                  กำหนดการบางวันไม่ตรงกับช่วงวันจัดค่าย กรุณาสอบถามผู้จัดค่าย
+                </p>
+              )}
               {camp.camp_daily_schedule.map((day: any, dayIdx: number) => {
                 const isToday = isCampScheduleDayToday(
                   camp.rawStartDate,
@@ -1733,8 +1764,9 @@ export default function StudentCampDetailPage({
                               <div className="mt-0.5 flex w-full flex-wrap items-center gap-1 text-[#5d7c6f] sm:w-auto sm:min-w-[110px] sm:flex-shrink-0">
                                 <Clock className="flex-shrink-0" size={13} />
                                 <span className="text-xs font-mono font-semibold">
-                                  {slot.startTime?.slice(0, 5)} –{" "}
-                                  {slot.endTime?.slice(0, 5)}
+                                  {slot.startTime && slot.endTime
+                                    ? `${slot.startTime.slice(0, 5)} – ${slot.endTime.slice(0, 5)}`
+                                    : "ยังไม่ระบุเวลา"}
                                 </span>
                                 {isCurrent && (
                                   <span className="flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white md:hidden">
@@ -1745,7 +1777,7 @@ export default function StudentCampDetailPage({
                               </div>
                               <div className="min-w-0 flex-1 md:flex md:items-center md:gap-2">
                                 <p className="text-sm leading-relaxed text-gray-700">
-                                  {slot.activity}
+                                  {slot.activity || "ยังไม่ระบุกิจกรรม"}
                                 </p>
                                 {isCurrent && (
                                   <span className="hidden items-center gap-1 whitespace-nowrap rounded-full bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white md:inline-flex">
