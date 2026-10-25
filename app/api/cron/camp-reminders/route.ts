@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { runCampReminderJob } from "@/lib/camp-reminders";
+import { clearEndedCampLocations } from "@/lib/ended-camp-location-cleanup";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,9 +19,10 @@ export async function GET(request: Request) {
   }
 
   try {
+    const locationCleanup = await clearEndedCampLocations();
     const summary = await runCampReminderJob();
 
-    return NextResponse.json({ ok: true, ...summary });
+    return NextResponse.json({ ok: true, ...summary, locationCleanup });
   } catch (error) {
     // Keep the failure visible in Vercel runtime logs for operations.
     // eslint-disable-next-line no-console

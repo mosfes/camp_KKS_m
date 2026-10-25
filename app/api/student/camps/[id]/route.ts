@@ -8,6 +8,7 @@ import { getBangkokDateKey, isBangkokDateBefore } from "@/lib/bangkok-date";
 import { getCertificateEligibility } from "@/lib/certificate-eligibility";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 import { resolveStudentCampId } from "@/lib/student-public-route";
+import { isCampScheduleDayInRange } from "@/lib/camp-schedule-range";
 
 /**
  * Camp detail endpoint.
@@ -214,6 +215,9 @@ export async function GET(request, context) {
       (sum, item) => sum + (item.classroom?._count?.classroom_students || 0),
       0,
     );
+    const visibleSchedule = camp.camp_daily_schedule.filter((schedule) =>
+      isCampScheduleDayInRange(schedule.day, camp.start_date, camp.end_date),
+    );
 
     return NextResponse.json(
       {
@@ -267,7 +271,9 @@ export async function GET(request, context) {
         totalEnrolled,
         academicYear:
           camp.camp_classroom[0]?.classroom?.academic_years_years_id ?? null,
-        camp_daily_schedule: camp.camp_daily_schedule.map((schedule) => ({
+        scheduleHasOutOfRangeDays:
+          visibleSchedule.length !== camp.camp_daily_schedule.length,
+        camp_daily_schedule: visibleSchedule.map((schedule) => ({
           daily_schedule_id: schedule.daily_schedule_id,
           day: schedule.day,
           time_slots: (schedule.time_slots || []).map((slot) => ({

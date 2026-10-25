@@ -29,7 +29,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://res.cloudinary.com https://img.clerk.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  `connect-src 'self' data: blob: ${clerkFrontendApi} https://*.protect.clerk.com:* https://clerk-telemetry.com https://*.clerk-telemetry.com https://api.cloudinary.com https://*.googleapis.com https://*.gstatic.com https://*.google.com${developmentConnections}`,
+  `connect-src 'self' data: blob: ${clerkFrontendApi} https://*.protect.clerk.com:* https://clerk-telemetry.com https://*.clerk-telemetry.com https://api.cloudinary.com https://res.cloudinary.com https://*.googleapis.com https://*.gstatic.com https://*.google.com${developmentConnections}`,
   "frame-src 'self' https://challenges.cloudflare.com https://*.protect.clerk.com https://www.youtube.com https://player.vimeo.com https://drive.google.com https://*.google.com",
   "worker-src 'self' blob:",
   "media-src 'self' blob: https://res.cloudinary.com",

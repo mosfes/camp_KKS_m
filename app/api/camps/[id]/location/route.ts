@@ -7,7 +7,7 @@ import {
 } from "@/lib/camp-location-auth";
 import { prisma } from "@/lib/db";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
-import { getBangkokDateKey } from "@/lib/bangkok-date";
+import { getBangkokDateKey, isBangkokDateBefore } from "@/lib/bangkok-date";
 import { getParentSession } from "@/lib/parent-auth";
 import { resolveParentStudent } from "@/lib/parent-student-access";
 
@@ -133,12 +133,32 @@ export async function GET(
       destination_longitude: true,
       location_sharing_enabled: true,
       location_update_interval: true,
+      end_date: true,
     },
   });
 
   if (!camp) {
     return NextResponse.json({ error: "ไม่พบค่าย" }, { status: 404 });
   }
+
+  const isEnded = isBangkokDateBefore(camp.end_date);
+  if (isEnded) {
+    // A finished camp must not retain or resume student location tracking.
+    await prisma.$transaction([
+      prisma.camp.updateMany({
+        where: { camp_id: campId, location_sharing_enabled: true },
+        data: { location_sharing_enabled: false },
+      }),
+      prisma.student_enrollment.updateMany({
+        where: { camp_camp_id: campId, location_sharing_enabled: true },
+        data: { location_sharing_enabled: false },
+      }),
+      prisma.student_location_update.deleteMany({
+        where: { camp_camp_id: campId },
+      }),
+    ]);
+  }
+  const sharingEnabled = !isEnded && camp.location_sharing_enabled;
 
   let students: Array<{
     studentId: number;
@@ -207,7 +227,7 @@ export async function GET(
         location_consent_notice_version,
       }) => {
         const hasValidConsent =
-          location_sharing_enabled &&
+          !isEnded && location_sharing_enabled &&
           location_consent_at != null &&
           location_consent_notice_version === LOCATION_NOTICE_VERSION;
         const latest = student.student_location_update[0] ?? null;
@@ -220,7 +240,7 @@ export async function GET(
           initials: `${student.firstname.charAt(0)}${student.lastname.charAt(0)}`,
           sharingEnabled: hasValidConsent,
           latest:
-            camp.location_sharing_enabled &&
+            sharingEnabled &&
             hasValidConsent &&
             latest &&
             latest.recorded_at >= location_consent_at
@@ -246,7 +266,7 @@ export async function GET(
     });
 
     studentSharingEnabled = Boolean(
-      enrollment?.location_sharing_enabled &&
+      !isEnded && enrollment?.location_sharing_enabled &&
         enrollment.location_consent_at &&
         enrollment.location_consent_notice_version === LOCATION_NOTICE_VERSION,
     );
@@ -268,7 +288,7 @@ export async function GET(
     if (student) {
       requiresGuardianConsent = isUnderTen(student.birthday);
 
-      if (camp.location_sharing_enabled && studentSharingEnabled) {
+      if (sharingEnabled && studentSharingEnabled) {
         viewerPath = await prisma.student_location_update.findMany({
           where: {
             camp_camp_id: campId,
@@ -313,7 +333,8 @@ export async function GET(
               longitude: camp.destination_longitude,
             }
           : null,
-      sharingEnabled: camp.location_sharing_enabled,
+      sharingEnabled,
+      isEnded,
       studentSharingEnabled,
       updateIntervalMinutes: [5, 10].includes(camp.location_update_interval)
         ? camp.location_update_interval
@@ -327,7 +348,7 @@ export async function GET(
           (viewer.kind === "student" &&
             access.canSubmitStudentLocation &&
             !requiresGuardianConsent) ||
-          (viewer.kind === "parent" && hasActiveEnrollment),
+          (viewer.kind === "parent" && hasActiveEnrollment && !isEnded),
       },
       privacy: {
         noticeVersion: LOCATION_NOTICE_VERSION,
@@ -364,6 +385,12 @@ export async function PUT(
 
   try {
     const body = settingsSchema.parse(await request.json());
+    if (body.sharingEnabled === true && auth.access.isEnded) {
+      return NextResponse.json(
+        { error: "ค่ายสิ้นสุดแล้ว ไม่สามารถเปิดติดตามตำแหน่งได้" },
+        { status: 409 },
+      );
+    }
     const existing = await prisma.camp.findUnique({
       where: { camp_id: auth.campId },
       select: { destination_latitude: true, destination_longitude: true },
@@ -443,10 +470,7 @@ export async function PATCH(
   const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
-  if (
-    (auth.viewer.kind === "student" && !auth.access.canSubmitStudentLocation) ||
-    auth.viewer.kind === "teacher"
-  ) {
+  if (auth.viewer.kind === "teacher") {
     return NextResponse.json(
       { error: "ไม่มีสิทธิ์ตั้งค่าการแชร์ตำแหน่งของนักเรียน" },
       { status: 403 },
@@ -457,6 +481,12 @@ export async function PATCH(
 
   try {
     const body = studentSharingSchema.parse(await request.json());
+    if (body.enabled && auth.access.isEnded) {
+      return NextResponse.json(
+        { error: "ค่ายสิ้นสุดแล้ว ไม่สามารถเปิดแชร์ตำแหน่งได้" },
+        { status: 409 },
+      );
+    }
     const enrollment = await prisma.student_enrollment.findUnique({
       where: {
         student_students_id_camp_camp_id: {
@@ -549,6 +579,12 @@ export async function POST(
   const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
+  if (auth.access.isEnded) {
+    return NextResponse.json(
+      { error: "ค่ายสิ้นสุดแล้ว ไม่สามารถส่งตำแหน่งได้" },
+      { status: 409 },
+    );
+  }
   if (auth.viewer.kind !== "student" || !auth.access.canSubmitStudentLocation) {
     return NextResponse.json(
       { error: "เฉพาะนักเรียนที่ลงทะเบียนค่ายเท่านั้นที่ส่งตำแหน่งได้" },

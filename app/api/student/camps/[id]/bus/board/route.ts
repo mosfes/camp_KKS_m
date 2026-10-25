@@ -6,6 +6,7 @@ import { requireStudent } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { studentCampBusAssignmentWhere } from "@/lib/student-bus-assignment";
 import { resolveStudentCampId } from "@/lib/student-public-route";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 
 export async function POST(request: Request, context: any) {
   const { student, error: authError } = await requireStudent();
@@ -31,7 +32,14 @@ export async function POST(request: Request, context: any) {
           status: true,
           participation_status: true,
           position: { select: { label: true } },
-          bus: { select: { bus_id: true, status: true, name: true } },
+          bus: {
+            select: {
+              bus_id: true,
+              status: true,
+              name: true,
+              camp: { select: { end_date: true } },
+            },
+          },
         },
       });
 
@@ -39,6 +47,13 @@ export async function POST(request: Request, context: any) {
         return {
           error: "ยังไม่มีรถหรือที่นั่งที่จัดให้คุณในค่ายนี้",
           status: 404,
+        };
+      }
+
+      if (isBangkokDateBefore(assignment.bus.camp.end_date)) {
+        return {
+          error: "ค่ายสิ้นสุดแล้ว ไม่สามารถยืนยันขึ้นรถได้",
+          status: 409,
         };
       }
 

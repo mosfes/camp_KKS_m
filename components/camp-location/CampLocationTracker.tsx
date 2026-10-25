@@ -65,6 +65,7 @@ interface StudentLocation {
 }
 
 export interface TrackerData {
+  isEnded?: boolean;
   destination: Destination | null;
   sharingEnabled: boolean;
   studentSharingEnabled: boolean;
@@ -1117,7 +1118,9 @@ export default function CampLocationTracker({
               {savingStudentSharing
                 ? "กำลังบันทึก..."
                 : !data.sharingEnabled
-                  ? "ครูยังไม่เปิดการแชร์"
+                  ? data.isEnded
+                    ? "ค่ายสิ้นสุดแล้ว หยุดแชร์ตำแหน่ง"
+                    : "ครูยังไม่เปิดการแชร์"
                   : data.studentSharingEnabled
                     ? "กำลังแชร์ตำแหน่ง"
                     : "ปิดแชร์ตำแหน่ง"}
@@ -1794,7 +1797,9 @@ export default function CampLocationTracker({
                 : data.studentSharingEnabled
                   ? "กำลังรอสิทธิ์ GPS หรือยังไม่ได้รับตำแหน่งจากอุปกรณ์นี้"
                   : "คุณปิดการแชร์ตำแหน่งอยู่ ระบบจะไม่ส่ง GPS"
-              : "ครูยังไม่ได้เปิดการติดตามตำแหน่ง นักเรียนจะยังไม่ส่ง GPS"}
+              : data.isEnded
+                ? "ค่ายสิ้นสุดแล้ว ระบบหยุดส่งและลบตำแหน่งของค่ายนี้"
+                : "ครูยังไม่ได้เปิดการติดตามตำแหน่ง นักเรียนจะยังไม่ส่ง GPS"}
           </div>
         )}
 
