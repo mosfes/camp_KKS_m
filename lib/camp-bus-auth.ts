@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 
 export type CampBusPermissionAction =
   | "view"
@@ -25,6 +26,7 @@ export async function requireCampBusPermission(
     select: {
       camp_id: true,
       created_by_teacher_id: true,
+      end_date: true,
       camp_classroom: {
         select: {
           classroom_classroom_id: true,
@@ -130,6 +132,20 @@ export async function requireCampBusPermission(
         ),
       };
     }
+  }
+
+  if (
+    isBangkokDateBefore(camp.end_date) &&
+    (action === "configure" || action === "manage-teachers")
+  ) {
+    return {
+      teacher: null,
+      camp: null,
+      error: NextResponse.json(
+        { error: "ค่ายสิ้นสุดแล้ว ไม่สามารถแก้ไขข้อมูลรถได้" },
+        { status: 409 },
+      ),
+    };
   }
 
   return {
