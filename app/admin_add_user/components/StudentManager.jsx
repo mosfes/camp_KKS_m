@@ -1,6 +1,9 @@
 "use client";
 import { useStatusModal } from "@/components/StatusModalProvider";
 import { getBangkokDateKey } from "@/lib/bangkok-date";
+import { CalendarOnlyDatePicker } from "@/components/CalendarOnlyDateFields";
+import { parseCalendarDate } from "@/lib/calendar-date";
+import { today } from "@internationalized/date";
 import {
     Card,
     CardBody,
@@ -86,7 +89,7 @@ function StudentLoadingTable() {
 }
 
 const StudentManager = () => {
-    const { showSuccess, showError, showConfirm } = useStatusModal();
+    const { showSuccess, showError, showWarning, showConfirm } = useStatusModal();
     const { isOpen, onOpen, onOpenChange } = useDisclosure();
     const router = useRouter();
     const [students, setStudents] = useState([]);
@@ -94,6 +97,7 @@ const StudentManager = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [studentIdError, setStudentIdError] = useState("");
     const submitInFlightRef = useRef(false);
     const [showTrash, setShowTrash] = useState(false);
 
@@ -169,8 +173,7 @@ const StudentManager = () => {
         birthday: ""
     });
 
-    const handleBirthdayChange = (e) => {
-        const newBirthday = e.target.value;
+    const handleBirthdayChange = (newBirthday) => {
         let newFormData = { ...formData, birthday: newBirthday };
 
         if (newBirthday) {
@@ -293,6 +296,7 @@ const StudentManager = () => {
     };
 
     const handleChange = (e) => {
+        if (e.target.name === "students_id") setStudentIdError("");
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
@@ -309,6 +313,7 @@ const StudentManager = () => {
 
     const openAddModal = () => {
         setIsEditing(false);
+        setStudentIdError("");
         setFormData({ students_id: "", prefix_name: "", firstname: "", lastname: "", email: "", tel: "", classroom_id: "", birthday: "" });
 
         if (years.length > 0) {
@@ -323,6 +328,7 @@ const StudentManager = () => {
 
     const handleEdit = (student) => {
         setIsEditing(true);
+        setStudentIdError("");
         const currentClassroom = student.classroom_students && student.classroom_students.length > 0
             ? student.classroom_students.sort((a, b) => (b.classroom?.academic_years?.year || 0) - (a.classroom?.academic_years?.year || 0))[0].classroom
             : null;
@@ -391,8 +397,15 @@ const StudentManager = () => {
 
     const handleSubmit = async (onClose) => {
         if (submitInFlightRef.current) return;
-        if (!formData.students_id || !formData.firstname) {
-            showError("ข้อมูลไม่ครบ", "กรุณากรอกรหัสนักเรียนและชื่อ");
+        const studentId = String(formData.students_id ?? "").trim();
+
+        if (!studentId) {
+            setStudentIdError("กรุณากรอกรหัสนักเรียน");
+            showWarning("ข้อมูลไม่ครบ", "กรุณากรอกรหัสนักเรียนก่อนบันทึก");
+            return;
+        }
+        if (!formData.firstname?.trim()) {
+            showWarning("ข้อมูลไม่ครบ", "กรุณากรอกชื่อนักเรียน");
             return;
         }
 
@@ -411,7 +424,7 @@ const StudentManager = () => {
                 await studentService.updateStudent(formData);
                 showSuccess("สำเร็จ", "แก้ไขข้อมูลสำเร็จ!");
             } else {
-                await studentService.addStudent(formData);
+                await studentService.addStudent({ ...formData, students_id: studentId });
                 showSuccess("สำเร็จ", "เพิ่มนักเรียนสำเร็จ!");
             }
             setPage(1);
@@ -896,12 +909,17 @@ const StudentManager = () => {
                             <ModalBody className="gap-4">
                                 <div className="flex flex-col gap-1">
                                     <label className="text-sm font-medium text-gray-700">รหัสนักเรียน</label>
-                                    <Input name="students_id" value={formData.students_id} onChange={handleChange} isDisabled={isEditing} variant="bordered" radius="lg" placeholder="กรอกรหัสนักเรียน" classNames={{ inputWrapper: "bg-white" }} />
+                                    <Input name="students_id" value={formData.students_id} onChange={handleChange} isDisabled={isEditing} isRequired isInvalid={!!studentIdError} errorMessage={studentIdError} inputMode="numeric" variant="bordered" radius="lg" placeholder="กรอกรหัสนักเรียน" classNames={{ inputWrapper: "bg-white" }} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="flex flex-col gap-1">
                                         <label className="text-sm font-medium text-gray-700">วัน/เดือน/ปีเกิด</label>
-                                        <Input type="date" name="birthday" value={formData.birthday || ""} onChange={handleBirthdayChange} variant="bordered" radius="lg" classNames={{ inputWrapper: "bg-white" }} />
+                                        <CalendarOnlyDatePicker
+                                            aria-label="วัน/เดือน/ปีเกิด"
+                                            value={parseCalendarDate(formData.birthday)}
+                                            maxValue={today("Asia/Bangkok")}
+                                            onChange={(date) => handleBirthdayChange(date?.toString() || "")}
+                                        />
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-sm font-medium text-gray-700">คำนำหน้า</label>

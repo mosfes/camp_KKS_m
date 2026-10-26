@@ -236,7 +236,50 @@ export async function POST(req) {
       }
     }
 
-    const id = parseInt(body.students_id);
+    const rawId = String(body?.students_id ?? "").trim();
+
+    if (!rawId) {
+      return NextResponse.json(
+        { error: "กรุณากรอกรหัสนักเรียน" },
+        { status: 400 },
+      );
+    }
+
+    const id = Number(rawId);
+
+    if (!/^\d+$/.test(rawId) || !Number.isInteger(id) || id < 1 || id > 2147483647) {
+      return NextResponse.json(
+        { error: "รหัสนักเรียนต้องเป็นตัวเลขระหว่าง 1 ถึง 2147483647" },
+        { status: 400 },
+      );
+    }
+
+    if (typeof body.firstname !== "string" || !body.firstname.trim()) {
+      return NextResponse.json(
+        { error: "กรุณากรอกชื่อนักเรียน" },
+        { status: 400 },
+      );
+    }
+
+    const rawClassroomId = String(body.classroom_id ?? "").trim();
+    const classroomId = rawClassroomId ? Number(rawClassroomId) : null;
+    if (
+      rawClassroomId &&
+      (!/^\d+$/.test(rawClassroomId) || !Number.isInteger(classroomId) || classroomId < 1)
+    ) {
+      return NextResponse.json(
+        { error: "รหัสห้องเรียนไม่ถูกต้อง" },
+        { status: 400 },
+      );
+    }
+
+    const birthday = body.birthday ? new Date(body.birthday) : null;
+    if (birthday && Number.isNaN(birthday.getTime())) {
+      return NextResponse.json(
+        { error: "วันเกิดไม่ถูกต้อง" },
+        { status: 400 },
+      );
+    }
 
     const existing = await prisma.students.findUnique({
       where: { students_id: id },
@@ -275,31 +318,31 @@ export async function POST(req) {
               prefix_name: body.prefix_name || null,
               firstname: body.firstname,
               lastname: body.lastname,
-              birthday: body.birthday ? new Date(body.birthday) : null,
-              email: body.email,
-              tel: body.tel,
+              birthday,
+              email: body.email || "",
+              tel: body.tel || "",
               deletedAt: null, // กู้คืนออกจากถังขยะ
             },
           });
 
-          if (body.classroom_id) {
+          if (classroomId) {
             // เช็คว่ามีอยู่ในห้องนั้นแล้วหรือเปล่า (กันซ้ำ)
             const alreadyInRoom = await prisma.classroom_students.findFirst({
               where: {
                 student_students_id: id,
-                classroom_classroom_id: parseInt(body.classroom_id),
+                classroom_classroom_id: classroomId,
               },
             });
 
             if (!alreadyInRoom) {
               const academicYear = await getClassroomYear(
                 prisma,
-                body.classroom_id,
+                classroomId,
               );
               await prisma.classroom_students.create({
                 data: {
                   student_students_id: id,
-                  classroom_classroom_id: parseInt(body.classroom_id),
+                  classroom_classroom_id: classroomId,
                   academic_year: academicYear,
                 },
               });
@@ -307,7 +350,7 @@ export async function POST(req) {
           }
 
           return restored;
-        });
+        }, { timeout: 30000 });
 
         return NextResponse.json(result, { status: 201 });
       }
@@ -325,32 +368,43 @@ export async function POST(req) {
           prefix_name: body.prefix_name || null,
           firstname: body.firstname,
           lastname: body.lastname,
-          birthday: body.birthday ? new Date(body.birthday) : null,
-          email: body.email,
-          tel: body.tel,
+          birthday,
+          email: body.email || "",
+          tel: body.tel || "",
         },
       });
 
-      if (body.classroom_id) {
-        const academicYear = await getClassroomYear(prisma, body.classroom_id);
+      if (classroomId) {
+        const academicYear = await getClassroomYear(prisma, classroomId);
         await prisma.classroom_students.create({
           data: {
             student_students_id: id,
-            classroom_classroom_id: parseInt(body.classroom_id),
+            classroom_classroom_id: classroomId,
             academic_year: academicYear,
           },
         });
       }
 
       return newStudent;
-    });
+    }, { timeout: 30000 });
 
     return NextResponse.json(result, { status: 201 });
-  } catch {
-    //     console.error("Error:", error);
+  } catch (error) {
+    console.error("Error adding student:", error);
+
+    if (error.message === "ไม่พบห้องเรียนที่เลือก") {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (error.code === "P2002") {
+      return NextResponse.json(
+        { error: "ข้อมูลนักเรียนหรือการจัดห้องเรียนซ้ำกับข้อมูลที่มีอยู่" },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json(
-      { _error: "Failed to add student" },
+      { error: "ระบบไม่สามารถเพิ่มนักเรียนได้ในขณะนี้ กรุณาลองอีกครั้ง" },
       { status: 500 },
     );
   }

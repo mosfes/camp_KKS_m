@@ -1,10 +1,12 @@
 "use client";
 
-import type { CalendarDate } from "@internationalized/date";
-import { DateRangePicker, type DateRangePickerProps } from "@heroui/date-picker";
+import {
+  CalendarOnlyDateRangePicker,
+  type CalendarOnlyDateRangePickerProps,
+} from "@/components/CalendarOnlyDateFields";
 
 export default function DocumentDateRangePicker(
-  props: DateRangePickerProps<CalendarDate>,
+  props: CalendarOnlyDateRangePickerProps,
 ) {
-  return <DateRangePicker {...props} />;
+  return <CalendarOnlyDateRangePicker {...props} />;
 }

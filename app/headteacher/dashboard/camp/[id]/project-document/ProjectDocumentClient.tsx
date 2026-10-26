@@ -15,6 +15,10 @@ import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
 import DeferredDateRangePicker from "@/components/documents/DeferredDateRangePicker";
+import {
+  formatDocumentDuration,
+  parseDocumentDuration,
+} from "@/lib/calendar-date";
 import DocumentPersonnelPicker from "@/components/documents/DocumentPersonnelPicker";
 import { useDocumentAutoSave } from "@/components/documents/useDocumentAutoSave";
 import {
@@ -1248,13 +1252,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
                       showMonthAndYearPickers
                       aria-label={`ระยะเวลาขั้นตอนที่ ${index + 1}`}
                       className="w-full"
-                      classNames={{
-                        inputWrapper:
-                          "min-h-11 rounded-xl border border-gray-200 bg-white shadow-none data-[hover=true]:bg-white",
-                        popoverContent: "rounded-xl border border-gray-200 bg-white shadow-lg",
-                      }}
                       value={parseProcedurePeriod(row.period)}
-                      variant="bordered"
                       onChange={(range) =>
                         update(
                           "procedures",
@@ -1367,14 +1365,19 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
 
         <Section number="5" title="ระยะเวลาในการดำเนินการ">
           <Field label="ระยะเวลาดำเนินการ">
-            <input
-              className={inputClass}
-              value={document.duration_text || ""}
-              onChange={(event) =>
-                update("duration_text", event.target.value)
+            <DeferredDateRangePicker
+              aria-label="ระยะเวลาดำเนินการ"
+              value={parseDocumentDuration(document.duration_text)}
+              onChange={(range) =>
+                update("duration_text", range ? formatDocumentDuration(range) : "")
               }
             />
           </Field>
+          {document.duration_text && !parseDocumentDuration(document.duration_text) && (
+            <p className="mt-2 text-xs text-gray-500">
+              ข้อความเดิม: {document.duration_text} — กรุณาเลือกช่วงวันที่จากปฏิทินเพื่อแก้ไข
+            </p>
+          )}
         </Section>
 
         <Section number="6" title="สถานที่ดำเนินงาน">

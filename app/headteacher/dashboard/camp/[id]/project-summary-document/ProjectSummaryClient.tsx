@@ -24,6 +24,7 @@ import { useParams } from "next/navigation";
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
+import DeferredDateRangePicker from "@/components/documents/DeferredDateRangePicker";
 import DocumentPersonnelPicker from "@/components/documents/DocumentPersonnelPicker";
 import { useDocumentAutoSave } from "@/components/documents/useDocumentAutoSave";
 import {
@@ -37,6 +38,10 @@ import {
 import DocumentTemplatePanel from "@/components/documents/DocumentTemplatePanel";
 import { useStatusModal } from "@/components/StatusModalProvider";
 import { normalizeProjectSummaryStandards } from "@/lib/project-summary-standards";
+import {
+  formatDocumentDuration,
+  parseDocumentDuration,
+} from "@/lib/calendar-date";
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-800 outline-none transition focus:border-[#6b857a] focus:ring-2 focus:ring-[#6b857a]/15 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500";
@@ -1721,13 +1726,20 @@ export default function ProjectSummaryDocumentPage({
         </Section>
 
         <Section number="7" title="ระยะเวลาในการดำเนินการ">
-          <input
-            className={inputClass}
-            disabled={readOnly}
-            placeholder="เช่น ระหว่างวันที่ 20 กุมภาพันธ์ 2569 ถึง 21 กุมภาพันธ์ 2569"
-            value={document.duration_text || ""}
-            onChange={(event) => update("duration_text", event.target.value)}
+          <DeferredDateRangePicker
+            aria-label="ระยะเวลาในการดำเนินการ"
+            isDisabled={readOnly}
+            value={parseDocumentDuration(document.duration_text)}
+            onChange={(range) =>
+              update("duration_text", range ? formatDocumentDuration(range) : "")
+            }
           />
+          {document.duration_text && !parseDocumentDuration(document.duration_text) && (
+            <p className="mt-2 text-xs text-gray-500">
+              ข้อความเดิม: {document.duration_text}
+              {!readOnly && " — กรุณาเลือกช่วงวันที่จากปฏิทินเพื่อแก้ไข"}
+            </p>
+          )}
         </Section>
 
         <Section number="8" title="สถานที่ดำเนินงาน">

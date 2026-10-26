@@ -20,7 +20,7 @@ export function getShirtReservationDateError(
 ): string {
   if (!startDate || !endDate) return "กรุณาเลือกช่วงเวลาจองเสื้อให้ครบ";
   if (!isCompleteCampDate(startDate) || !isCompleteCampDate(endDate)) {
-    return "กรุณากรอกวันที่ให้ถูกต้อง และปี ค.ศ. ให้ครบ 4 หลัก";
+    return "กรุณาเลือกวันที่ให้ถูกต้อง";
   }
   if (startDate > endDate) {
     return "วันสิ้นสุดจองเสื้อ ต้องไม่ก่อน วันเริ่มจองเสื้อ";

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireTeacher } from "@/lib/auth";
 import { getBangkokDateAsUtcMidnight, isBangkokDateBefore } from "@/lib/bangkok-date";
+import { isCompleteCampDate } from "@/lib/camp-form-date";
 import { isCampScheduleInRange } from "@/lib/camp-schedule-range";
 import { teacherCampAccessWhere } from "@/lib/teacher-camp-access";
 
@@ -67,12 +68,36 @@ export async function POST(req) {
     ];
 
     for (const d of requiredDates) {
-      if (!d.value || isNaN(new Date(d.value).getTime())) {
+      if (typeof d.value !== "string" || !isCompleteCampDate(d.value)) {
         return NextResponse.json(
           { error: `ข้อมูล ${d.name} ไม่ถูกต้อง หรือยังไม่ได้ระบุ` },
           { status: 400 },
         );
       }
+    }
+
+    if (
+      body.registrationStartDate > body.registrationEndDate ||
+      body.registrationEndDate > body.campStartDate ||
+      body.campStartDate > body.campEndDate
+    ) {
+      return NextResponse.json(
+        { error: "กรุณาตรวจสอบลำดับช่วงเวลารับสมัครและวันจัดค่าย" },
+        { status: 400 },
+      );
+    }
+
+    if (
+      body.hasShirt &&
+      (!isCompleteCampDate(body.shirtStartDate) ||
+        !isCompleteCampDate(body.shirtEndDate) ||
+        body.shirtStartDate > body.shirtEndDate ||
+        body.shirtEndDate >= body.campStartDate)
+    ) {
+      return NextResponse.json(
+        { error: "กรุณาตรวจสอบช่วงเวลาจองเสื้อ" },
+        { status: 400 },
+      );
     }
 
     if (

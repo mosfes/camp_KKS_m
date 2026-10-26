@@ -37,8 +37,14 @@ const addStudent = async (studentData) => {
     });
     
     if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || 'Failed to add student');
+      const errorData = await res.json().catch(() => null);
+      throw new Error(
+        errorData?.error ||
+        errorData?._error ||
+        (res.status >= 500
+          ? 'ระบบไม่สามารถเพิ่มนักเรียนได้ในขณะนี้ กรุณาลองอีกครั้ง'
+          : 'ไม่สามารถเพิ่มนักเรียนได้ กรุณาตรวจสอบข้อมูลอีกครั้ง')
+      );
     }
     
     return await res.json();
