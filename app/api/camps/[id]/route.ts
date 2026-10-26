@@ -6,6 +6,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireTeacher } from "@/lib/auth";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
+import { isCampScheduleInRange } from "@/lib/camp-schedule-range";
+import { teacherCampAccessWhere } from "@/lib/teacher-camp-access";
 
 // Define the schema for camp validation
 const campSchema = z
@@ -81,6 +84,22 @@ export async function GET(request, context) {
     const params = await context.params;
     const campId = Number(params.id);
     const view = new URL(request.url).searchParams.get("view");
+
+    if (!Number.isSafeInteger(campId) || campId <= 0) {
+      return NextResponse.json({ error: "Invalid camp id" }, { status: 400 });
+    }
+
+    const accessibleCamp = await prisma.camp.findFirst({
+      where: {
+        camp_id: campId,
+        ...teacherCampAccessWhere(teacher.teachers_id, teacher.role),
+      },
+      select: { camp_id: true },
+    });
+
+    if (!accessibleCamp) {
+      return NextResponse.json({ error: "Camp not found" }, { status: 404 });
+    }
 
     if (view === "bases") {
       const camp = await prisma.camp.findFirst({
@@ -503,7 +522,12 @@ export async function PUT(request, context) {
   // เช็ค ownership
   const existing = await prisma.camp.findFirst({
     where: { camp_id: campId, deletedAt: null },
-    select: { created_by_teacher_id: true },
+    select: {
+      created_by_teacher_id: true,
+      start_date: true,
+      end_date: true,
+      camp_daily_schedule: { select: { day: true } },
+    },
   });
 
   if (!existing)
@@ -523,6 +547,24 @@ export async function PUT(request, context) {
 
     // Validate payload structure using Zod
     const body = campSchema.parse(rawBody);
+
+    const startDate = body.start_date || existing.start_date;
+    const endDate = body.end_date || existing.end_date;
+    if (
+      Number.isNaN(new Date(startDate).getTime()) ||
+      Number.isNaN(new Date(endDate).getTime()) ||
+      !isCampScheduleInRange(
+        body.dailySchedule ?? existing.camp_daily_schedule,
+        startDate,
+        endDate,
+      )
+    ) {
+      return NextResponse.json(
+        { error: "กำหนดการต้องอยู่ภายในช่วงวันจัดค่ายและไม่ซ้ำวัน" },
+        { status: 400 },
+      );
+    }
+    const isEnded = isBangkokDateBefore(endDate);
 
     if (body.location_sharing_enabled && !body.destination) {
       return NextResponse.json(
@@ -666,9 +708,11 @@ export async function PUT(request, context) {
         ...(body.cert_require_survey !== undefined && {
           cert_require_survey: body.cert_require_survey,
         }),
-        ...(body.location_sharing_enabled !== undefined && {
-          location_sharing_enabled: body.location_sharing_enabled,
-        }),
+        ...(isEnded
+          ? { location_sharing_enabled: false }
+          : body.location_sharing_enabled !== undefined
+            ? { location_sharing_enabled: body.location_sharing_enabled }
+            : {}),
         ...(body.has_transport !== undefined ||
         body.location_sharing_enabled === true
           ? {
@@ -683,7 +727,17 @@ export async function PUT(request, context) {
       },
     });
 
-    if (body.location_sharing_enabled === false || body.destination === null) {
+    if (
+      isEnded ||
+      body.location_sharing_enabled === false ||
+      body.destination === null
+    ) {
+      if (isEnded) {
+        await prisma.student_enrollment.updateMany({
+          where: { camp_camp_id: campId, location_sharing_enabled: true },
+          data: { location_sharing_enabled: false },
+        });
+      }
       await prisma.student_location_update.deleteMany({
         where: { camp_camp_id: campId },
       });

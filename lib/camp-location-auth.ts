@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 
 import { prisma } from "@/lib/db";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 import { getParentSession } from "@/lib/parent-auth";
 
 type Viewer =
@@ -53,7 +54,7 @@ export async function getCampLocationViewer(): Promise<Viewer | null> {
 export async function getCampLocationAccess(campId: number, viewer: Viewer) {
   const camp = await prisma.camp.findFirst({
     where: { camp_id: campId, deletedAt: null },
-    select: { created_by_teacher_id: true },
+    select: { created_by_teacher_id: true, end_date: true },
   });
 
   if (!camp)
@@ -62,7 +63,10 @@ export async function getCampLocationAccess(campId: number, viewer: Viewer) {
       canView: false,
       canConfigure: false,
       canSubmitStudentLocation: false,
+      isEnded: false,
     };
+
+  const isEnded = isBangkokDateBefore(camp.end_date);
 
   if (viewer.kind === "teacher") {
     const isAdmin = viewer.role === "ADMIN";
@@ -103,6 +107,7 @@ export async function getCampLocationAccess(campId: number, viewer: Viewer) {
       canView,
       canConfigure: isAdmin || isOwner,
       canSubmitStudentLocation: false,
+      isEnded,
     };
   }
 
@@ -136,7 +141,8 @@ export async function getCampLocationAccess(campId: number, viewer: Viewer) {
     canView: !!studentCamp,
     canConfigure: false,
     canSubmitStudentLocation:
-      viewer.kind === "student" && enrollment?.enrolled_at != null,
+      viewer.kind === "student" && !isEnded && enrollment?.enrolled_at != null,
+    isEnded,
   };
 }
 

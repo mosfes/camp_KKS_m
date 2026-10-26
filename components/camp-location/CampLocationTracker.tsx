@@ -65,6 +65,7 @@ interface StudentLocation {
 }
 
 export interface TrackerData {
+  isEnded?: boolean;
   destination: Destination | null;
   sharingEnabled: boolean;
   studentSharingEnabled: boolean;
@@ -1117,7 +1118,9 @@ export default function CampLocationTracker({
               {savingStudentSharing
                 ? "กำลังบันทึก..."
                 : !data.sharingEnabled
-                  ? "ครูยังไม่เปิดการแชร์"
+                  ? data.isEnded
+                    ? "ค่ายสิ้นสุดแล้ว หยุดแชร์ตำแหน่ง"
+                    : "ครูยังไม่เปิดการแชร์"
                   : data.studentSharingEnabled
                     ? "กำลังแชร์ตำแหน่ง"
                     : "ปิดแชร์ตำแหน่ง"}
@@ -1514,7 +1517,9 @@ export default function CampLocationTracker({
                     <Users size={17} /> สถานะตำแหน่งนักเรียน
                   </span>
                   <p className="mt-1 text-xs text-slate-500">
-                    ตำแหน่งจะอัปเดตเมื่อหน้าเว็บของนักเรียนเปิดอยู่
+                    {data.isEnded
+                      ? "ค่ายสิ้นสุดแล้ว ระบบหยุดรับและลบพิกัดของค่ายนี้"
+                      : "ตำแหน่งจะอัปเดตเมื่อหน้าเว็บของนักเรียนเปิดอยู่"}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
@@ -1635,8 +1640,10 @@ export default function CampLocationTracker({
                                     : "bg-slate-100 text-slate-500"
                               }`}
                             >
-                              {!student.sharingEnabled
-                                ? "นักเรียนปิดแชร์"
+                              {data.isEnded
+                                ? "ค่ายสิ้นสุดแล้ว"
+                                : !student.sharingEnabled
+                                  ? "นักเรียนปิดแชร์"
                                 : student.latest
                                   ? "แชร์ตำแหน่งแล้ว"
                                   : "ยังไม่แชร์ตำแหน่ง"}
@@ -1794,7 +1801,9 @@ export default function CampLocationTracker({
                 : data.studentSharingEnabled
                   ? "กำลังรอสิทธิ์ GPS หรือยังไม่ได้รับตำแหน่งจากอุปกรณ์นี้"
                   : "คุณปิดการแชร์ตำแหน่งอยู่ ระบบจะไม่ส่ง GPS"
-              : "ครูยังไม่ได้เปิดการติดตามตำแหน่ง นักเรียนจะยังไม่ส่ง GPS"}
+              : data.isEnded
+                ? "ค่ายสิ้นสุดแล้ว ระบบหยุดส่งและลบตำแหน่งของค่ายนี้"
+                : "ครูยังไม่ได้เปิดการติดตามตำแหน่ง นักเรียนจะยังไม่ส่ง GPS"}
           </div>
         )}
 

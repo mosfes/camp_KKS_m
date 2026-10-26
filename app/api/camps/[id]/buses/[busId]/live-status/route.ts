@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireCampBusPermission } from "@/lib/camp-bus-auth";
 import { formatStudentName } from "@/lib/student-display-name";
 import { activeCampBusStudentWhere } from "@/lib/active-camp-student";
+import { isBangkokDateBefore } from "@/lib/bangkok-date";
 
 export async function GET(_request: Request, context: any) {
   const { id, busId: rawBusId } = await context.params;
@@ -193,6 +194,7 @@ export async function GET(_request: Request, context: any) {
   return NextResponse.json(
     {
       busId: bus.bus_id,
+      isEnded: isBangkokDateBefore(permission.camp.end_date),
       status: bus.status,
       checkedInCount:
         assignmentStatuses.filter(
