@@ -23,11 +23,10 @@ import {
     ModalFooter,
     useDisclosure,
     Pagination,
-    DatePicker,
-    DateRangePicker,
     HeroUIProvider
 } from "@heroui/react";
-import { parseDate } from "@internationalized/date";
+import CampDateRangePicker from "@/components/CampDateRangePicker";
+import { isCompleteCampDate } from "@/lib/camp-form-date";
 import { I18nProvider } from "@react-aria/i18n";
 import { useState, useEffect, useRef } from "react";
 import { Search, MapPin, Users, Calendar, GraduationCap, SquarePen, Trash2, RotateCcw, Trash, Archive, AlertTriangle, ArrowLeft, X, Eye } from 'lucide-react';
@@ -116,12 +115,6 @@ const CampManager = ({ initialCamps = null }) => {
     const router = useRouter();
     const { showError, showSuccess, showConfirm } = useStatusModal();
 
-    const dateValueToString = (date) => {
-        if (!date) return "";
-        return `${date.year}-${String(date.month).padStart(2, "0")}-${String(date.day).padStart(2, "0")}`;
-    };
-
-
     const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
     const initialDataHandled = useRef(false);
     const [camps, setCamps] = useState(initialCamps?.data || []);
@@ -157,6 +150,7 @@ const CampManager = ({ initialCamps = null }) => {
 
     const validateDates = (data) => {
         const errors = { registration: "", camp: "" };
+        const regisStart = data.start_regis_date ? new Date(data.start_regis_date) : null;
         const regisEnd = data.end_regis_date ? new Date(data.end_regis_date) : null;
         const campStart = data.start_date ? new Date(data.start_date) : null;
         const campEnd = data.end_date ? new Date(data.end_date) : null;
@@ -164,11 +158,21 @@ const CampManager = ({ initialCamps = null }) => {
         if (regisEnd && campStart && regisEnd > campStart) {
             errors.registration = "วันสิ้นสุดรับสมัคร ต้องไม่เกิน วันเริ่มค่าย";
         }
+        if (regisStart && regisEnd && regisStart > regisEnd) {
+            errors.registration = "วันสิ้นสุดรับสมัคร ต้องไม่ก่อน วันเริ่มรับสมัคร";
+        }
         if (campStart && regisEnd && campStart < regisEnd) {
             errors.camp = "วันเริ่มค่าย ต้องไม่มาก่อน วันปิดรับสมัคร";
         }
         if (campStart && campEnd && campStart > campEnd) {
             errors.camp = errors.camp || "วันสิ้นสุดค่าย ต้องมาหลัง วันเริ่มค่าย";
+        }
+
+        if ([data.start_regis_date, data.end_regis_date].some(date => date && !isCompleteCampDate(date))) {
+            errors.registration = "กรุณาเลือกวันที่รับสมัครให้ถูกต้อง";
+        }
+        if ([data.start_date, data.end_date].some(date => date && !isCompleteCampDate(date))) {
+            errors.camp = "กรุณาเลือกวันจัดค่ายให้ถูกต้อง";
         }
 
         setDateErrors(errors);
@@ -742,22 +746,18 @@ const CampManager = ({ initialCamps = null }) => {
                                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                                                 ช่วงเวลารับสมัคร
                                             </label>
-                                            <DateRangePicker
+                                            <CampDateRangePicker
                                                 aria-label="Registration Period"
                                                 className="w-full h-[56px]"
                                                 errorMessage={dateErrors.registration}
                                                 isInvalid={!!dateErrors.registration}
-                                                formatOptions={{ day: "2-digit", month: "2-digit", year: "numeric" }}
-                                                value={formData.start_regis_date && formData.end_regis_date ? {
-                                                    start: parseDate(formData.start_regis_date.split('T')[0]),
-                                                    end: parseDate(formData.end_regis_date.split('T')[0])
-                                                } : null}
-                                                onChange={(range) => {
-                                                    if (!range) return;
+                                                startDate={formData.start_regis_date}
+                                                endDate={formData.end_regis_date}
+                                                onChange={(startDate, endDate) => {
                                                     setFormData(prev => ({ 
                                                         ...prev, 
-                                                        start_regis_date: dateValueToString(range.start),
-                                                        end_regis_date: dateValueToString(range.end)
+                                                        start_regis_date: startDate,
+                                                        end_regis_date: endDate
                                                     }));
                                                 }}
                                             />
@@ -767,22 +767,18 @@ const CampManager = ({ initialCamps = null }) => {
                                             <label className="block text-xs font-bold text-[#6b857a] uppercase mb-1">
                                                 วันจัดค่าย
                                             </label>
-                                            <DateRangePicker
+                                            <CampDateRangePicker
                                                 aria-label="Camp Period"
                                                 className="w-full h-[56px]"
                                                 errorMessage={dateErrors.camp}
                                                 isInvalid={!!dateErrors.camp}
-                                                formatOptions={{ day: "2-digit", month: "2-digit", year: "numeric" }}
-                                                value={formData.start_date && formData.end_date ? {
-                                                    start: parseDate(formData.start_date.split('T')[0]),
-                                                    end: parseDate(formData.end_date.split('T')[0])
-                                                } : null}
-                                                onChange={(range) => {
-                                                    if (!range) return;
+                                                startDate={formData.start_date}
+                                                endDate={formData.end_date}
+                                                onChange={(startDate, endDate) => {
                                                     setFormData(prev => ({ 
                                                         ...prev, 
-                                                        start_date: dateValueToString(range.start),
-                                                        end_date: dateValueToString(range.end)
+                                                        start_date: startDate,
+                                                        end_date: endDate
                                                     }));
                                                 }}
                                             />

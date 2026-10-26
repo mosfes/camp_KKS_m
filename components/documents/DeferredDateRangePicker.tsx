@@ -1,27 +1,28 @@
 "use client";
 
-import type { CalendarDate } from "@internationalized/date";
-import type { DateRangePickerProps } from "@heroui/date-picker";
+import type { CalendarOnlyDateRangePickerProps } from "@/components/CalendarOnlyDateFields";
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 
-const DateRangePicker = dynamic(
-  () => import("./DocumentDateRangePicker"),
-  { ssr: false },
-);
+const DateRangePicker = dynamic(() => import("./DocumentDateRangePicker"), {
+  ssr: false,
+});
 
 export default function DeferredDateRangePicker(
-  props: DateRangePickerProps<CalendarDate>,
+  props: CalendarOnlyDateRangePickerProps,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [nearViewport, setNearViewport] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
+
     if (!container) return;
+
     if (!("IntersectionObserver" in window)) {
       setNearViewport(true);
+
       return;
     }
 
@@ -34,6 +35,7 @@ export default function DeferredDateRangePicker(
       },
       { rootMargin: "1200px" },
     );
+
     observer.observe(container);
 
     return () => observer.disconnect();

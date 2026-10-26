@@ -50,9 +50,9 @@ export default function StudentProfileSetupModal({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nickname: form.nickname?.trim() || null,
+          nickname: form.nickname.trim(),
           food_allergy: form.food_allergy.trim(),
-          profile_image_url: pendingImageUrl || form.profile_image_url || null,
+          ...(pendingImageUrl ? { profile_image_url: pendingImageUrl } : {}),
         }),
       });
       const data = await res.json();

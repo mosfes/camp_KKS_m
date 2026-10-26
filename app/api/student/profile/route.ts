@@ -196,9 +196,9 @@ export async function PUT(req: any) {
       updateData.nickname = validated.nickname || null;
     }
 
-    // อัปเดต profile_image_url ถ้ามี
-    if (validated.profile_image_url !== undefined) {
-      updateData.profile_image_url = validated.profile_image_url || null;
+    // Keep the current image when the optional field is omitted or null.
+    if (validated.profile_image_url) {
+      updateData.profile_image_url = validated.profile_image_url;
     }
 
     const updatedStudent = await prisma.students.update({

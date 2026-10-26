@@ -217,7 +217,7 @@ export default function CreateCampModal({
         (end && !isCompleteCampDate(end))
       ) {
         errors[key as keyof typeof errors] =
-          "กรุณากรอกวันที่ให้ถูกต้อง และปี ค.ศ. ให้ครบ 4 หลัก";
+          "กรุณาเลือกวันที่ให้ถูกต้อง";
       }
     }
 
@@ -642,10 +642,10 @@ export default function CreateCampModal({
       showWarning("ข้อมูลไม่ครบถ้วน", "กรุณาเลือกวันจัดค่าย");
       return false;
     }
-    if (dateErrors.registration || dateErrors.camp) {
+    if (!validateDates(formData)) {
       showWarning(
         "วันที่ไม่ถูกต้อง",
-        dateErrors.registration || dateErrors.camp,
+        "กรุณาตรวจสอบช่วงเวลารับสมัครและวันจัดค่าย",
       );
       return false;
     }

@@ -154,27 +154,34 @@ export function AddToHomeScreenPrompt() {
       </div>
 
       <div className="flex flex-col gap-2 px-6 pb-6 pt-2">
-        {platform === "android" && installEvent && (
-          <button
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#5d7c6f] text-sm font-bold text-white transition-colors hover:bg-[#4e6d61] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
-            disabled={isInstalling}
-            type="button"
-            onClick={() => void installOnAndroid()}
+        {platform === "android" && (
+          <a
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#5d7c6f] text-sm font-bold text-white transition-colors hover:bg-[#4e6d61] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f] focus-visible:ring-offset-2 aria-disabled:cursor-wait aria-disabled:opacity-60"
+            href="/install"
+            aria-disabled={isInstalling}
+            onClick={(event) => {
+              if (isInstalling) {
+                event.preventDefault();
+              } else if (installEvent) {
+                event.preventDefault();
+                void installOnAndroid();
+              }
+            }}
           >
             <Download aria-hidden="true" size={18} />
             {isInstalling ? "กำลังเปิดหน้าติดตั้ง..." : "ติดตั้ง KKS Camp"}
-          </button>
+          </a>
         )}
         <button
           className={`h-11 w-full rounded-xl text-sm font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f] focus-visible:ring-offset-2 ${
-            platform === "android" && installEvent
+            platform === "android"
               ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
               : "bg-[#5d7c6f] text-white hover:bg-[#4e6d61]"
           }`}
           type="button"
           onClick={closePrompt}
         >
-          {platform === "android" && installEvent ? "ไว้ภายหลัง" : "เข้าใจแล้ว"}
+          {platform === "android" ? "ไว้ภายหลัง" : "เข้าใจแล้ว"}
         </button>
       </div>
     </StudentPromptDialog>

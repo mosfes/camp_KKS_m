@@ -18,6 +18,7 @@ import { Select, SelectItem } from "@heroui/react";
 import { today } from "@internationalized/date";
 
 import CampDateRangePicker from "@/components/CampDateRangePicker";
+import { parseCalendarDate } from "@/lib/calendar-date";
 import {
   getCampFormDayCount,
   getShirtReservationDateError,
@@ -79,6 +80,26 @@ function formatDateWithOffset(startDateStr: string, dayOffset: number) {
     year: "numeric",
     timeZone: BANGKOK_TIME_ZONE,
   });
+}
+
+function getDateFieldsKey(data: FormData) {
+  return [
+    data.registrationStartDate,
+    data.registrationEndDate,
+    data.campStartDate,
+    data.campEndDate,
+    data.hasShirt,
+    data.shirtStartDate,
+    data.shirtEndDate,
+  ].join("|");
+}
+
+// Allow re-picking a saved date that is already in the past.
+function getMinPickerDate(savedDate: string) {
+  const todayDate = today(BANGKOK_TIME_ZONE);
+  const saved = parseCalendarDate(savedDate);
+
+  return saved && saved.compare(todayDate) < 0 ? saved : todayDate;
 }
 
 function revokePreviewUrl(url: string | null) {
@@ -163,6 +184,13 @@ export default function EditCampModal({
     shirt: "",
     camp: "",
   });
+  const [savedDates, setSavedDates] = useState({
+    registrationStartDate: "",
+    shirtStartDate: "",
+    key: "",
+  });
+  const areDatesUnchanged = (data: FormData) =>
+    savedDates.key !== "" && getDateFieldsKey(data) === savedDates.key;
 
   const validateDates = (data: FormData) => {
     const errors = {
@@ -170,6 +198,13 @@ export default function EditCampModal({
       shirt: "",
       camp: "",
     };
+
+    // Saved dates may predate the current rules; only re-check them once edited.
+    if (areDatesUnchanged(data)) {
+      setDateErrors(errors);
+
+      return true;
+    }
 
     const regisStart = data.registrationStartDate
       ? new Date(data.registrationStartDate)
@@ -230,7 +265,7 @@ export default function EditCampModal({
         (end && !isCompleteCampDate(end))
       ) {
         errors[key as keyof typeof errors] =
-          "กรุณากรอกวันที่ให้ถูกต้อง และปี ค.ศ. ให้ครบ 4 หลัก";
+          "กรุณาเลือกวันที่ให้ถูกต้อง";
       }
     }
 
@@ -250,6 +285,7 @@ export default function EditCampModal({
     formData.campStartDate,
     formData.campEndDate,
     formData.hasShirt,
+    savedDates.key,
   ]);
 
   // Fetch classrooms
@@ -337,7 +373,7 @@ export default function EditCampModal({
       }
 
       // ตั้งค่า formData
-      setFormData({
+      const loadedData: FormData = {
         name: campData.name || "",
         location: campData.location || "",
         gradeLevel: Array.from(
@@ -366,6 +402,13 @@ export default function EditCampModal({
                   timeSlots: [{ startTime: "", endTime: "", activity: "" }],
                 },
               ],
+      };
+
+      setFormData(loadedData);
+      setSavedDates({
+        registrationStartDate: loadedData.registrationStartDate,
+        shirtStartDate: loadedData.shirtStartDate,
+        key: getDateFieldsKey(loadedData),
       });
       setDestination(
         campData.destination_latitude != null &&
@@ -633,10 +676,10 @@ export default function EditCampModal({
       showWarning("ข้อมูลไม่ครบถ้วน", "กรุณาเลือกวันจัดค่าย");
       return false;
     }
-    if (dateErrors.registration || dateErrors.camp) {
+    if (!validateDates(formData)) {
       showWarning(
         "วันที่ไม่ถูกต้อง",
-        dateErrors.registration || dateErrors.camp,
+        "กรุณาตรวจสอบช่วงเวลารับสมัครและวันจัดค่าย",
       );
       return false;
     }
@@ -681,7 +724,7 @@ export default function EditCampModal({
     }
 
     if (targetSection === "shirt" || !targetSection || targetSection === "all") {
-      if (formData.hasShirt) {
+      if (formData.hasShirt && !areDatesUnchanged(formData)) {
         const shirtDateError = getShirtReservationDateError(
           formData.shirtStartDate,
           formData.shirtEndDate,
@@ -1109,7 +1152,9 @@ export default function EditCampModal({
                       className="w-full h-[56px]"
                       errorMessage={dateErrors.registration}
                       isInvalid={!!dateErrors.registration}
-                      minValue={today(BANGKOK_TIME_ZONE)}
+                      minValue={getMinPickerDate(
+                        savedDates.registrationStartDate,
+                      )}
                       startDate={formData.registrationStartDate}
                       endDate={formData.registrationEndDate}
                       onChange={(startDate, endDate) => {
@@ -1415,7 +1460,7 @@ export default function EditCampModal({
                       className="w-full h-[56px] bg-white rounded-lg"
                       errorMessage={dateErrors.shirt}
                       isInvalid={!!dateErrors.shirt}
-                      minValue={today(BANGKOK_TIME_ZONE)}
+                      minValue={getMinPickerDate(savedDates.shirtStartDate)}
                       startDate={formData.shirtStartDate}
                       endDate={formData.shirtEndDate}
                       onChange={(startDate, endDate) => {

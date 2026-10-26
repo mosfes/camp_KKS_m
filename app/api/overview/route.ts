@@ -30,18 +30,6 @@ function uniqueSamples(values, limit = 3) {
     .slice(0, limit);
 }
 
-function getRecommendation(score, sufficient) {
-  if (!sufficient || score === null) {
-    return { key: "INSUFFICIENT", label: "ข้อมูลยังไม่เพียงพอ" };
-  }
-  if (score >= 80) return { key: "CONTINUE", label: "ควรจัดต่อ" };
-  if (score >= 60) {
-    return { key: "IMPROVE", label: "จัดต่อ แต่ควรปรับปรุง" };
-  }
-
-  return { key: "REVIEW", label: "ควรทบทวนก่อนจัดต่อ" };
-}
-
 function buildCampInsight(camp) {
   const survey = camp.survey?.[0];
   const responseCount = survey?.survey_response?.length || 0;
@@ -61,6 +49,8 @@ function buildCampInsight(camp) {
     return {
       text: question.question_text,
       score: score === null ? null : (score / max) * 100,
+      average: score,
+      max,
       count: values.length,
     };
   });
@@ -137,7 +127,13 @@ function buildCampInsight(camp) {
     responseRate: round(responseRate),
     responseCount,
     dataSufficient,
-    recommendation: getRecommendation(round(healthScore), dataSufficient),
+    questionScores: normalizedQuestionScores.map((question) => ({
+      text: question.text,
+      score: round(question.score),
+      average: round(question.average, 2),
+      max: question.max,
+      count: question.count,
+    })),
     feedback: {
       comments,
       strengths,
@@ -436,15 +432,6 @@ export async function GET(request) {
       averageResponseRate: round(
         average(sufficientInsights.map((camp) => camp.responseRate)),
       ),
-      continueCount: sufficientInsights.filter(
-        (camp) => camp.recommendation.key === "CONTINUE",
-      ).length,
-      improveCount: sufficientInsights.filter(
-        (camp) => camp.recommendation.key === "IMPROVE",
-      ).length,
-      reviewCount: sufficientInsights.filter(
-        (camp) => camp.recommendation.key === "REVIEW",
-      ).length,
       insufficientCount: campInsights.filter((camp) => !camp.dataSufficient)
         .length,
     };

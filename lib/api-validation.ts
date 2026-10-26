@@ -29,7 +29,7 @@ export const profileUpdateSchema = z
     student_tel: z.string().trim().max(30).optional(),
     parent_tel: z.string().trim().max(30).optional(),
     remark: z.string().trim().max(255).optional(),
-    profile_image_url: z.string().url().max(500).optional(),
+    profile_image_url: z.string().url().max(500).nullable().optional(),
   })
   .strict();
 

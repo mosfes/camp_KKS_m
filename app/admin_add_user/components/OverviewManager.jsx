@@ -3,7 +3,16 @@
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardBody, Select, SelectItem } from "@heroui/react";
+import {
+  Card,
+  CardBody,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalHeader,
+  Select,
+  SelectItem,
+} from "@heroui/react";
 import {
   AlertTriangle,
   BookOpen,
@@ -36,9 +45,6 @@ const emptyQualityOverview = {
   averageSurveyScore: null,
   averageMissionCompletion: null,
   averageResponseRate: null,
-  continueCount: 0,
-  improveCount: 0,
-  reviewCount: 0,
   insufficientCount: 0,
 };
 
@@ -55,13 +61,6 @@ const emptySystemCounts = {
   totalClassrooms: 0,
   totalStudents: 0,
   totalCamps: 0,
-};
-
-const recommendationStyles = {
-  CONTINUE: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  IMPROVE: "bg-amber-50 text-amber-700 border-amber-200",
-  REVIEW: "bg-rose-50 text-rose-700 border-rose-200",
-  INSUFFICIENT: "bg-slate-50 text-slate-600 border-slate-200",
 };
 
 function formatPercent(value) {
@@ -89,13 +88,13 @@ function MetricCard({ icon: Icon, label, value, note, tone }) {
   );
 }
 
-function ScoreBar({ label, value }) {
+function ScoreBar({ label, value, display }) {
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between text-xs">
-        <span className="text-gray-500">{label}</span>
-        <span className="font-semibold text-gray-700">
-          {formatPercent(value)}
+      <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
+        <span className="min-w-0 text-gray-500">{label}</span>
+        <span className="shrink-0 font-semibold text-gray-700">
+          {display ?? formatPercent(value)}
         </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-gray-100">
@@ -195,11 +194,11 @@ export function OverviewSkeleton() {
               <SkeletonBlock className="h-7 w-32 rounded-full" />
             </div>
           </div>
-          <div className="grid min-w-[280px] grid-cols-3 gap-2">
+          <div className="space-y-4 lg:min-w-[360px]">
             {Array.from({ length: 3 }, (_, index) => (
-              <div key={index} className="rounded-xl bg-gray-100 p-3">
-                <SkeletonBlock className="mx-auto h-7 w-8" />
-                <SkeletonBlock className="mx-auto mt-2 h-3 w-16" />
+              <div key={index}>
+                <SkeletonBlock className="h-3 w-40" />
+                <SkeletonBlock className="mt-2 h-2 w-full rounded-full" />
               </div>
             ))}
           </div>
@@ -332,6 +331,7 @@ export default function OverviewManager({
     initialOverview?.campInsights || [],
   );
   const [expandedCamp, setExpandedCamp] = useState(null);
+  const [questionModalCamp, setQuestionModalCamp] = useState(null);
   const [isLoading, setIsLoading] = useState(!initialOverview);
   const [mounted, setMounted] = useState(false);
 
@@ -417,6 +417,17 @@ export default function OverviewManager({
 
     return qualityOverview.averageHealth - previousQuality.averageHealth;
   }, [previousQuality, qualityOverview.averageHealth]);
+
+  const surveyScoredCamps = useMemo(
+    () =>
+      campInsights
+        .filter((camp) => camp.surveyScore !== null)
+        .sort((a, b) => b.surveyScore - a.surveyScore),
+    [campInsights],
+  );
+
+  const getScoredQuestions = (camp) =>
+    (camp?.questionScores || []).filter((question) => question.score !== null);
 
   const formatCampDate = (date) =>
     new Date(date).toLocaleDateString("th-TH", {
@@ -534,18 +545,20 @@ export default function OverviewManager({
         </div>
       </section>
 
-      <section className="relative order-4 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:items-center">
+      <section className="order-4 rounded-2xl border border-gray-100 bg-white shadow-sm">
+        <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[minmax(240px,0.8fr)_1.2fr]">
           <div>
             <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#527363]">
               <Sparkles size={15} /> คุณภาพค่าย
             </p>
             <h2 className="mt-1.5 text-lg font-bold text-gray-800 sm:text-xl">
-              ค่ายไหนควรจัดต่อ และควรปรับอะไร
+              คะแนนแบบประเมินเฉลี่ย
             </h2>
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              วิเคราะห์คะแนนทุกข้อในแบบประเมินร่วมกับผลการทำภารกิจ
-              ส่วนจำนวนผู้ตอบใช้บอกความน่าเชื่อถือของผล
+            <p className="mt-1 text-sm text-gray-500">
+              เฉลี่ยจากคำถามแบบสเกลทุกข้อในแบบประเมินของแต่ละค่าย
+            </p>
+            <p className="mt-4 text-4xl font-bold text-gray-850">
+              {formatPercent(qualityOverview.averageSurveyScore)}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="rounded-full bg-[#eff4f0] px-3 py-1.5 text-xs font-semibold text-[#527363]">
@@ -563,26 +576,21 @@ export default function OverviewManager({
             </div>
           </div>
 
-          <div className="grid min-w-[280px] grid-cols-3 gap-2">
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3 text-center">
-              <p className="text-xl font-bold text-emerald-700">
-                {qualityOverview.continueCount}
-              </p>
-              <p className="mt-1 text-[11px] text-emerald-600">ควรจัดต่อ</p>
+          {surveyScoredCamps.length > 0 ? (
+            <div className="space-y-4">
+              {surveyScoredCamps.map((camp) => (
+                <ScoreBar
+                  key={camp.campId}
+                  label={camp.name}
+                  value={camp.surveyScore}
+                />
+              ))}
             </div>
-            <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3 text-center">
-              <p className="text-xl font-bold text-amber-700">
-                {qualityOverview.improveCount}
-              </p>
-              <p className="mt-1 text-[11px] text-amber-600">ควรปรับปรุง</p>
+          ) : (
+            <div className="flex items-center justify-center rounded-xl bg-gray-50 py-10 text-sm text-gray-400">
+              ยังไม่มีคะแนนแบบประเมินในปีการศึกษานี้
             </div>
-            <div className="rounded-xl border border-rose-100 bg-rose-50/60 p-3 text-center">
-              <p className="text-xl font-bold text-rose-700">
-                {qualityOverview.reviewCount}
-              </p>
-              <p className="mt-1 text-[11px] text-rose-600">ควรทบทวน</p>
-            </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -795,7 +803,7 @@ export default function OverviewManager({
               return (
                 <article key={camp.campId}>
                   <button
-                    className="grid w-full gap-4 p-5 text-left transition-colors hover:bg-[#f8faf8] lg:grid-cols-[48px_minmax(190px,1fr)_110px_110px_210px_28px] lg:items-center"
+                    className="grid w-full gap-4 p-5 text-left transition-colors hover:bg-[#f8faf8] lg:grid-cols-[48px_minmax(190px,1fr)_110px_110px_28px] lg:items-center"
                     type="button"
                     onClick={() =>
                       setExpandedCamp(isExpanded ? null : camp.campId)
@@ -829,13 +837,6 @@ export default function OverviewManager({
                         {formatPercent(camp.surveyScore)}
                       </span>
                     </span>
-                    <span
-                      className={`w-fit rounded-full border px-3 py-1.5 text-xs font-bold ${
-                        recommendationStyles[camp.recommendation.key]
-                      }`}
-                    >
-                      {camp.recommendation.label}
-                    </span>
                     {isExpanded ? (
                       <ChevronUp size={18} />
                     ) : (
@@ -849,9 +850,9 @@ export default function OverviewManager({
                         <div className="mb-5 flex gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
                           <HelpCircle className="shrink-0" size={19} />
                           <p>
-                            ยังไม่สรุปว่าควรจัดต่อหรือไม่
-                            เพราะต้องมีผู้ตอบอย่างน้อย 3 คน อัตราตอบอย่างน้อย
-                            30% และมีคำถามแบบสเกล
+                            ข้อมูลยังน้อย ผลอาจยังไม่สะท้อนภาพรวม
+                            (ควรมีผู้ตอบอย่างน้อย 3 คน อัตราตอบอย่างน้อย 30%
+                            และมีคำถามแบบสเกล)
                           </p>
                         </div>
                       )}
@@ -869,6 +870,23 @@ export default function OverviewManager({
                             label="อัตราตอบแบบประเมิน"
                             value={camp.responseRate}
                           />
+                          {getScoredQuestions(camp).length > 0 && (
+                            <button
+                              className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#e4ede5] bg-[#f7faf7] px-3 py-2.5 text-left text-sm transition-colors hover:border-[#bad0bf]"
+                              type="button"
+                              onClick={() => setQuestionModalCamp(camp)}
+                            >
+                              <span className="font-semibold text-gray-700">
+                                คะแนนเฉลี่ยรายข้อ{" "}
+                                <span className="ml-1 inline-block font-normal text-gray-400">
+                                  ({getScoredQuestions(camp).length} ข้อ)
+                                </span>
+                              </span>
+                              <span className="flex items-center gap-1 text-xs font-semibold text-[#527363]">
+                                ดูรายละเอียด <ChevronRight size={15} />
+                              </span>
+                            </button>
+                          )}
                         </div>
                         <div className="space-y-3">
                           {camp.feedback.aiSummaryUpdatedAt ? (
@@ -915,15 +933,49 @@ export default function OverviewManager({
 
       <section className="order-7 rounded-2xl border border-[#dfe9e1] bg-[#f7faf7] p-5 text-sm text-gray-600">
         <h3 className="flex items-center gap-2 font-bold text-gray-800">
-          <ClipboardCheck size={18} className="text-[#527363]" /> เกณฑ์การแนะนำ
+          <ClipboardCheck size={18} className="text-[#527363]" /> วิธีคำนวณ
         </h3>
         <p className="mt-2 leading-6">
           สุขภาพค่ายคำนวณจากคะแนนคำถามแบบสเกลทั้งหมดในแบบประเมิน 70%
           และการทำภารกิจสำเร็จ 30% ส่วนอัตราตอบใช้วัดความน่าเชื่อถือของข้อมูล
-          ไม่ได้นำมาปั่นคะแนน — 80 คะแนนขึ้นไป “ควรจัดต่อ”, 60–79
-          “จัดต่อแต่ควรปรับปรุง” และต่ำกว่า 60 “ควรทบทวน”
+          ไม่ได้นำมาปั่นคะแนน
         </p>
       </section>
+
+      <Modal
+        isOpen={questionModalCamp !== null}
+        scrollBehavior="inside"
+        size="2xl"
+        onOpenChange={(open) => {
+          if (!open) setQuestionModalCamp(null);
+        }}
+      >
+        <ModalContent>
+          <ModalHeader className="flex flex-col gap-1">
+            <span>คะแนนเฉลี่ยรายข้อ</span>
+            <span className="text-sm font-normal text-gray-500">
+              {questionModalCamp?.name} · คะแนนรวม{" "}
+              {formatPercent(questionModalCamp?.surveyScore)}
+            </span>
+          </ModalHeader>
+          <ModalBody className="space-y-4 pb-6">
+            {getScoredQuestions(questionModalCamp).map(
+              (question, questionIndex) => (
+                <div key={questionIndex}>
+                  <ScoreBar
+                    display={`${question.average}/${question.max}`}
+                    label={`${questionIndex + 1}. ${question.text}`}
+                    value={question.score}
+                  />
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    ผู้ตอบ {question.count} คน
+                  </p>
+                </div>
+              ),
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
