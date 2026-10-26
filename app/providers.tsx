@@ -22,6 +22,7 @@ declare module "@react-types/shared" {
 
 import { Toaster } from "react-hot-toast";
 
+import { InstallAppBanner } from "@/components/InstallAppBanner";
 import { PwaServiceWorkerRegistration } from "@/components/PwaServiceWorkerRegistration";
 
 export function Providers({ children, themeProps }: ProvidersProps) {
@@ -31,6 +32,7 @@ export function Providers({ children, themeProps }: ProvidersProps) {
     <HeroUIProvider locale="en-GB" navigate={router.push}>
       <NextThemesProvider {...themeProps}>
         <PwaServiceWorkerRegistration />
+        <InstallAppBanner />
         {children}
         <Toaster position="top-center" reverseOrder={false} />
       </NextThemesProvider>
