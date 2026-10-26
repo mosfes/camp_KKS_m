@@ -22,7 +22,9 @@ import {
     Select,
     SelectItem,
     Checkbox,
-    Pagination
+    Pagination,
+    Autocomplete,
+    AutocompleteItem
 } from "@heroui/react";
 import { useState, useEffect, useRef } from "react";
 import { Trash2, Trash, Archive, SquarePen, Settings } from 'lucide-react';
@@ -786,7 +788,7 @@ const ClassroomManager = ({ initialClassrooms = null }) => {
                 </ModalContent>
             </Modal>
 
-            <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+            <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
                 <ModalContent className="bg-white p-4 text-gray-800">
                     {(onClose) => (
                         <>
@@ -838,52 +840,50 @@ const ClassroomManager = ({ initialClassrooms = null }) => {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-4">
-                                    <Select
+                                    <Autocomplete
                                         label="ครูประจำชั้น (คนที่ 1)"
-                                        placeholder="เลือกครู"
-                                        selectedKeys={formData.teacher_id ? [formData.teacher_id.toString()] : []}
-                                        onChange={(e) => handleSelectChange("teacher_id", e.target.value)}
-                                        classNames={{ listbox: "max-h-[300px] overflow-y-auto" }}
+                                        placeholder="พิมพ์ค้นหาชื่อครู"
+                                        selectedKey={formData.teacher_id ? formData.teacher_id.toString() : null}
+                                        onSelectionChange={(key) => handleSelectChange("teacher_id", key ? key.toString() : "")}
+                                        listboxProps={{ emptyContent: "ไม่พบครู" }}
                                     >
                                         {getAvailableTeachers().map((t) => {
                                             const idStr = t.teachers_id.toString();
                                             return (
-                                                <SelectItem
+                                                <AutocompleteItem
                                                     key={idStr}
-                                                    value={idStr}
                                                     textValue={`${t.prefix_name || ''}${t.firstname} ${t.lastname}`}
                                                 >
                                                     {t.prefix_name || ''}{t.firstname} {t.lastname}
-                                                </SelectItem>
+                                                </AutocompleteItem>
                                             );
                                         })}
-                                    </Select>
+                                    </Autocomplete>
 
-                                    <Select
+                                    <Autocomplete
                                         label="ครูประจำชั้น (คนที่ 2)"
-                                        placeholder="ไม่มี"
-                                        selectedKeys={formData.teacher_id_2 ? [formData.teacher_id_2.toString()] : ["none"]}
-                                        onChange={(e) => handleSelectChange("teacher_id_2", e.target.value)}
-                                        classNames={{ listbox: "max-h-[300px] overflow-y-auto" }}
+                                        placeholder="พิมพ์ค้นหาชื่อครู"
+                                        selectedKey={formData.teacher_id_2 ? formData.teacher_id_2.toString() : "none"}
+                                        onSelectionChange={(key) => handleSelectChange("teacher_id_2", key && key !== "none" ? key.toString() : "")}
+                                        listboxProps={{ emptyContent: "ไม่พบครู" }}
                                     >
-                                        <SelectItem key="none" value="" textValue="ไม่มี">
-                                            ไม่มี
-                                        </SelectItem>
-                                        {getAvailableTeachers()
-                                            .filter(t => t.teachers_id.toString() !== formData.teacher_id?.toString())
-                                            .map((t) => {
-                                                const idStr = t.teachers_id.toString();
-                                                return (
-                                                    <SelectItem
-                                                        key={idStr}
-                                                        value={idStr}
-                                                        textValue={`${t.prefix_name || ''}${t.firstname} ${t.lastname}`}
-                                                    >
-                                                        {t.prefix_name || ''}{t.firstname} {t.lastname}
-                                                    </SelectItem>
-                                                );
-                                            })}
-                                    </Select>
+                                        {[
+                                            <AutocompleteItem key="none" textValue="ไม่มี">ไม่มี</AutocompleteItem>,
+                                            ...getAvailableTeachers()
+                                                .filter(t => t.teachers_id.toString() !== formData.teacher_id?.toString())
+                                                .map((t) => {
+                                                    const idStr = t.teachers_id.toString();
+                                                    return (
+                                                        <AutocompleteItem
+                                                            key={idStr}
+                                                            textValue={`${t.prefix_name || ''}${t.firstname} ${t.lastname}`}
+                                                        >
+                                                            {t.prefix_name || ''}{t.firstname} {t.lastname}
+                                                        </AutocompleteItem>
+                                                    );
+                                                })
+                                        ]}
+                                    </Autocomplete>
                                 </div>
 
                             </ModalBody>
