@@ -11,7 +11,11 @@ const StudentManager = dynamic(() => import("./components/StudentManager"));
 const CampManager = dynamic(() => import("./components/CampManager"));
 const BusLayoutManager = dynamic(() => import("./components/BusLayoutManager"));
 const VulgarWordsManager = dynamic(() => import("./components/VulgarWordsManager"));
-const ParentAccessManager = dynamic(() => import("./components/ParentAccessManager"));
+// โหลดข้อมูลฝั่ง client ทั้งหมดอยู่แล้ว ปิด SSR กัน id ของ HeroUI ไม่ตรงตอน hydrate
+const ParentAccessManager = dynamic(
+  () => import("./components/ParentAccessManager"),
+  { ssr: false },
+);
 
 const sectionMap = {
   overview: {

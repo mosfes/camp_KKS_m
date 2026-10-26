@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar, Button } from "@heroui/react";
 import {
   ArrowLeft,
-  Award,
   CheckCircle2,
   CircleDashed,
   RefreshCw,
   Target,
+  TrendingUp,
+  Trophy,
 } from "lucide-react";
 
 import CampBreadcrumb from "./CampBreadcrumb";
@@ -91,23 +92,93 @@ function thaiDateTime(value: string) {
   });
 }
 
+function SkeletonBlock({
+  className,
+  style,
+}: {
+  className: string;
+  style?: CSSProperties;
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`animate-pulse rounded-lg bg-gray-200 ${className}`}
+      style={style}
+    />
+  );
+}
+
 function DetailSkeleton() {
   return (
-    <div aria-label="กำลังโหลดรายละเอียดภารกิจ" className="space-y-4">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {Array.from({ length: 3 }, (_, index) => (
+    <div aria-label="กำลังโหลดรายละเอียดภารกิจ">
+      <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
+        {Array.from({ length: 4 }, (_, index) => (
           <div
             key={index}
-            className="h-20 animate-pulse rounded-xl bg-gray-200"
-          />
+            className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm md:p-6"
+          >
+            <div className="mb-2 flex items-center gap-2 md:mb-3">
+              <SkeletonBlock className="h-5 w-5 rounded-full md:h-6 md:w-6" />
+              <SkeletonBlock className="h-3.5 w-24" />
+            </div>
+            <SkeletonBlock className="h-7 w-16" />
+            <SkeletonBlock className="mt-2 h-3 w-28" />
+          </div>
         ))}
       </div>
-      {Array.from({ length: 4 }, (_, index) => (
-        <div
-          key={index}
-          className="h-24 animate-pulse rounded-xl bg-gray-200"
-        />
-      ))}
+
+      <div className="overflow-hidden rounded-2xl bg-white p-6 shadow-sm">
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <SkeletonBlock className="h-5 w-28" />
+          <SkeletonBlock className="h-3.5 w-16" />
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] border-collapse text-left">
+            <thead>
+              <tr className="border-y border-gray-100 bg-gray-50">
+                {[48, 20, 24, 28, 24, 20].map((width, index) => (
+                  <th key={index} className="p-4">
+                    <SkeletonBlock
+                      className="h-3.5"
+                      style={{ width: `${width * 2}px` }}
+                    />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 5 }, (_, rowIndex) => (
+                <tr key={rowIndex} className="border-b border-gray-50">
+                  <td className="p-4">
+                    <div className="flex min-w-[220px] items-start gap-2.5">
+                      <SkeletonBlock className="mt-0.5 h-3 w-5" />
+                      <div className="space-y-1.5">
+                        <SkeletonBlock className="h-3.5 w-40" />
+                        <SkeletonBlock className="h-3 w-52" />
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <SkeletonBlock className="h-3.5 w-20" />
+                  </td>
+                  <td className="p-4">
+                    <SkeletonBlock className="h-3.5 w-20" />
+                  </td>
+                  <td className="p-4">
+                    <SkeletonBlock className="h-3.5 w-28" />
+                  </td>
+                  <td className="p-4">
+                    <SkeletonBlock className="h-3.5 w-20" />
+                  </td>
+                  <td className="p-4">
+                    <SkeletonBlock className="h-7 w-20 rounded-full" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -168,29 +239,6 @@ export default function StudentMissionDetailPage({
     [detail?.missions, filter],
   );
 
-  const missionsByStation = useMemo(() => {
-    const stations = new Map<
-      number,
-      { stationId: number; stationName: string; missions: MissionDetail[] }
-    >();
-
-    filteredMissions.forEach((mission) => {
-      const station = stations.get(mission.stationId);
-
-      if (station) {
-        station.missions.push(mission);
-      } else {
-        stations.set(mission.stationId, {
-          stationId: mission.stationId,
-          stationName: mission.stationName,
-          missions: [mission],
-        });
-      }
-    });
-
-    return Array.from(stations.values());
-  }, [filteredMissions]);
-
   const completedPercentage = detail?.summary.totalMissions
     ? Math.round(
         (detail.summary.completedMissions / detail.summary.totalMissions) * 100,
@@ -201,20 +249,55 @@ export default function StudentMissionDetailPage({
     router.push(getCleanCampPath("tracking"));
   };
 
+  const filterCards = detail
+    ? [
+        {
+          key: "all" as const,
+          label: "ภารกิจทั้งหมด",
+          helper: "ทุกสถานะ",
+          value: detail.summary.totalMissions,
+          icon: Target,
+          iconClass: "text-[#6b857a]",
+          helperClass: "text-[#6b857a]",
+          activeClass: "border-[#6b857a] ring-1 ring-[#6b857a]/30",
+        },
+        {
+          key: "completed" as const,
+          label: "ทำแล้ว",
+          helper: "ส่งภารกิจเรียบร้อย",
+          value: detail.summary.completedMissions,
+          icon: CheckCircle2,
+          iconClass: "text-emerald-600",
+          helperClass: "text-emerald-600",
+          activeClass: "border-emerald-400 ring-1 ring-emerald-200",
+        },
+        {
+          key: "not_started" as const,
+          label: "ยังไม่ทำ",
+          helper: "ยังไม่มีการส่งภารกิจ",
+          value: detail.summary.notStartedMissions,
+          icon: CircleDashed,
+          iconClass: "text-amber-500",
+          helperClass: "text-amber-600",
+          activeClass: "border-amber-400 ring-1 ring-amber-200",
+        },
+      ]
+    : [];
+
   return (
-    <main className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f5f5f2]">
-      <header className="shrink-0 border-b border-gray-100 bg-white px-6 pb-4 pt-4">
+    <main className="h-full min-h-0 overflow-y-auto bg-[#f5f5f2]">
+      <div className="mx-auto max-w-7xl px-4 py-8">
         <CampBreadcrumb
           campId={campId}
-          className="mb-4"
+          className="mb-6"
           currentPage="รายละเอียดภารกิจนักเรียน"
         />
 
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="mb-8 flex min-w-0 items-center gap-3">
           <Button
             isIconOnly
             aria-label="กลับไปหน้าติดตามนักเรียน"
-            className="shrink-0 text-gray-600"
+            className="shrink-0 bg-white text-gray-600 shadow-sm"
             size="sm"
             variant="flat"
             onPress={backToTracking}
@@ -236,18 +319,11 @@ export default function StudentMissionDetailPage({
                     {detail.student.name}
                   </h1>
                   {detail.student.hasCertificate && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-                      <Award size={13} /> ได้รับเกียรติบัตรแล้ว
+                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                      <Trophy size={14} /> ได้รับเกียรติบัตรแล้ว
                     </span>
                   )}
                 </div>
-                {detail.student.hasCertificate &&
-                  detail.summary.completedMissions <
-                    detail.summary.totalMissions && (
-                    <p className="mt-1 text-[11px] text-gray-500">
-                      เกียรติบัตรออกให้แล้ว แม้ภารกิจปัจจุบันยังไม่ครบ
-                    </p>
-                  )}
                 <p className="mt-0.5 text-xs text-gray-500">
                   ชื่อเล่น: {detail.student.nickname || "-"} · รหัสนักเรียน{" "}
                   {detail.student.studentId}
@@ -255,39 +331,13 @@ export default function StudentMissionDetailPage({
               </div>
             </>
           ) : (
-            <div className="min-w-0 flex-1">
-              <h1 className="text-lg font-bold text-gray-900">
-                รายละเอียดภารกิจนักเรียน
-              </h1>
-              <p className="mt-0.5 text-xs text-gray-500">
-                กำลังเตรียมข้อมูลนักเรียน
-              </p>
-            </div>
+            <h1 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+              <Target className="text-[#6b857a]" size={20} />
+              <span>รายละเอียดภารกิจนักเรียน</span>
+            </h1>
           )}
         </div>
 
-        {detail && (
-          <div className="mt-4">
-            <div className="mb-1.5 flex items-center justify-between text-xs">
-              <span className="font-semibold text-gray-600">
-                ทำสำเร็จ {detail.summary.completedMissions} จาก{" "}
-                {detail.summary.totalMissions} ภารกิจ
-              </span>
-              <span className="font-bold text-[#5d7c6f]">
-                {completedPercentage}%
-              </span>
-            </div>
-            <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-              <div
-                className="h-full rounded-full bg-[#5d7c6f] transition-all"
-                style={{ width: `${completedPercentage}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </header>
-
-      <section className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
         {loading ? (
           <DetailSkeleton />
         ) : error ? (
@@ -311,162 +361,178 @@ export default function StudentMissionDetailPage({
             </div>
           </div>
         ) : detail ? (
-          <div className="mx-auto max-w-5xl space-y-4">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {[
-                {
-                  key: "all" as const,
-                  label: "ทั้งหมด",
-                  value: detail.summary.totalMissions,
-                  icon: <Target size={17} />,
-                  active: "border-[#5d7c6f] bg-[#eef4f1] text-[#47685c]",
-                },
-                {
-                  key: "completed" as const,
-                  label: "ทำแล้ว",
-                  value: detail.summary.completedMissions,
-                  icon: <CheckCircle2 size={17} />,
-                  active: "border-emerald-500 bg-emerald-50 text-emerald-700",
-                },
-                {
-                  key: "not_started" as const,
-                  label: "ยังไม่ทำ",
-                  value: detail.summary.notStartedMissions,
-                  icon: <CircleDashed size={17} />,
-                  active: "border-amber-500 bg-amber-50 text-amber-700",
-                },
-              ].map((item) => (
-                <button
-                  key={item.key}
-                  aria-pressed={filter === item.key}
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/40 ${
-                    filter === item.key
-                      ? `${item.active} shadow-sm`
-                      : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                  }`}
-                  type="button"
-                  onClick={() => setFilter(item.key)}
-                >
-                  <span className="shrink-0">{item.icon}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-xs font-semibold">
-                      {item.label}
-                    </span>
-                    <span className="text-lg font-bold leading-tight">
-                      {item.value}
-                      <span className="ml-1 text-[10px] font-normal">
+          <>
+            {/* Summary Cards */}
+            <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-6">
+              {filterCards.map((item) => {
+                const Icon = item.icon;
+
+                return (
+                  <button
+                    key={item.key}
+                    aria-pressed={filter === item.key}
+                    className={`cursor-pointer rounded-xl border bg-white p-3 text-left shadow-sm transition-all duration-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/40 md:p-6 ${
+                      filter === item.key ? item.activeClass : "border-gray-100"
+                    }`}
+                    type="button"
+                    onClick={() => setFilter(item.key)}
+                  >
+                    <div className="mb-2 flex items-center gap-2 md:mb-3">
+                      <Icon
+                        className={`h-5 w-5 shrink-0 md:h-6 md:w-6 ${item.iconClass}`}
+                      />
+                      <h3 className="truncate text-sm font-semibold text-gray-900">
+                        {item.label}
+                      </h3>
+                    </div>
+                    <p className="text-xl font-bold text-gray-900 md:text-2xl">
+                      {item.value}{" "}
+                      <span className="text-[9px] font-medium text-gray-500">
                         ภารกิจ
                       </span>
-                    </span>
+                    </p>
+                    <p className={`mt-2 truncate text-xs ${item.helperClass}`}>
+                      {item.helper}
+                    </p>
+                  </button>
+                );
+              })}
+
+              <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm md:p-6">
+                <div className="mb-2 flex items-center gap-2 md:mb-3">
+                  <TrendingUp className="h-5 w-5 shrink-0 text-[#6b857a] md:h-6 md:w-6" />
+                  <h3 className="truncate text-sm font-semibold text-gray-900">
+                    ความก้าวหน้า
+                  </h3>
+                </div>
+                <p className="text-xl font-bold text-gray-900 md:text-2xl">
+                  {completedPercentage}
+                  <span className="text-[9px] font-medium text-gray-500">
+                    {" "}
+                    %
                   </span>
-                </button>
-              ))}
+                </p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
+                  <div
+                    className="h-full rounded-full bg-[#5d7c6f] transition-all"
+                    style={{ width: `${completedPercentage}%` }}
+                  />
+                </div>
+              </div>
             </div>
 
-            {missionsByStation.length ? (
-              missionsByStation.map((station) => (
-                <section
-                  key={station.stationId}
-                  className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
-                >
-                  <header className="flex items-center justify-between border-b border-gray-100 bg-gray-50/80 px-4 py-3">
-                    <h2 className="text-sm font-bold text-gray-800">
-                      ฐาน: {station.stationName}
-                    </h2>
-                    <span className="text-[11px] text-gray-400">
-                      {station.missions.length} ภารกิจ
-                    </span>
-                  </header>
-
-                  <div className="divide-y divide-gray-100">
-                    {station.missions.map((mission) => (
-                      <article
-                        key={mission.missionId}
-                        className="flex items-start gap-3 px-4 py-3.5"
-                      >
-                        <span
-                          className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                            mission.status === "completed"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {mission.status === "completed" ? (
-                            <CheckCircle2 size={18} />
-                          ) : (
-                            <CircleDashed size={18} />
-                          )}
-                        </span>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <h3 className="text-sm font-semibold text-gray-900">
-                                {mission.title}
-                              </h3>
-                              {mission.description && (
-                                <p className="mt-1 text-xs leading-relaxed text-gray-500">
-                                  {mission.description}
-                                </p>
-                              )}
-                            </div>
-
-                            <span
-                              className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                                mission.status === "completed"
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : "bg-amber-50 text-amber-700"
-                              }`}
-                            >
-                              {mission.status === "completed"
-                                ? "ทำแล้ว"
-                                : "ยังไม่ทำ"}
-                            </span>
-                          </div>
-
-                          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-400">
-                            <span>
-                              {MISSION_TYPE_LABELS[mission.type] ||
-                                mission.type}
-                            </span>
-                            {mission.submittedAt && (
-                              <>
-                                <span aria-hidden="true">·</span>
-                                <span>
-                                  ทำเมื่อ {thaiDateTime(mission.submittedAt)}
-                                </span>
-                              </>
-                            )}
-                            {mission.method && (
-                              <>
-                                <span aria-hidden="true">·</span>
-                                <span>
-                                  วิธีทำ:{" "}
-                                  {RESULT_METHOD_LABELS[mission.method] ||
-                                    mission.method}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </section>
-              ))
-            ) : (
-              <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center text-gray-400">
-                <Target className="mb-2 opacity-40" size={32} />
-                <p className="text-sm font-medium">
-                  {detail.summary.totalMissions === 0
-                    ? "ค่ายนี้ยังไม่มีภารกิจ"
-                    : "ไม่มีภารกิจในสถานะที่เลือก"}
-                </p>
+            {/* Mission Table */}
+            <div className="overflow-hidden rounded-2xl bg-white p-6 shadow-sm">
+              <div className="mb-6 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-gray-900">
+                  รายการภารกิจ
+                </h3>
+                <span className="text-xs text-gray-500">
+                  {filteredMissions.length} ภารกิจ
+                </span>
               </div>
-            )}
-          </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] border-collapse text-left">
+                  <thead>
+                    <tr className="border-y border-gray-100 bg-gray-50 text-sm text-gray-600">
+                      <th className="whitespace-nowrap rounded-tl-lg p-4 font-semibold">
+                        ภารกิจ
+                      </th>
+                      <th className="whitespace-nowrap p-4 font-semibold">
+                        ฐาน
+                      </th>
+                      <th className="whitespace-nowrap p-4 font-semibold">
+                        ประเภท
+                      </th>
+                      <th className="whitespace-nowrap p-4 font-semibold">
+                        ทำเมื่อ
+                      </th>
+                      <th className="whitespace-nowrap p-4 font-semibold">
+                        วิธีทำ
+                      </th>
+                      <th className="whitespace-nowrap rounded-tr-lg p-4 font-semibold">
+                        สถานะ
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMissions.length === 0 ? (
+                      <tr>
+                        <td
+                          className="p-8 text-center text-gray-500"
+                          colSpan={6}
+                        >
+                          {detail.summary.totalMissions === 0
+                            ? "ค่ายนี้ยังไม่มีภารกิจ"
+                            : "ไม่มีภารกิจในสถานะที่เลือก"}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredMissions.map((mission, index) => (
+                        <tr
+                          key={mission.missionId}
+                          className="border-b border-gray-50 text-sm transition-colors hover:bg-gray-50"
+                        >
+                          <td className="p-4 text-gray-900">
+                            <div className="flex min-w-[220px] items-start gap-2.5">
+                              <span className="mt-0.5 w-5 shrink-0 text-center text-xs font-semibold text-gray-400">
+                                {index + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="font-medium">{mission.title}</p>
+                                {mission.description && (
+                                  <p className="mt-0.5 line-clamp-2 text-xs text-gray-500">
+                                    {mission.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="whitespace-nowrap p-4 text-gray-600">
+                            {mission.stationName}
+                          </td>
+                          <td className="whitespace-nowrap p-4 text-gray-600">
+                            {MISSION_TYPE_LABELS[mission.type] || mission.type}
+                          </td>
+                          <td className="whitespace-nowrap p-4 text-gray-600">
+                            {mission.submittedAt ? (
+                              thaiDateTime(mission.submittedAt)
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="whitespace-nowrap p-4 text-gray-600">
+                            {mission.method ? (
+                              RESULT_METHOD_LABELS[mission.method] ||
+                              mission.method
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            {mission.status === "completed" ? (
+                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                                <CheckCircle2 size={14} />
+                                ทำแล้ว
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-amber-100 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                                <CircleDashed size={14} />
+                                ยังไม่ทำ
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         ) : null}
-      </section>
+      </div>
     </main>
   );
 }

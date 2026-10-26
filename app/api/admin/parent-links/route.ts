@@ -14,6 +14,24 @@ import {
 } from "@/lib/parent-link-requests";
 
 const PAGE_SIZE = 30;
+const studentSelect = {
+  students_id: true,
+  firstname: true,
+  lastname: true,
+  nickname: true,
+  profile_image_url: true,
+} satisfies Prisma.studentsSelect;
+
+function studentFields(
+  row: Prisma.studentsGetPayload<{ select: typeof studentSelect }>,
+) {
+  return {
+    studentId: row.students_id,
+    studentName: `${row.firstname} ${row.lastname}`.trim(),
+    studentNickname: row.nickname,
+    studentImage: row.profile_image_url,
+  };
+}
 
 function searchFilters(search: string) {
   const number = /^[1-9]\d*$/.test(search) ? Number(search) : null;
@@ -34,6 +52,7 @@ function searchFilters(search: string) {
         OR: [
           { firstname: { contains: search } },
           { lastname: { contains: search } },
+          { nickname: { contains: search } },
           ...(number && Number.isSafeInteger(number)
             ? [{ students_id: number }]
             : []),
@@ -60,6 +79,35 @@ export async function GET(request: Request) {
   const skip = (page - 1) * PAGE_SIZE;
   const { parent, student } = searchFilters(search);
 
+  if (view === "summary") {
+    const activeStudent: Prisma.studentsWhereInput = { deletedAt: null };
+    const [totalStudents, linkedStudents, pendingRequests, totalParents] =
+      await Promise.all([
+        prisma.students.count({ where: activeStudent }),
+        prisma.students.count({
+          where: {
+            ...activeStudent,
+            OR: [{ parents: { some: {} } }, { parent_links: { some: {} } }],
+          },
+        }),
+        prisma.parent_student_link_requests.count({
+          where: { status: "PENDING" },
+        }),
+        prisma.parents.count(),
+      ]);
+
+    return NextResponse.json(
+      {
+        totalStudents,
+        linkedStudents,
+        unlinkedStudents: totalStudents - linkedStudents,
+        pendingRequests,
+        totalParents,
+      },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  }
+
   if (view === "requests") {
     const where: Prisma.parent_student_link_requestsWhereInput = search
       ? { OR: [{ parent }, { student }] }
@@ -81,9 +129,7 @@ export async function GET(request: Request) {
               tel: true,
             },
           },
-          student: {
-            select: { students_id: true, firstname: true, lastname: true },
-          },
+          student: { select: studentSelect },
         },
         orderBy: { requested_at: "desc" },
         skip,
@@ -99,9 +145,7 @@ export async function GET(request: Request) {
           parentId: row.parent.parents_id,
           parentName: `${row.parent.firstname} ${row.parent.lastname}`.trim(),
           parentPhone: maskParentPhone(row.parent.tel),
-          studentId: row.student.students_id,
-          studentName:
-            `${row.student.firstname} ${row.student.lastname}`.trim(),
+          ...studentFields(row.student),
           status: row.status,
           requestedAt: row.requested_at,
           expiresAt: row.expires_at,
@@ -131,7 +175,7 @@ export async function GET(request: Request) {
       }),
       prisma.students.findMany({
         where: { students_id: { in: rows.map((row) => row.students_id) } },
-        select: { students_id: true, firstname: true, lastname: true },
+        select: studentSelect,
       }),
     ]);
     const parentNames = new Map(
@@ -140,11 +184,8 @@ export async function GET(request: Request) {
         `${item.firstname} ${item.lastname}`.trim(),
       ]),
     );
-    const studentNames = new Map(
-      students.map((item) => [
-        item.students_id,
-        `${item.firstname} ${item.lastname}`.trim(),
-      ]),
+    const studentsById = new Map(
+      students.map((item) => [item.students_id, studentFields(item)]),
     );
 
     return NextResponse.json(
@@ -154,7 +195,10 @@ export async function GET(request: Request) {
           parentId: row.parents_id,
           parentName: parentNames.get(row.parents_id) ?? "บัญชีถูกลบ",
           studentId: row.students_id,
-          studentName: studentNames.get(row.students_id) ?? "บัญชีถูกลบ",
+          studentName: "บัญชีถูกลบ",
+          studentNickname: null,
+          studentImage: null,
+          ...studentsById.get(row.students_id),
           action: row.action,
           actorType: row.actor_type,
           actorId: row.actor_id,
@@ -184,9 +228,7 @@ export async function GET(request: Request) {
     prisma.students.findMany({
       where: studentWhere,
       select: {
-        students_id: true,
-        firstname: true,
-        lastname: true,
+        ...studentSelect,
         parents: {
           select: {
             parents_id: true,
@@ -241,8 +283,7 @@ export async function GET(request: Request) {
         const primaryIds = new Set(row.parents.map((item) => item.parents_id));
 
         return {
-          studentId: row.students_id,
-          studentName: `${row.firstname} ${row.lastname}`.trim(),
+          ...studentFields(row),
           accesses: [
             ...row.parents.map((item) => ({
               parentId: item.parents_id,
