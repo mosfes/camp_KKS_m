@@ -1,5 +1,24 @@
 "use client";
 
+import {
+  Avatar,
+  Card,
+  CardBody,
+  Input,
+  Pagination,
+  Select,
+  SelectItem,
+  Tooltip,
+} from "@heroui/react";
+import {
+  Clock,
+  Search,
+  Trash2,
+  UserRoundCheck,
+  UserRoundX,
+  Users,
+  UserX,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
@@ -13,29 +32,29 @@ type ParentAccess = {
   grantedAt: string | null;
   revocable: boolean;
 };
-type ActiveRow = {
+type StudentInfo = {
   studentId: number;
   studentName: string;
+  studentNickname: string | null;
+  studentImage: string | null;
+};
+type ActiveRow = StudentInfo & {
   accesses: ParentAccess[];
 };
-type RequestRow = {
+type RequestRow = StudentInfo & {
   id: number;
   parentId: number;
   parentName: string;
   parentPhone: string;
-  studentId: number;
-  studentName: string;
   status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED" | "REVOKED";
   requestedAt: string;
   expiresAt: string;
   respondedAt: string | null;
 };
-type EventRow = {
+type EventRow = StudentInfo & {
   id: number;
   parentId: number;
   parentName: string;
-  studentId: number;
-  studentName: string;
   action: string;
   actorType: string;
   actorId: number;
@@ -57,6 +76,44 @@ const eventLabels: Record<string, string> = {
   ACCOUNT_DELETED: "ลบบัญชีผู้ปกครอง",
   ACCOUNT_CREATED: "สร้างบัญชีผู้ปกครองใหม่",
 };
+
+type Summary = {
+  totalStudents: number;
+  linkedStudents: number;
+  unlinkedStudents: number;
+  pendingRequests: number;
+  totalParents: number;
+};
+
+const viewTitles: Record<View, string> = {
+  active: "สถานะการผูก",
+  requests: "คำขอผูกบัญชี",
+  events: "ประวัติการดำเนินการ",
+};
+// [หัวคอลัมน์, ความกว้าง, การจัดชิด]
+const tableColumns: Record<View, [string, string, "right"?][]> = {
+  active: [
+    ["นักเรียน", "w-[30%]"],
+    ["ผู้ปกครองที่ดูข้อมูลได้", "w-[32%]"],
+    ["ประเภทสิทธิ์", "w-[26%]"],
+    ["ดำเนินการ", "w-[12%]", "right"],
+  ],
+  requests: [
+    ["นักเรียน", "w-[30%]"],
+    ["ผู้ขอสิทธิ์", "w-[30%]"],
+    ["สถานะ", "w-[17%]"],
+    ["วันที่", "w-[23%]"],
+  ],
+  events: [
+    ["นักเรียน", "w-[28%]"],
+    ["ผู้ปกครอง", "w-[27%]"],
+    ["เหตุการณ์", "w-[20%]"],
+    ["เวลาและผู้ดำเนินการ", "w-[25%]"],
+  ],
+};
+const rowClass =
+  "border-b border-gray-100 align-top last:border-b-0 hover:bg-gray-50";
+const cellClass = "px-3 py-4";
 
 function formatDate(value: string | null) {
   return value
@@ -82,7 +139,7 @@ function ParentCell({ name, phone }: { name: string; phone?: string }) {
 
   return (
     <div>
-      <p className="font-semibold text-gray-900">{displayName}</p>
+      <p className="font-medium text-gray-800">{displayName}</p>
       {phone && <p className="mt-0.5 text-xs text-gray-500">เบอร์ {phone}</p>}
       {displayName === "ไม่มี" && (
         <p className="mt-0.5 text-xs text-amber-700">ยังไม่ได้กรอกชื่อ</p>
@@ -91,12 +148,63 @@ function ParentCell({ name, phone }: { name: string; phone?: string }) {
   );
 }
 
-function StudentCell({ name, id }: { name: string; id: number }) {
+function StudentCell({ student }: { student: StudentInfo }) {
   return (
-    <div>
-      <p className="font-semibold text-gray-900">{name}</p>
-      <p className="mt-0.5 text-xs text-gray-500">รหัสนักเรียน #{id}</p>
+    <div className="flex items-center gap-3">
+      <Avatar
+        className="h-9 w-9 shrink-0 bg-[#e8f0ee] text-sm font-medium text-[#3d6357]"
+        name={(student.studentName || "?").charAt(0)}
+        src={student.studentImage || undefined}
+      />
+      <div className="min-w-0">
+        <p className="truncate font-medium text-gray-800">
+          {student.studentName}
+        </p>
+        <p className="truncate text-xs text-gray-500">
+          ชื่อเล่น: {student.studentNickname || "-"}
+        </p>
+        <p className="truncate text-xs text-gray-400">
+          รหัสนักเรียน: {student.studentId}
+        </p>
+      </div>
     </div>
+  );
+}
+
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+  note,
+  tone,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: number | null;
+  note: string;
+  tone: string;
+}) {
+  return (
+    <Card className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+      <CardBody className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-500">{label}</p>
+            {value === null ? (
+              <div className="mt-3 h-8 w-16 animate-pulse rounded bg-gray-200" />
+            ) : (
+              <p className="mt-2 text-3xl font-bold text-gray-800">
+                {value.toLocaleString("th-TH")}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-gray-400">{note}</p>
+          </div>
+          <span className={`shrink-0 rounded-2xl p-3 ${tone}`}>
+            <Icon size={22} />
+          </span>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 
@@ -111,7 +219,7 @@ function SourceCell({ row }: { row: ParentAccess }) {
   return (
     <div>
       <span
-        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${row.source === "STUDENT_APPROVED" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-700"}`}
+        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${row.source === "STUDENT_APPROVED" ? "bg-[#e8f0ee] text-[#3d6357]" : "bg-gray-100 text-gray-700"}`}
       >
         {label}
       </span>
@@ -136,6 +244,23 @@ export default function ParentAccessManager() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [summary, setSummary] = useState<Summary | null>(null);
+
+  const loadSummary = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/parent-links?view=summary", {
+        cache: "no-store",
+      });
+
+      if (response.ok) setSummary(await response.json());
+    } catch {
+      // การ์ดสรุปไม่ใช่ข้อมูลหลัก โหลดไม่ได้ก็ปล่อยเป็นโครงไว้
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSummary();
+  }, [loadSummary]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -165,6 +290,18 @@ export default function ParentAccessManager() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const next = query.trim();
+
+      if (next === search) return;
+      setPage(1);
+      setSearch(next);
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [query, search]);
 
   function revoke(row: ActiveRow, access: ParentAccess) {
     if (busy) return;
@@ -206,7 +343,7 @@ export default function ParentAccessManager() {
               ? `บัญชีผู้ปกครองของ ${row.studentName} ถูกลบและยกเลิกสิทธิ์ทั้งหมดแล้ว`
               : `ผู้ปกครองรายนี้จะไม่เห็นข้อมูลของ ${row.studentName} อีก`,
           );
-          await refresh();
+          await Promise.all([refresh(), loadSummary()]);
         } catch (reason) {
           showError(
             "เพิกถอนสิทธิ์ไม่สำเร็จ",
@@ -220,305 +357,342 @@ export default function ParentAccessManager() {
     );
   }
 
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const columns = tableColumns[view];
+
   return (
-    <section className="space-y-5">
-      <div
-        aria-label="ประเภทข้อมูลสิทธิ์ผู้ปกครอง"
-        className="flex flex-wrap gap-2"
-        role="group"
+    <div className="flex w-full flex-col gap-6 pt-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <SummaryCard
+          icon={UserRoundCheck}
+          label="นักเรียนที่ผูกแล้ว"
+          note={
+            summary
+              ? `จากนักเรียนทั้งหมด ${summary.totalStudents.toLocaleString("th-TH")} คน`
+              : "มีผู้ปกครองดูข้อมูลได้"
+          }
+          tone="bg-[#e8f0ee] text-[#3d6357]"
+          value={summary?.linkedStudents ?? null}
+        />
+        <SummaryCard
+          icon={UserRoundX}
+          label="ยังไม่ผูกผู้ปกครอง"
+          note="ยังไม่มีผู้ปกครองดูข้อมูลได้"
+          tone="bg-amber-50 text-amber-700"
+          value={summary?.unlinkedStudents ?? null}
+        />
+        <SummaryCard
+          icon={Clock}
+          label="คำขอรอยืนยัน"
+          note="รอนักเรียนกดยืนยัน"
+          tone="bg-sky-50 text-sky-700"
+          value={summary?.pendingRequests ?? null}
+        />
+        <SummaryCard
+          icon={Users}
+          label="บัญชีผู้ปกครอง"
+          note="บัญชีที่สมัครในระบบ"
+          tone="bg-violet-50 text-violet-700"
+          value={summary?.totalParents ?? null}
+        />
+      </section>
+
+      <Card
+        className="rounded-2xl border border-gray-100 bg-white shadow-sm"
+        radius="none"
       >
-        {(
-          [
-            ["active", "สถานะการผูก"],
-            ["requests", "คำขอทั้งหมด"],
-            ["events", "ประวัติการดำเนินการ"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            aria-pressed={view === key}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold ${view === key ? "bg-[#5d7c6f] text-white" : "border border-gray-200 bg-white text-gray-700"}`}
-            type="button"
-            onClick={() => {
-              setView(key);
-              setPage(1);
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        <CardBody className="p-4 md:p-6">
+          <div className="mb-6 flex flex-col gap-4">
+            {/* Top Row: Title */}
+            <div className="flex flex-col items-start justify-between gap-4 xl:flex-row xl:items-center">
+              <div>
+                <h2 className="font-semibold text-gray-800">
+                  {viewTitles[view]} ({loading ? "…" : total})
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {view === "active"
+                    ? "ผูกโดยตรง = บัญชีผู้ปกครองที่เชื่อมกับรหัสนักเรียน · นักเรียนยืนยันแล้ว = ผ่านคำขอ"
+                    : view === "requests"
+                      ? "คำขอที่ผู้ปกครองส่งมาเพื่อดูข้อมูลนักเรียน ซึ่งนักเรียนต้องเป็นผู้ยืนยัน"
+                      : "บันทึกการเปลี่ยนแปลงสิทธิ์ทั้งหมด"}
+                </p>
+              </div>
+            </div>
 
-      {view !== "events" && (
-        <form
-          className="flex max-w-xl gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setPage(1);
-            setSearch(query.trim());
-          }}
-        >
-          <input
-            aria-label="ค้นหาผู้ปกครองหรือนักเรียน"
-            className="min-w-0 flex-1 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm"
-            placeholder="ชื่อ รหัสนักเรียน หรือเบอร์ผู้ปกครอง"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <button
-            className="rounded-xl bg-[#5d7c6f] px-4 py-2 text-sm font-semibold text-white"
-            type="submit"
-          >
-            ค้นหา
-          </button>
-        </form>
-      )}
+            {/* Bottom Row: Search & Filters */}
+            <div className="flex w-full items-center gap-3">
+              {/* แสดงช่องค้นหาตลอด (ปิดไว้ในมุมมองประวัติ) ดรอปดาวน์จะได้ไม่ขยับ */}
+              <div className="min-w-0 flex-1 sm:max-w-2xl">
+                <Input
+                  isClearable
+                  aria-label="ค้นหาผู้ปกครองหรือนักเรียน"
+                  classNames={{ inputWrapper: "bg-white border-gray-200" }}
+                  isDisabled={view === "events"}
+                  placeholder={
+                    view === "events"
+                      ? "ประวัติการดำเนินการค้นหาไม่ได้"
+                      : "ค้นหาชื่อ ชื่อเล่น รหัสนักเรียน หรือเบอร์ผู้ปกครอง..."
+                  }
+                  size="sm"
+                  startContent={<Search className="text-gray-400" size={14} />}
+                  value={view === "events" ? "" : query}
+                  onClear={() => setQuery("")}
+                  onValueChange={setQuery}
+                />
+              </div>
+              <div className="w-40 shrink-0 sm:w-80">
+                <Select
+                  disallowEmptySelection
+                  aria-label="ประเภทข้อมูลสิทธิ์ผู้ปกครอง"
+                  selectedKeys={new Set([view])}
+                  size="sm"
+                  onChange={(event) => {
+                    const key = event.target.value as View;
 
-      {error && (
-        <p aria-live="polite" className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
-      <div className="space-y-1 text-sm text-gray-600">
-        <p>
-          {loading
-            ? "กำลังโหลด..."
-            : `ทั้งหมด ${total} ${view === "active" ? "คน" : "รายการ"}`}
-        </p>
-        {view === "active" && (
-          <p className="text-xs text-gray-500">
-            ผูกโดยตรง = บัญชีผู้ปกครองที่เชื่อมกับรหัสนักเรียน ·
-            นักเรียนยืนยันแล้ว = ผ่านคำขอ
-          </p>
-        )}
-      </div>
+                    if (!key || key === view) return;
+                    // ล้างข้อมูลแท็บเดิมก่อน กันตารางใหม่ render ด้วย rows คนละรูปแบบ
+                    setRows([]);
+                    setLoading(true);
+                    setView(key);
+                    setPage(1);
+                  }}
+                >
+                  {(Object.keys(viewTitles) as View[]).map((key) => (
+                    <SelectItem
+                      key={key}
+                      textValue={`แสดง: ${viewTitles[key]}`}
+                    >
+                      {viewTitles[key]}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </div>
+            </div>
+          </div>
 
-      {!loading && rows.length === 0 && (
-        <p className="rounded-2xl border border-gray-100 bg-white p-6 text-sm text-gray-500">
-          ไม่มีรายการ
-          {search && view !== "events" ? "ที่ตรงกับคำค้นหา" : "ในขณะนี้"}
-        </p>
-      )}
+          {error && (
+            <p aria-live="polite" className="mb-4 text-sm text-red-600">
+              {error}
+            </p>
+          )}
 
-      {!loading && rows.length > 0 && (
-        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-          {view === "active" && (
-            <table className="w-full min-w-[820px] table-fixed text-left text-sm">
-              <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-[820px] table-fixed overflow-hidden rounded-xl border border-gray-100 text-left text-sm">
+              <thead>
                 <tr>
-                  <th className="w-[27%] px-4 py-3" scope="col">
-                    นักเรียน
-                  </th>
-                  <th className="w-[32%] px-4 py-3" scope="col">
-                    ผู้ปกครองที่ดูข้อมูลได้
-                  </th>
-                  <th className="w-[27%] px-4 py-3" scope="col">
-                    ประเภทสิทธิ์
-                  </th>
-                  <th className="w-[14%] px-4 py-3 text-right" scope="col">
-                    จัดการ
-                  </th>
+                  {columns.map(([label, width, align]) => (
+                    <th
+                      key={label}
+                      className={`${width} border-b border-gray-100 bg-gray-50/50 px-3 py-4 text-xs font-semibold text-gray-800 ${align === "right" ? "text-right" : ""}`}
+                      scope="col"
+                    >
+                      {label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {(rows as ActiveRow[]).map((row) =>
-                  row.accesses.length === 0 ? (
+              <tbody>
+                {loading &&
+                  Array.from({ length: 6 }, (_, index) => (
                     <tr
-                      key={row.studentId}
-                      className="align-top hover:bg-gray-50/70"
+                      key={index}
+                      className="border-b border-gray-100 last:border-b-0"
                     >
-                      <td className="px-4 py-4">
-                        <StudentCell
-                          id={row.studentId}
-                          name={row.studentName}
-                        />
-                      </td>
-                      <td className="px-4 py-4 font-medium text-amber-800">
-                        ยังไม่ได้ผูกกับผู้ปกครอง
-                      </td>
-                      <td className="px-4 py-4 text-gray-400">—</td>
-                      <td className="px-4 py-4 text-right text-gray-400">—</td>
+                      {columns.map(([label]) => (
+                        <td key={label} className="px-3 py-5">
+                          <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200" />
+                        </td>
+                      ))}
                     </tr>
-                  ) : (
-                    row.accesses.map((access, index) => (
-                      <tr
-                        key={`${row.studentId}:${access.parentId}:${access.source}`}
-                        className="align-top hover:bg-gray-50/70"
-                      >
-                        {index === 0 && (
-                          <td
-                            className="px-4 py-4"
-                            rowSpan={row.accesses.length}
-                          >
-                            <StudentCell
-                              id={row.studentId}
-                              name={row.studentName}
-                            />
-                          </td>
-                        )}
-                        <td className="px-4 py-4">
-                          <ParentCell
-                            name={access.parentName}
-                            phone={access.parentPhone}
-                          />
+                  ))}
+
+                {!loading && rows.length === 0 && (
+                  <tr>
+                    <td
+                      className="px-3 py-10 text-center text-sm text-gray-500"
+                      colSpan={columns.length}
+                    >
+                      ไม่มีรายการ
+                      {search && view !== "events"
+                        ? "ที่ตรงกับคำค้นหา"
+                        : "ในขณะนี้"}
+                    </td>
+                  </tr>
+                )}
+
+                {!loading &&
+                  view === "active" &&
+                  (rows as ActiveRow[]).map((row) =>
+                    row.accesses.length === 0 ? (
+                      <tr key={row.studentId} className={rowClass}>
+                        <td className={cellClass}>
+                          <StudentCell student={row} />
                         </td>
-                        <td className="px-4 py-4">
-                          <SourceCell row={access} />
+                        <td
+                          className={`${cellClass} font-medium text-amber-700`}
+                        >
+                          ยังไม่ได้ผูกกับผู้ปกครอง
                         </td>
-                        <td className="px-4 py-4 text-right">
-                          {access.revocable ? (
-                            <button
-                              className="inline-flex min-h-9 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:border-red-300 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-                              disabled={busy}
-                              type="button"
-                              onClick={() => revoke(row, access)}
-                            >
-                              {access.source === "PRIMARY"
-                                ? "ลบบัญชี"
-                                : "เพิกถอน"}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-gray-400">ไม่มี</span>
-                          )}
+                        <td className={`${cellClass} text-gray-400`}>—</td>
+                        <td className={`${cellClass} text-right text-gray-400`}>
+                          —
                         </td>
                       </tr>
-                    ))
-                  ),
-                )}
-              </tbody>
-            </table>
-          )}
+                    ) : (
+                      row.accesses.map((access, index) => (
+                        <tr
+                          key={`${row.studentId}:${access.parentId}:${access.source}`}
+                          className={rowClass}
+                        >
+                          {index === 0 && (
+                            <td
+                              className={cellClass}
+                              rowSpan={row.accesses.length}
+                            >
+                              <StudentCell student={row} />
+                            </td>
+                          )}
+                          <td className={cellClass}>
+                            <ParentCell
+                              name={access.parentName}
+                              phone={access.parentPhone}
+                            />
+                          </td>
+                          <td className={cellClass}>
+                            <SourceCell row={access} />
+                          </td>
+                          <td className={`${cellClass} text-right`}>
+                            {access.revocable ? (
+                              <Tooltip
+                                color="danger"
+                                content={
+                                  access.source === "PRIMARY"
+                                    ? "ลบบัญชีผู้ปกครอง"
+                                    : "เพิกถอนสิทธิ์"
+                                }
+                              >
+                                <button
+                                  aria-label={
+                                    access.source === "PRIMARY"
+                                      ? "ลบบัญชีผู้ปกครอง"
+                                      : "เพิกถอนสิทธิ์"
+                                  }
+                                  className="inline-flex cursor-pointer items-center text-[#E84A5F] transition-colors hover:text-[#FF847C] active:opacity-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                  disabled={busy}
+                                  type="button"
+                                  onClick={() => revoke(row, access)}
+                                >
+                                  {access.source === "PRIMARY" ? (
+                                    <Trash2 size={18} />
+                                  ) : (
+                                    <UserX size={18} />
+                                  )}
+                                </button>
+                              </Tooltip>
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ),
+                  )}
 
-          {view === "requests" && (
-            <table className="w-full min-w-[760px] table-fixed text-left text-sm">
-              <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
-                <tr>
-                  <th className="w-[27%] px-4 py-3" scope="col">
-                    นักเรียน
-                  </th>
-                  <th className="w-[30%] px-4 py-3" scope="col">
-                    ผู้ขอสิทธิ์
-                  </th>
-                  <th className="w-[18%] px-4 py-3" scope="col">
-                    สถานะ
-                  </th>
-                  <th className="w-[25%] px-4 py-3" scope="col">
-                    วันที่
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {(rows as RequestRow[]).map((row) => (
-                  <tr key={row.id} className="align-top hover:bg-gray-50/70">
-                    <td className="px-4 py-4">
-                      <StudentCell id={row.studentId} name={row.studentName} />
-                    </td>
-                    <td className="px-4 py-4">
-                      <ParentCell
-                        name={row.parentName}
-                        phone={row.parentPhone}
-                      />
-                    </td>
-                    <td className="px-4 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${row.status === "PENDING" ? "bg-amber-50 text-amber-800" : row.status === "APPROVED" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-700"}`}
-                      >
-                        {statusLabels[row.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-xs text-gray-600">
-                      <p>ขอเมื่อ {formatDate(row.requestedAt)}</p>
-                      {row.respondedAt && (
+                {!loading &&
+                  view === "requests" &&
+                  (rows as RequestRow[]).map((row) => (
+                    <tr key={row.id} className={rowClass}>
+                      <td className={cellClass}>
+                        <StudentCell student={row} />
+                      </td>
+                      <td className={cellClass}>
+                        <ParentCell
+                          name={row.parentName}
+                          phone={row.parentPhone}
+                        />
+                      </td>
+                      <td className={cellClass}>
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${row.status === "PENDING" ? "bg-amber-50 text-amber-800" : row.status === "APPROVED" ? "bg-[#e8f0ee] text-[#3d6357]" : "bg-gray-100 text-gray-700"}`}
+                        >
+                          {statusLabels[row.status]}
+                        </span>
+                      </td>
+                      <td className={`${cellClass} text-xs text-gray-500`}>
+                        <p>ขอเมื่อ {formatDate(row.requestedAt)}</p>
+                        {row.respondedAt && (
+                          <p className="mt-1">
+                            ตอบเมื่อ {formatDate(row.respondedAt)}
+                          </p>
+                        )}
+                        {row.status === "PENDING" && (
+                          <p className="mt-1">
+                            หมดอายุ {formatDate(row.expiresAt)}
+                          </p>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+
+                {!loading &&
+                  view === "events" &&
+                  (rows as EventRow[]).map((row) => (
+                    <tr key={row.id} className={rowClass}>
+                      <td className={cellClass}>
+                        <StudentCell student={row} />
+                      </td>
+                      <td className={cellClass}>
+                        <ParentCell name={row.parentName} />
+                      </td>
+                      <td className={`${cellClass} font-medium text-gray-800`}>
+                        {eventLabels[row.action] ?? row.action}
+                      </td>
+                      <td className={`${cellClass} text-xs text-gray-500`}>
+                        <p>{formatDate(row.createdAt)}</p>
                         <p className="mt-1">
-                          ตอบเมื่อ {formatDate(row.respondedAt)}
+                          {row.actorType === "STUDENT"
+                            ? "นักเรียน"
+                            : row.actorType === "ADMIN"
+                              ? "แอดมิน"
+                              : row.actorType === "SYSTEM"
+                                ? "ระบบ"
+                                : "ผู้ปกครอง"}{" "}
+                          #{row.actorId}
                         </p>
-                      )}
-                      {row.status === "PENDING" && (
-                        <p className="mt-1">
-                          หมดอายุ {formatDate(row.expiresAt)}
-                        </p>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
-          )}
+          </div>
 
-          {view === "events" && (
-            <table className="w-full min-w-[760px] table-fixed text-left text-sm">
-              <thead className="bg-gray-50 text-xs font-semibold text-gray-600">
-                <tr>
-                  <th className="w-[25%] px-4 py-3" scope="col">
-                    นักเรียน
-                  </th>
-                  <th className="w-[27%] px-4 py-3" scope="col">
-                    ผู้ปกครอง
-                  </th>
-                  <th className="w-[23%] px-4 py-3" scope="col">
-                    เหตุการณ์
-                  </th>
-                  <th className="w-[25%] px-4 py-3" scope="col">
-                    เวลาและผู้ดำเนินการ
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {(rows as EventRow[]).map((row) => (
-                  <tr key={row.id} className="align-top hover:bg-gray-50/70">
-                    <td className="px-4 py-4">
-                      <StudentCell id={row.studentId} name={row.studentName} />
-                    </td>
-                    <td className="px-4 py-4">
-                      <ParentCell name={row.parentName} />
-                    </td>
-                    <td className="px-4 py-4 font-medium text-gray-800">
-                      {eventLabels[row.action] ?? row.action}
-                    </td>
-                    <td className="px-4 py-4 text-xs text-gray-600">
-                      <p>{formatDate(row.createdAt)}</p>
-                      <p className="mt-1">
-                        {row.actorType === "STUDENT"
-                          ? "นักเรียน"
-                          : row.actorType === "ADMIN"
-                            ? "แอดมิน"
-                            : row.actorType === "SYSTEM"
-                              ? "ระบบ"
-                              : "ผู้ปกครอง"}{" "}
-                        #{row.actorId}
-                      </p>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
-      {total > pageSize && (
-        <div className="flex items-center gap-3">
-          <button
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-40"
-            disabled={page <= 1 || loading}
-            type="button"
-            onClick={() => setPage((value) => value - 1)}
-          >
-            ก่อนหน้า
-          </button>
-          <span className="text-sm text-gray-600">
-            หน้า {page} / {Math.ceil(total / pageSize)}
-          </span>
-          <button
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-40"
-            disabled={page >= Math.ceil(total / pageSize) || loading}
-            type="button"
-            onClick={() => setPage((value) => value + 1)}
-          >
-            ถัดไป
-          </button>
-        </div>
-      )}
-    </section>
+          <div className="relative mt-6 flex w-full flex-col items-center gap-4 px-2 md:flex-row">
+            <p className="order-2 text-sm text-gray-500 md:absolute md:left-2 md:order-1">
+              {loading
+                ? "กำลังโหลด..."
+                : `แสดง ${rows.length} จาก ${total} ${view === "active" ? "คน" : "รายการ"}`}
+            </p>
+            <div className="order-1 flex w-full flex-1 justify-center md:order-2">
+              {totalPages > 1 && (
+                <Pagination
+                  isCompact
+                  showControls
+                  showShadow
+                  classNames={{ cursor: "bg-sage text-white font-medium" }}
+                  color="default"
+                  isDisabled={loading}
+                  page={page}
+                  total={totalPages}
+                  onChange={(newPage) => {
+                    setPage(newPage);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                />
+              )}
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+    </div>
   );
 }
