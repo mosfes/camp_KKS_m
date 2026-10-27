@@ -22,6 +22,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 
+import StudentInfoPanel from "./StudentInfoPanel";
+
 import { ParentNavbar } from "@/components/ParentNavbar";
 import {
   BANGKOK_TIME_ZONE,
@@ -276,13 +278,6 @@ export default function ParentDashboard() {
             onClick={() => router.push("/parent/family")}
           >
             <ArrowLeft size={17} /> บุตรทั้งหมด
-          </button>
-          <button
-            className="text-sm font-semibold text-[#4d6a5f] underline-offset-4 hover:underline"
-            type="button"
-            onClick={() => router.push(`/parent/children/${student.public_id}/profile`)}
-          >
-            ดูข้อมูลนักเรียน
           </button>
         </div>
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#5d7c6f] via-[#4d6a5f] to-[#365045] p-6 text-white shadow-lg sm:p-8">
@@ -545,6 +540,18 @@ export default function ParentDashboard() {
                   </div>
                 )}
               </div>
+            </Tab>
+            {/* ── Tab 4: ข้อมูลนักเรียน ── */}
+            <Tab
+              key="student-info"
+              title={
+                <div className="flex items-center gap-2 whitespace-nowrap">
+                  <UserCircle2 size={15} />
+                  <span>ข้อมูลนักเรียน</span>
+                </div>
+              }
+            >
+              <StudentInfoPanel studentId={student.public_id} />
             </Tab>
           </Tabs>
         </div>

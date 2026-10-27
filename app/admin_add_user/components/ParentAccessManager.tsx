@@ -2,18 +2,27 @@
 
 import {
   Avatar,
+  Button,
   Card,
   CardBody,
   Input,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
   Pagination,
   Select,
   SelectItem,
   Tooltip,
 } from "@heroui/react";
 import {
+  Check,
   Clock,
+  Copy,
   Search,
   Trash2,
+  UserPlus,
   UserRoundCheck,
   UserRoundX,
   Users,
@@ -29,6 +38,7 @@ type ParentAccess = {
   parentName: string;
   parentPhone: string;
   source: "PRIMARY" | "STUDENT_APPROVED" | "LEGACY";
+  username?: string;
   grantedAt: string | null;
   revocable: boolean;
 };
@@ -223,6 +233,11 @@ function SourceCell({ row }: { row: ParentAccess }) {
       >
         {label}
       </span>
+      {row.username && (
+        <p className="mt-1.5 text-xs text-gray-500">
+          ชื่อผู้ใช้ {row.username}
+        </p>
+      )}
       {row.grantedAt && (
         <p className="mt-1.5 text-xs text-gray-500">
           เริ่ม {formatDate(row.grantedAt)}
@@ -233,7 +248,12 @@ function SourceCell({ row }: { row: ParentAccess }) {
 }
 
 export default function ParentAccessManager() {
-  const { showConfirm, showError, showSuccess } = useStatusModal();
+  const {
+    close: closeStatusModal,
+    showConfirm,
+    showError,
+    showSuccess,
+  } = useStatusModal();
   const [view, setView] = useState<View>("active");
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
@@ -245,6 +265,25 @@ export default function ParentAccessManager() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [createdAccount, setCreatedAccount] = useState<{
+    studentName: string;
+    username: string;
+    password: string;
+  } | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  async function copyText(key: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(key);
+      setTimeout(
+        () => setCopied((current) => (current === key ? null : current)),
+        1500,
+      );
+    } catch {
+      showError("คัดลอกไม่สำเร็จ", "กรุณาเลือกข้อความแล้วคัดลอกเอง");
+    }
+  }
 
   const loadSummary = useCallback(async () => {
     try {
@@ -356,6 +395,63 @@ export default function ParentAccessManager() {
       isPrimary ? "ลบบัญชี" : "เพิกถอน",
     );
   }
+
+  function createAccount(row: ActiveRow) {
+    if (busy) return;
+
+    const hasAccount = row.accesses.some(
+      (access) => access.source === "PRIMARY",
+    );
+
+    showConfirm(
+      "สร้างบัญชีผู้ปกครองเพิ่ม",
+      `สร้างบัญชีผู้ปกครองใหม่ให้ ${row.studentName} ${hasAccount ? "อีก 1 บัญชี " : ""}รหัสผ่านเริ่มต้นคือ kks${row.studentId} และผู้ปกครองต้องเปลี่ยนรหัสเมื่อเข้าสู่ระบบครั้งแรก ยืนยันหรือไม่?`,
+      async () => {
+        setBusy(true);
+        setError("");
+        try {
+          const response = await fetch("/api/admin/parent-links", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ studentId: row.studentId }),
+          });
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "สร้างบัญชีไม่สำเร็จ");
+          }
+          // The confirm dialog stays open until something replaces it.
+          closeStatusModal();
+          setCopied(null);
+          setCreatedAccount({
+            studentName: row.studentName,
+            username: data.username,
+            password: data.initialPassword,
+          });
+          await Promise.all([refresh(), loadSummary()]);
+        } catch (reason) {
+          showError(
+            "สร้างบัญชีไม่สำเร็จ",
+            reason instanceof Error ? reason.message : "กรุณาลองใหม่อีกครั้ง",
+          );
+        } finally {
+          setBusy(false);
+        }
+      },
+      "สร้างบัญชี",
+    );
+  }
+
+  const createAccountButton = (row: ActiveRow) => (
+    <button
+      className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#d5e3da] bg-[#f4f8f5] px-2.5 py-1 text-xs font-semibold text-[#3d6357] transition-colors hover:bg-[#e8f0ee] disabled:cursor-not-allowed disabled:opacity-40"
+      disabled={busy}
+      type="button"
+      onClick={() => createAccount(row)}
+    >
+      <UserPlus size={14} /> สร้างบัญชีผู้ปกครองเพิ่ม
+    </button>
+  );
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const columns = tableColumns[view];
@@ -527,6 +623,7 @@ export default function ParentAccessManager() {
                       <tr key={row.studentId} className={rowClass}>
                         <td className={cellClass}>
                           <StudentCell student={row} />
+                          {createAccountButton(row)}
                         </td>
                         <td
                           className={`${cellClass} font-medium text-amber-700`}
@@ -550,6 +647,7 @@ export default function ParentAccessManager() {
                               rowSpan={row.accesses.length}
                             >
                               <StudentCell student={row} />
+                              {createAccountButton(row)}
                             </td>
                           )}
                           <td className={cellClass}>
@@ -693,6 +791,85 @@ export default function ParentAccessManager() {
           </div>
         </CardBody>
       </Card>
+      <Modal
+        isOpen={createdAccount !== null}
+        onOpenChange={(open) => {
+          if (!open) setCreatedAccount(null);
+        }}
+      >
+        <ModalContent>
+          {(close) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                สร้างบัญชีผู้ปกครองแล้ว
+                <span className="text-sm font-normal text-gray-500">
+                  {createdAccount?.studentName}
+                </span>
+              </ModalHeader>
+              <ModalBody className="gap-3">
+                {(
+                  [
+                    ["username", "ชื่อผู้ใช้", createdAccount?.username ?? ""],
+                    [
+                      "password",
+                      "รหัสผ่านเริ่มต้น",
+                      createdAccount?.password ?? "",
+                    ],
+                  ] as const
+                ).map(([key, label, value]) => (
+                  <div
+                    key={key}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-[#f5f5f2] px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500">{label}</p>
+                      <p className="select-all font-mono text-base font-semibold text-gray-800">
+                        {value}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      startContent={
+                        copied === key ? (
+                          <Check size={15} />
+                        ) : (
+                          <Copy size={15} />
+                        )
+                      }
+                      variant="flat"
+                      onPress={() => void copyText(key, value)}
+                    >
+                      {copied === key ? "คัดลอกแล้ว" : "คัดลอก"}
+                    </Button>
+                  </div>
+                ))}
+                <p className="text-xs text-gray-500">
+                  ผู้ปกครองต้องเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <Button
+                  startContent={
+                    copied === "both" ? <Check size={15} /> : <Copy size={15} />
+                  }
+                  variant="flat"
+                  onPress={() =>
+                    void copyText(
+                      "both",
+                      `ชื่อผู้ใช้: ${createdAccount?.username}\nรหัสผ่านเริ่มต้น: ${createdAccount?.password}\n(ต้องเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก)`,
+                    )
+                  }
+                >
+                  {copied === "both" ? "คัดลอกแล้ว" : "คัดลอกทั้งหมด"}
+                </Button>
+                <Button className="bg-[#5d7c6f] text-white" onPress={close}>
+                  ปิด
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

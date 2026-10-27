@@ -132,7 +132,6 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
     parent && parent.firstname !== "รอระบุ"
       ? `${parent.firstname[0]}${parent.lastname[0]}`
       : "ผป";
-  const activeStudent = students.find((item) => item.public_id === childId || String(item.students_id) === childId);
 
   return (
     <>
@@ -272,16 +271,6 @@ export function ParentNavbar({ onMenuClick }: { onMenuClick?: () => void }) {
                           );
                         })}
                   </DropdownSection>
-                  <DropdownItem
-                    key="student"
-                    isDisabled={!activeStudent}
-                    startContent={<GraduationCap size={16} />}
-                    onPress={() =>
-                      navigate(activeStudent ? `/parent/children/${activeStudent.public_id}/profile` : "/parent/family")
-                    }
-                  >
-                    ข้อมูลบุตร
-                  </DropdownItem>
                   <DropdownItem
                     key="logout"
                     color="danger"

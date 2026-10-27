@@ -109,29 +109,6 @@ export default function ParentAccessPanel() {
     }
   }
 
-  async function revoke(parentId: number) {
-    if (busy || !window.confirm("เพิกถอนสิทธิ์ผู้ปกครองรายนี้หรือไม่?")) return;
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const response = await fetch(`/api/student/parent-links/${parentId}`, {
-        method: "DELETE",
-      });
-      const data = await response.json();
-
-      if (!response.ok) throw new Error(data.error || "เพิกถอนสิทธิ์ไม่สำเร็จ");
-      await refresh();
-      setNotice("เพิกถอนสิทธิ์แล้ว");
-    } catch (reason) {
-      setError(
-        reason instanceof Error ? reason.message : "เพิกถอนสิทธิ์ไม่สำเร็จ",
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-
   // Keep checking for new requests, but only show the dashboard card while
   // the student has a decision to make.
   if (pending.length === 0) return null;
@@ -237,20 +214,9 @@ export default function ParentAccessPanel() {
                     : "คุณยืนยันแล้ว"}
               </p>
             </div>
-            {parent.revocable ? (
-              <button
-                className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50"
-                disabled={busy}
-                type="button"
-                onClick={() => void revoke(parent.parentId)}
-              >
-                เพิกถอนสิทธิ์
-              </button>
-            ) : (
-              <span className="text-xs text-gray-500">
-                ผูกโดยตรง: ติดต่อผู้ดูแลระบบหากข้อมูลไม่ถูกต้อง
-              </span>
-            )}
+            <span className="text-xs text-gray-500">
+              ติดต่อผู้ดูแลระบบหากต้องการเพิกถอนสิทธิ์
+            </span>
           </div>
         ))}
         {!loaded && (

@@ -111,11 +111,14 @@ model parents {
   session_version   Int       @default(0)
 
   username_student_id Int
+  /// 1 = login "28661"; 2+ = extra accounts created by an admin, login "28661-2".
+  account_no          Int                            @default(1)
   student             students                       @relation(fields: [username_student_id], references: [students_id])
   auth_tokens         parent_auth_tokens[]
   linked_students     parent_student_links[]
   link_requests       parent_student_link_requests[]
 
+  @@unique([username_student_id, account_no])
   @@index([email])
 }
 

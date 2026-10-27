@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { parseParentUsername } from "@/lib/parent-username";
 import { checkRateLimit } from "@/lib/rate-limit";
 
 function clientIp(request: Request): string {
@@ -15,7 +16,8 @@ function clientIp(request: Request): string {
 /**
  * POST /api/auth/parent/login
  * Body: { username: string, password: string }
- * username = รหัสนักเรียน, password = "kks" + รหัสนักเรียน
+ * username = รหัสนักเรียน (หรือ "รหัสนักเรียน-2" สำหรับบัญชีที่แอดมินสร้างเพิ่ม),
+ * password เริ่มต้น = "kks" + รหัสนักเรียน
  */
 export async function POST(req: Request) {
   try {
@@ -31,27 +33,22 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!/^\d+$/.test(username) || password.length > 128) {
+    const parsedUsername = parseParentUsername(username);
+
+    if (!parsedUsername || password.length > 128) {
       return NextResponse.json(
         { error: "รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง" },
         { status: 400 },
       );
     }
 
-    const studentId = Number(username);
-
-    if (!Number.isSafeInteger(studentId) || studentId <= 0) {
-      return NextResponse.json(
-        { error: "รหัสนักเรียนต้องเป็นตัวเลข" },
-        { status: 400 },
-      );
-    }
+    const { studentId, accountNo } = parsedUsername;
 
     const ipLimit = checkRateLimit("parent-login-ip", clientIp(req), {
       windowMs: 15 * 60 * 1000,
       max: 20,
     });
-    const accountLimit = checkRateLimit("parent-login-account", studentId, {
+    const accountLimit = checkRateLimit("parent-login-account", username, {
       windowMs: 15 * 60 * 1000,
       max: 8,
     });
@@ -71,22 +68,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // A deleted parent account must not be recreated by the legacy default login.
-    const deletedAccount = await prisma.parent_account_tombstones.findUnique({
-      where: { students_id: studentId },
-      select: { students_id: true },
-    });
-
-    if (deletedAccount) {
-      return NextResponse.json(
-        { error: "รหัสนักเรียนหรือรหัสผ่านไม่ถูกต้อง" },
-        { status: 401 },
-      );
-    }
-
     // ตรวจสอบรหัสผ่าน: ค้นหา parent จาก DB และใช้ bcrypt
-    let parent = await prisma.parents.findFirst({
-      where: { username_student_id: studentId },
+    let parent = await prisma.parents.findUnique({
+      where: {
+        username_student_id_account_no: {
+          username_student_id: studentId,
+          account_no: accountNo,
+        },
+      },
     });
 
     let isValid = false;
@@ -107,9 +96,15 @@ export async function POST(req: Request) {
           data: { password: await bcrypt.hash(password, 10) },
         });
       }
-    } else {
+    } else if (accountNo === 1) {
+      // A deleted parent account must not be recreated by the legacy default login.
+      const deletedAccount = await prisma.parent_account_tombstones.findUnique({
+        where: { students_id: studentId },
+        select: { students_id: true },
+      });
+
       // Lazy migration: ถอนรหัสเดิม "kks" + รหัสนักเรียน ถ้าล็อกอินด้วยรหัสนี้ ให้สร้าง parent record (จำลองข้อมูล)
-      if (password === defaultPassword) {
+      if (!deletedAccount && password === defaultPassword) {
         isValid = true;
         // สร้างข้อมูล placeholder ใน parents ให้เข้ารหัส
         parent = await prisma.parents.create({

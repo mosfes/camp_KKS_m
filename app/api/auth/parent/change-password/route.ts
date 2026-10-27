@@ -72,44 +72,14 @@ export async function POST(req: Request) {
     const bcrypt = await import("bcryptjs");
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    const updatedParent = await prisma.$transaction(async (tx) => {
-      const updated = await tx.parents.update({
-        where: { parents_id: parent.parents_id },
-        data: {
-          password: passwordHash,
-          session_version: { increment: 1 },
-        },
-        select: { session_version: true },
-      });
-      const affectedLinks = await tx.parent_student_links.findMany({
-        where: { students_id: session.primaryStudentId },
-        select: { parents_id: true },
-      });
-
-      await tx.parent_student_links.deleteMany({
-        where: { students_id: session.primaryStudentId },
-      });
-      if (affectedLinks.length) {
-        await tx.parent_student_link_requests.updateMany({
-          where: {
-            students_id: session.primaryStudentId,
-            parents_id: { in: affectedLinks.map((link) => link.parents_id) },
-            status: "APPROVED",
-          },
-          data: { status: "REVOKED", responded_at: new Date() },
-        });
-        await tx.parent_student_link_events.createMany({
-          data: affectedLinks.map((link) => ({
-            parents_id: link.parents_id,
-            students_id: session.primaryStudentId,
-            action: "REVOKED",
-            actor_type: "SYSTEM",
-            actor_id: session.parentId,
-          })),
-        });
-      }
-
-      return updated;
+    // Other parents' approved links to this student stay; only admins revoke them.
+    const updatedParent = await prisma.parents.update({
+      where: { parents_id: parent.parents_id },
+      data: {
+        password: passwordHash,
+        session_version: { increment: 1 },
+      },
+      select: { session_version: true },
     });
 
     const { SignJWT } = await import("jose");
