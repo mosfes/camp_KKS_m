@@ -2,12 +2,22 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar, Button } from "@heroui/react";
+import {
+  Avatar,
+  Button,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalHeader,
+} from "@heroui/react";
 import {
   ArrowLeft,
   CheckCircle2,
   CircleDashed,
+  Eye,
+  Maximize2,
   RefreshCw,
+  XCircle,
   Target,
   TrendingUp,
   Trophy,
@@ -15,10 +25,20 @@ import {
 
 import CampBreadcrumb from "./CampBreadcrumb";
 
+import VideoPlayer from "@/components/VideoPlayer";
+import { toThumbnail } from "@/lib/cloudinary-url";
 import { getCleanCampPath } from "@/lib/client-active-camp";
 
 type MissionStatus = "completed" | "not_started";
 type MissionFilter = "all" | MissionStatus;
+
+interface MissionAnswer {
+  questionId: number;
+  questionText: string;
+  type: "TEXT" | "MCQ" | "PHOTO" | "VIDEO";
+  answer: string;
+  isCorrect: boolean | null;
+}
 
 interface MissionDetail {
   missionId: number;
@@ -30,6 +50,7 @@ interface MissionDetail {
   status: MissionStatus;
   submittedAt: string | null;
   method: string | null;
+  answers: MissionAnswer[];
 }
 
 interface StudentMissionDetail {
@@ -193,6 +214,10 @@ export default function StudentMissionDetailPage({
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<MissionFilter>("all");
   const [requestVersion, setRequestVersion] = useState(0);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [answerMission, setAnswerMission] = useState<MissionDetail | null>(
+    null,
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -451,8 +476,11 @@ export default function StudentMissionDetailPage({
                       <th className="whitespace-nowrap p-4 font-semibold">
                         วิธีทำ
                       </th>
-                      <th className="whitespace-nowrap rounded-tr-lg p-4 font-semibold">
+                      <th className="whitespace-nowrap p-4 font-semibold">
                         สถานะ
+                      </th>
+                      <th className="whitespace-nowrap rounded-tr-lg p-4 font-semibold">
+                        คำตอบ
                       </th>
                     </tr>
                   </thead>
@@ -461,7 +489,7 @@ export default function StudentMissionDetailPage({
                       <tr>
                         <td
                           className="p-8 text-center text-gray-500"
-                          colSpan={6}
+                          colSpan={7}
                         >
                           {detail.summary.totalMissions === 0
                             ? "ค่ายนี้ยังไม่มีภารกิจ"
@@ -523,6 +551,21 @@ export default function StudentMissionDetailPage({
                               </span>
                             )}
                           </td>
+                          <td className="p-4">
+                            {mission.answers.length > 0 ? (
+                              <Button
+                                className="bg-[#e8f0ee] font-medium text-[#3d6357]"
+                                size="sm"
+                                startContent={<Eye size={14} />}
+                                variant="flat"
+                                onPress={() => setAnswerMission(mission)}
+                              >
+                                ดูคำตอบ
+                              </Button>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
                         </tr>
                       ))
                     )}
@@ -533,6 +576,161 @@ export default function StudentMissionDetailPage({
           </>
         ) : null}
       </div>
+
+      <Modal
+        classNames={{
+          base: "rounded-3xl",
+          header: "border-b border-gray-100 px-6 py-5",
+          body: "bg-[#f8f8f6] px-6 py-6",
+          closeButton: "top-4 right-4 hover:bg-gray-100",
+        }}
+        isOpen={answerMission !== null}
+        scrollBehavior="inside"
+        size="3xl"
+        onClose={() => setAnswerMission(null)}
+      >
+        <ModalContent>
+          <ModalHeader className="flex items-start gap-3 pr-14">
+            <Avatar
+              className="h-10 w-10 shrink-0 bg-[#e8f0ee] text-[#3d6357]"
+              name={detail?.student.initials}
+              src={detail?.student.profileImageUrl || undefined}
+            />
+            <div className="min-w-0">
+              <h2 className="text-base font-bold leading-snug text-gray-900">
+                {answerMission?.title}
+              </h2>
+              <p className="mt-0.5 text-xs font-normal text-gray-500">
+                {detail?.student.name}
+              </p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs font-medium">
+                {answerMission && (
+                  <span className="rounded-full bg-[#e8f0ee] px-2.5 py-1 text-[#3d6357]">
+                    {MISSION_TYPE_LABELS[answerMission.type] ||
+                      answerMission.type}
+                  </span>
+                )}
+                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-gray-600">
+                  {answerMission?.stationName}
+                </span>
+                {answerMission?.submittedAt && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">
+                    <CheckCircle2 size={12} />
+                    ส่งเมื่อ {thaiDateTime(answerMission.submittedAt)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </ModalHeader>
+          <ModalBody className="gap-4">
+            {answerMission?.answers.map((answer, index) => (
+              <section
+                key={answer.questionId}
+                className="shrink-0 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+              >
+                <div className="flex items-start gap-3 px-5 pt-4">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#5d7c6f] text-xs font-bold text-white">
+                    {index + 1}
+                  </span>
+                  <p className="text-sm font-semibold leading-relaxed text-gray-900">
+                    {answer.questionText || "คำถาม"}
+                  </p>
+                </div>
+
+                <div className="p-5 pt-3">
+                  {answer.type === "TEXT" && (
+                    <p className="whitespace-pre-wrap rounded-xl bg-[#f3f6f4] px-4 py-3.5 text-sm leading-relaxed text-gray-800">
+                      {answer.answer}
+                    </p>
+                  )}
+
+                  {answer.type === "MCQ" && (
+                    <div
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3.5 text-sm ${
+                        answer.isCorrect === true
+                          ? "border-green-200 bg-green-50"
+                          : answer.isCorrect === false
+                            ? "border-red-200 bg-red-50"
+                            : "border-gray-100 bg-[#f3f6f4]"
+                      }`}
+                    >
+                      <span className="font-medium text-gray-800">
+                        {answer.answer}
+                      </span>
+                      {answer.isCorrect === true && (
+                        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-green-700">
+                          <CheckCircle2 size={16} />
+                          ถูกต้อง
+                        </span>
+                      )}
+                      {answer.isCorrect === false && (
+                        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-red-600">
+                          <XCircle size={16} />
+                          ไม่ถูกต้อง
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {answer.type === "PHOTO" && (
+                    <button
+                      aria-label="ดูรูปภาพขนาดเต็ม"
+                      className="group relative block w-full cursor-zoom-in overflow-hidden rounded-xl bg-[#f3f6f4] p-3 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/40"
+                      type="button"
+                      onClick={() => setPreviewImage(answer.answer)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        alt={`รูปภาพคำตอบของ ${detail?.student.name ?? "นักเรียน"}`}
+                        className="mx-auto block h-auto max-h-[420px] w-auto max-w-full rounded-lg object-contain shadow-sm transition-transform duration-300 group-hover:scale-[1.01]"
+                        src={toThumbnail(answer.answer)}
+                      />
+                      <span className="absolute bottom-5 right-5 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                        <Maximize2 size={13} />
+                        ดูรูปเต็ม
+                      </span>
+                    </button>
+                  )}
+
+                  {answer.type === "VIDEO" && (
+                    <div className="overflow-hidden rounded-xl">
+                      <VideoPlayer
+                        title={`วิดีโอของ ${detail?.student.name ?? "นักเรียน"}`}
+                        url={answer.answer}
+                      />
+                    </div>
+                  )}
+                </div>
+              </section>
+            ))}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        backdrop="blur"
+        classNames={{
+          base: "bg-transparent shadow-none",
+          body: "p-0",
+          closeButton: "z-10 bg-black/50 text-white hover:bg-black/70",
+        }}
+        isOpen={previewImage !== null}
+        size="5xl"
+        onClose={() => setPreviewImage(null)}
+      >
+        <ModalContent>
+          <ModalBody className="items-center justify-center">
+            {previewImage && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                alt="รูปภาพคำตอบขนาดเต็ม"
+                className="max-h-[85vh] w-auto max-w-full rounded-2xl object-contain shadow-2xl"
+                src={previewImage}
+              />
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </main>
   );
 }

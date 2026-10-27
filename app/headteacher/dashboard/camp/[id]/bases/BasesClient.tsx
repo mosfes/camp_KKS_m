@@ -668,7 +668,7 @@ export default function BasesPage({ initialCamp }: { initialCamp: CampData | nul
                       {/* Card Header: Station Index & Action Buttons */}
                       <div className="flex items-start justify-between gap-2 mb-3">
                         <span className="flex h-7 items-center justify-center rounded-lg bg-[#f0f4f2] px-2.5 text-xs font-medium text-[#6b857a]">
-                          #{stationNum}
+                          {stationNum}
                         </span>
 
                         {/* Action buttons (Edit / Delete) for Owner */}

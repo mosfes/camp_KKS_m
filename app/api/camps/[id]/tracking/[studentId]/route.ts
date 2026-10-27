@@ -5,6 +5,14 @@ import { requireTeacher } from "@/lib/auth";
 import { canViewCampTracking } from "@/lib/camp-tracking-auth";
 import { prisma } from "@/lib/db";
 
+type MissionAnswer = {
+  questionId: number;
+  questionText: string;
+  type: "TEXT" | "MCQ" | "PHOTO" | "VIDEO";
+  answer: string;
+  isCorrect: boolean | null;
+};
+
 type RouteContext = {
   params: Promise<{ id: string; studentId: string }>;
 };
@@ -101,6 +109,25 @@ export async function GET(_request: Request, context: RouteContext) {
                   mission_mission_id: true,
                   submitted_at: true,
                   method: true,
+                  mission_answer: {
+                    orderBy: { mission_question_question_id: "asc" },
+                    select: {
+                      mission_question_question_id: true,
+                      mission_question: {
+                        select: {
+                          question_text: true,
+                          question_type: true,
+                          choices: {
+                            orderBy: { choice_id: "asc" },
+                            select: { choice_text: true, is_correct: true },
+                          },
+                        },
+                      },
+                      answer_text: { select: { answer_text: true }, take: 1 },
+                      answer_mcq: { select: { question_text: true }, take: 1 },
+                      answer_photo: { select: { img_url: true }, take: 1 },
+                    },
+                  },
                 },
               },
             },
@@ -126,14 +153,58 @@ export async function GET(_request: Request, context: RouteContext) {
       {
         submittedAt: Date;
         method: "NFC" | "QR" | "Code" | "Aws" | "Photo";
+        answers: MissionAnswer[];
       }
     >();
 
+    const missionTypeById = new Map(
+      camp.station.flatMap((station) =>
+        station.mission.map((mission) => [mission.mission_id, mission.type]),
+      ),
+    );
+
     for (const result of enrollment?.mission_result ?? []) {
       if (!resultByMission.has(result.mission_mission_id)) {
+        const isVideo =
+          missionTypeById.get(result.mission_mission_id) === "VIDEO_SUBMISSION";
+        const answers: MissionAnswer[] = [];
+
+        for (const stored of result.mission_answer) {
+          const question = stored.mission_question;
+          let answer = "";
+          let isCorrect: boolean | null = null;
+
+          if (question.question_type === "TEXT") {
+            answer = stored.answer_text[0]?.answer_text ?? "";
+          } else if (question.question_type === "MCQ") {
+            const letter = stored.answer_mcq[0]?.question_text ?? "";
+            const choice = question.choices[letter.charCodeAt(0) - 65];
+
+            if (choice) {
+              answer = `${letter}. ${choice.choice_text}`;
+              isCorrect = choice.is_correct;
+            } else {
+              answer = letter;
+            }
+          } else {
+            answer = stored.answer_photo[0]?.img_url ?? "";
+          }
+
+          if (!answer) continue;
+
+          answers.push({
+            questionId: stored.mission_question_question_id,
+            questionText: question.question_text,
+            type: isVideo ? "VIDEO" : question.question_type,
+            answer,
+            isCorrect,
+          });
+        }
+
         resultByMission.set(result.mission_mission_id, {
           submittedAt: result.submitted_at,
           method: result.method,
+          answers,
         });
       }
     }
@@ -152,6 +223,7 @@ export async function GET(_request: Request, context: RouteContext) {
           status: result ? "completed" : "not_started",
           submittedAt: result?.submittedAt ?? null,
           method: result?.method ?? null,
+          answers: result?.answers ?? [],
         };
       }),
     );

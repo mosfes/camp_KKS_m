@@ -30,6 +30,7 @@ export async function GET(_request: Request, context: any) {
       select: {
         created_by_teacher_id: true,
         has_transport: true,
+        has_shirt: true,
         camp_classroom: {
           select: {
             classroom: {
@@ -72,6 +73,7 @@ export async function GET(_request: Request, context: any) {
         isHomeroomTeacher,
         isBusTeacher: camp.camp_bus_teacher.length > 0,
         hasTransport: camp.has_transport,
+        hasShirt: camp.has_shirt,
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );

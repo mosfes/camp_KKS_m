@@ -40,7 +40,6 @@ const RechartsTooltip = dynamic(() => import("recharts").then((mod) => mod.Toolt
 const ResponsiveContainer = dynamic(() => import("recharts").then((mod) => mod.ResponsiveContainer), { ssr: false });
 const PieChart = dynamic(() => import("recharts").then((mod) => mod.PieChart), { ssr: false });
 const Pie = dynamic(() => import("recharts").then((mod) => mod.Pie), { ssr: false });
-const Cell = dynamic(() => import("recharts").then((mod) => mod.Cell), { ssr: false });
 const CartesianGrid = dynamic(() => import("recharts").then((mod) => mod.CartesianGrid), { ssr: false });
 
 function LazyResponsiveContainer({
@@ -1405,15 +1404,15 @@ export default function SurveyPage() {
                           const { male, female, other } =
                             resultsData.demographics!.gender;
                           const genderData = [
-                            { name: "ชาย", value: male, color: "#60a5fa" },
-                            { name: "หญิง", value: female, color: "#f472b6" },
+                            { name: "ชาย", value: male, fill: "#60a5fa" },
+                            { name: "หญิง", value: female, fill: "#f472b6" },
                           ];
 
                           if (other > 0) {
                             genderData.push({
                               name: "อื่นๆ",
                               value: other,
-                              color: "#9ca3af",
+                              fill: "#9ca3af",
                             });
                           }
 
@@ -1428,14 +1427,7 @@ export default function SurveyPage() {
                                   innerRadius={40}
                                   outerRadius={70}
                                   paddingAngle={2}
-                                >
-                                  {genderData.map((entry, index) => (
-                                    <Cell
-                                      key={`cell-${index}`}
-                                      fill={entry.color}
-                                    />
-                                  ))}
-                                </Pie>
+                                />
                                 <RechartsTooltip
                                   contentStyle={{
                                     borderRadius: "8px",
@@ -1779,22 +1771,67 @@ export default function SurveyPage() {
 
                         {/* Dropdown Selector */}
                         <div className="w-full sm:w-80">
-                          <select
-                            className="w-full text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 outline-none focus:border-[#6b857a] text-gray-800"
-                            value={curIdx}
-                            onChange={(e) =>
-                              setSelectedQuestionIndex(Number(e.target.value))
+                          <Select
+                            aria-label="เลือกคำถาม"
+                            className="w-full"
+                            classNames={{
+                              trigger:
+                                "h-11 rounded-xl border border-gray-200 bg-white shadow-none transition-colors hover:border-[#6b857a] data-[hover=true]:bg-white data-[open=true]:border-[#6b857a]",
+                              value: "text-sm font-medium text-gray-800",
+                              popoverContent: "rounded-xl p-1 shadow-lg",
+                            }}
+                            disallowEmptySelection
+                            items={realQuestions.map((q, idx) => ({
+                              key: String(idx),
+                              idx,
+                              q,
+                            }))}
+                            listboxProps={{
+                              itemClasses: {
+                                base: "rounded-lg data-[hover=true]:bg-[#f0f4f2] data-[selectable=true]:focus:bg-[#f0f4f2] data-[selected=true]:bg-[#e8f0ec]",
+                              },
+                            }}
+                            popoverProps={{ classNames: { content: "min-w-[320px]" } }}
+                            renderValue={(items) =>
+                              items.map((item) => (
+                                <div
+                                  key={item.key}
+                                  className="flex items-center gap-2"
+                                >
+                                  <span className="shrink-0 rounded-full bg-[#e8f0ec] px-2 py-0.5 text-xs font-bold text-[#4f6d5f]">
+                                    ข้อ {Number(item.key) + 1}
+                                  </span>
+                                  <span className="truncate">
+                                    {realQuestions[Number(item.key)]?.text}
+                                  </span>
+                                </div>
+                              ))
                             }
+                            selectedKeys={[String(curIdx)]}
+                            size="sm"
+                            onSelectionChange={(keys) => {
+                              const key = Array.from(keys)[0];
+
+                              if (key !== undefined)
+                                setSelectedQuestionIndex(Number(key));
+                            }}
                           >
-                            {realQuestions.map((q, idx) => (
-                              <option key={q.id} value={idx}>
-                                ข้อ {idx + 1}:{" "}
-                                {q.text.length > 40
-                                  ? `${q.text.slice(0, 40)}...`
-                                  : q.text}
-                              </option>
-                            ))}
-                          </select>
+                            {(item) => (
+                              <SelectItem
+                                key={item.key}
+                                textValue={`ข้อ ${item.idx + 1}: ${item.q.text}`}
+                              >
+                                <div className="flex items-start gap-2.5">
+                                  <span className="mt-0.5 shrink-0 rounded-full bg-[#e8f0ec] px-2 py-0.5 text-xs font-bold text-[#4f6d5f]">
+                                    {item.idx + 1}
+                                  </span>
+                                  <span className="line-clamp-2 text-sm text-gray-700">
+                                    {item.q.text}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            )}
+                          </Select>
                         </div>
                       </div>
 

@@ -137,11 +137,13 @@ function drawCanvasText(
   context.save();
   context.fillStyle = style.color;
   context.font = `${style.fontSize}px "${CERTIFICATE_FONT_FAMILY}"`;
-  context.textAlign = "center";
+  // Center manually instead of relying on textAlign: some browsers (Safari)
+  // ignore it for fonts added at runtime, which shifts text off its anchor.
+  context.textAlign = "left";
   context.textBaseline = "alphabetic";
   context.fillText(
     text,
-    (style.xPercent / 100) * width,
+    (style.xPercent / 100) * width - context.measureText(text).width / 2,
     (style.yPercent / 100) * height + style.fontSize / 3,
   );
   context.restore();

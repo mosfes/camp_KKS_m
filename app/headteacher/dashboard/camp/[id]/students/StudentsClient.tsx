@@ -172,6 +172,7 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
   const [totalPages, setTotalPages] = useState(initialData?.pagination?.totalPages || 1);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
+  const [registration, setRegistration] = useState("all");
   const limit = 10;
 
   useEffect(() => {
@@ -182,7 +183,7 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
         fetchStudents();
       }
     }
-  }, [campId, page, filter]);
+  }, [campId, page, filter, registration]);
 
   useEffect(() => {
     if (initialSearchPending.current) {
@@ -207,7 +208,7 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
       // Only fetch summary on first load — skip on pagination/filter changes
       const needSummary = !summary;
       const res = await fetch(
-        `/api/camps/${campId}/students?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&filter=${filter}&summary=${needSummary}`,
+        `/api/camps/${campId}/students?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&filter=${filter}&registration=${registration}&summary=${needSummary}`,
       );
 
       if (res.ok) {
@@ -234,7 +235,7 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
     try {
       setIsExportingExcel(true);
       const res = await fetch(
-        `/api/camps/${campId}/students?page=1&limit=10000&search=&filter=all&summary=false`,
+        `/api/camps/${campId}/students?page=1&limit=10000&search=&filter=all&registration=${registration}&summary=false`,
       );
 
       if (!res.ok) throw new Error("ไม่สามารถดึงข้อมูลนักเรียนได้");
@@ -511,6 +512,33 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
                   </SelectItem>
                   <SelectItem key="remark" textValue="หมายเหตุอื่นๆ">
                     หมายเหตุอื่นๆ
+                  </SelectItem>
+                </Select>
+              </div>
+              <div className="w-full sm:w-[170px]">
+                <Select
+                  aria-label="สถานะการลงทะเบียน"
+                  className="w-full"
+                  classNames={{
+                    trigger:
+                      "bg-white border border-gray-200 text-gray-700 font-medium h-10 rounded-xl",
+                  }}
+                  selectedKeys={[registration]}
+                  size="sm"
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    setRegistration(e.target.value);
+                    setPage(1);
+                  }}
+                >
+                  <SelectItem key="all" textValue="ทุกสถานะลงทะเบียน">
+                    ทุกสถานะลงทะเบียน
+                  </SelectItem>
+                  <SelectItem key="registered" textValue="ลงทะเบียนแล้ว">
+                    ลงทะเบียนแล้ว
+                  </SelectItem>
+                  <SelectItem key="unregistered" textValue="ยังไม่ลงทะเบียน">
+                    ยังไม่ลงทะเบียน
                   </SelectItem>
                 </Select>
               </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import type { TrackerData } from "@/components/camp-location/CampLocationTracker";
+import type { CertificateRenderManifest } from "@/lib/certificate-renderer";
 
 import {
   useState,
@@ -34,6 +35,8 @@ import {
   Award,
   ChevronDown,
   ChevronRight,
+  Download,
+  Eye,
 } from "lucide-react";
 
 import CampBreadcrumb from "./CampBreadcrumb";
@@ -66,6 +69,7 @@ interface StudentProgress {
 interface TrackingData {
   campId: number;
   totalMissions: number;
+  certificateEnabled?: boolean;
   summary: {
     totalStudents: number;
     issuedCertificates: number;
@@ -100,10 +104,11 @@ function hasCompletedAllMissions(student: StudentProgress) {
 function matchesProgressFilter(
   student: StudentProgress,
   filter: ProgressFilter,
+  certificateEnabled: boolean,
 ) {
   if (filter === "all") return true;
-  if (filter === "issued") return student.hasCertificate;
-  if (student.hasCertificate) return false;
+  if (filter === "issued") return certificateEnabled && student.hasCertificate;
+  if (certificateEnabled && student.hasCertificate) return false;
   if (filter === "not_enrolled") return !student.isEnrolled;
   if (!student.isEnrolled) return false;
 
@@ -222,8 +227,173 @@ const PROGRESS_FILTERS: {
   },
 ];
 
-function getProgressStatus(student: StudentProgress) {
-  if (student.hasCertificate) {
+function CertificatePreviewModal({
+  campId,
+  student,
+  onClose,
+}: {
+  campId: number;
+  student: StudentProgress | null;
+  onClose: () => void;
+}) {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [error, setError] = useState("");
+  const studentId = student?.studentId;
+
+  useEffect(() => {
+    if (studentId == null) return;
+
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    setImageUrl(null);
+    setBlob(null);
+    setError("");
+
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/camps/${campId}/tracking/${studentId}/certificate`,
+          { cache: "no-store" },
+        );
+        const body = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(body?.error || "โหลดเกียรติบัตรไม่สำเร็จ");
+        }
+
+        // pdf-lib and qrcode are only needed once a certificate is previewed.
+        const { renderCertificatePng } = await import(
+          "@/lib/certificate-renderer"
+        );
+        const png = await renderCertificatePng(
+          body.certificate as CertificateRenderManifest,
+        );
+
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(png);
+        setBlob(png);
+        setImageUrl(objectUrl);
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "โหลดเกียรติบัตรไม่สำเร็จ",
+          );
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [campId, studentId]);
+
+  return (
+    <Modal
+      classNames={{
+        base: "rounded-3xl",
+        header: "border-b border-gray-100 px-6 py-5",
+        body: "bg-[#f8f8f6] px-6 py-6",
+        footer: "border-t border-gray-100 px-6 py-4",
+        closeButton: "top-4 right-4 hover:bg-gray-100",
+      }}
+      isOpen={student !== null}
+      scrollBehavior="inside"
+      size="5xl"
+      onClose={onClose}
+    >
+      <ModalContent>
+        <ModalHeader className="flex items-start gap-3 pr-14">
+          <Avatar
+            className="h-10 w-10 shrink-0 bg-[#e8f0ee] text-[#3d6357]"
+            name={student?.initials}
+            src={student?.profileImageUrl || undefined}
+          />
+          <div className="min-w-0">
+            <h2 className="text-base font-bold leading-snug text-gray-900">
+              เกียรติบัตรของ {student?.name}
+            </h2>
+            {student?.certificateNo != null && (
+              <p className="mt-0.5 text-xs font-normal text-gray-500">
+                เลขที่ {student.certificateNo}
+                {student.certificateIssuedAt &&
+                  ` · ออกเมื่อ ${new Date(
+                    student.certificateIssuedAt,
+                  ).toLocaleDateString("th-TH", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}`}
+              </p>
+            )}
+          </div>
+        </ModalHeader>
+        <ModalBody>
+          {error ? (
+            <p className="py-12 text-center text-sm text-red-600">{error}</p>
+          ) : imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={`เกียรติบัตรของ ${student?.name ?? "นักเรียน"}`}
+              className="mx-auto block h-auto shrink-0 max-h-[calc(100vh-22rem)] w-auto max-w-full rounded-xl bg-white object-contain shadow-md"
+              src={imageUrl}
+            />
+          ) : (
+            <div
+              aria-label="กำลังสร้างเกียรติบัตร"
+              className="mx-auto aspect-[1.414/1] max-h-[calc(100vh-22rem)] w-full animate-pulse rounded-xl bg-gray-200"
+            />
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="light" onPress={onClose}>
+            ปิด
+          </Button>
+          <Button
+            className="bg-[#5d7c6f] font-medium text-white"
+            isDisabled={!blob}
+            startContent={<Download size={16} />}
+            onPress={async () => {
+              if (!blob) return;
+              const { downloadCertificateBlob } = await import(
+                "@/lib/certificate-renderer"
+              );
+
+              downloadCertificateBlob(
+                blob,
+                `certificate-${student?.studentId ?? "student"}.png`,
+              );
+            }}
+          >
+            ดาวน์โหลด
+          </Button>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+}
+
+function getProgressFilters(certificateEnabled: boolean) {
+  if (certificateEnabled) return PROGRESS_FILTERS;
+
+  return PROGRESS_FILTERS.filter((item) => item.key !== "issued").map((item) =>
+    item.key === "mission_incomplete"
+      ? { ...item, helper: "ยังทำภารกิจไม่ครบ" }
+      : item.key === "mission_complete_certificate_pending"
+        ? { ...item, label: "ภารกิจครบแล้ว", helper: "ทำภารกิจครบทุกข้อ" }
+        : item,
+  );
+}
+
+function getProgressStatus(
+  student: StudentProgress,
+  certificateEnabled: boolean,
+) {
+  if (certificateEnabled && student.hasCertificate) {
     return {
       label: "ได้รับเกียรติบัตรแล้ว",
       icon: Trophy,
@@ -239,7 +409,7 @@ function getProgressStatus(student: StudentProgress) {
   }
   if (hasCompletedAllMissions(student)) {
     return {
-      label: "ภารกิจครบ รอเกียรติบัตร",
+      label: certificateEnabled ? "ภารกิจครบ รอเกียรติบัตร" : "ภารกิจครบแล้ว",
       icon: Award,
       className: "border-blue-100 bg-blue-50 text-blue-700",
     };
@@ -406,6 +576,15 @@ export default function TrackingModal({
     }
   };
 
+  const [certificateStudent, setCertificateStudent] =
+    useState<StudentProgress | null>(null);
+
+  const certificateEnabled = data?.certificateEnabled !== false;
+  const progressFilters = useMemo(
+    () => getProgressFilters(certificateEnabled),
+    [certificateEnabled],
+  );
+
   const progressCounts = useMemo(() => {
     const counts: Record<ProgressFilter, number> = {
       all: data?.students.length ?? 0,
@@ -416,7 +595,7 @@ export default function TrackingModal({
     };
 
     data?.students.forEach((student) => {
-      if (student.hasCertificate) {
+      if (certificateEnabled && student.hasCertificate) {
         counts.issued += 1;
       } else if (!student.isEnrolled) {
         counts.not_enrolled += 1;
@@ -428,13 +607,14 @@ export default function TrackingModal({
     });
 
     return counts;
-  }, [data]);
+  }, [data, certificateEnabled]);
 
   const filteredStudents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     return data?.students.filter((student) => {
-      if (!matchesProgressFilter(student, progressFilter)) return false;
+      if (!matchesProgressFilter(student, progressFilter, certificateEnabled))
+        return false;
       if (!query) return true;
 
       const matchName = student.name.toLowerCase().includes(query);
@@ -443,7 +623,7 @@ export default function TrackingModal({
 
       return matchName || matchNickname || matchId;
     });
-  }, [data, progressFilter, searchQuery]);
+  }, [data, progressFilter, searchQuery, certificateEnabled]);
 
   const pages = Math.ceil((filteredStudents?.length || 0) / ITEMS_PER_PAGE);
 
@@ -466,9 +646,13 @@ export default function TrackingModal({
       : progressFilter === "not_enrolled"
         ? "นักเรียนในรายชื่อนี้ลงทะเบียนครบแล้ว"
         : progressFilter === "mission_incomplete"
-          ? "ไม่มีนักเรียนที่ภารกิจยังไม่ครบและยังไม่ได้รับเกียรติบัตร"
+          ? certificateEnabled
+            ? "ไม่มีนักเรียนที่ภารกิจยังไม่ครบและยังไม่ได้รับเกียรติบัตร"
+            : "ไม่มีนักเรียนที่ภารกิจยังไม่ครบ"
           : progressFilter === "mission_complete_certificate_pending"
-            ? "ไม่มีนักเรียนที่ทำภารกิจครบแต่ยังไม่ได้รับเกียรติบัตร"
+            ? certificateEnabled
+              ? "ไม่มีนักเรียนที่ทำภารกิจครบแต่ยังไม่ได้รับเกียรติบัตร"
+              : "ไม่มีนักเรียนที่ทำภารกิจครบแล้ว"
             : "ไม่พบรายชื่อในระบบ";
 
   const progressContent = loading ? (
@@ -482,10 +666,14 @@ export default function TrackingModal({
       {/* Summary Cards */}
       <div
         aria-label="กรองนักเรียนตามความก้าวหน้าและเกียรติบัตร"
-        className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-6 xl:grid-cols-5"
+        className={`mb-8 grid grid-cols-2 gap-3 md:gap-6 ${
+          certificateEnabled
+            ? "md:grid-cols-3 xl:grid-cols-5"
+            : "md:grid-cols-4"
+        }`}
         role="tablist"
       >
-        {PROGRESS_FILTERS.map((item) => {
+        {progressFilters.map((item) => {
           const Icon = item.icon;
           const isActive = progressFilter === item.key;
           const isAll = item.key === "all";
@@ -585,7 +773,7 @@ export default function TrackingModal({
                   setProgressFilter((e.target.value as ProgressFilter) || "all")
                 }
               >
-                {PROGRESS_FILTERS.map((item) => (
+                {progressFilters.map((item) => (
                   <SelectItem
                     key={item.key}
                     textValue={item.key === "all" ? "แสดงทั้งหมด" : item.label}
@@ -628,9 +816,11 @@ export default function TrackingModal({
                   ความก้าวหน้าภารกิจ
                 </th>
                 <th className="whitespace-nowrap p-4 font-semibold">สถานะ</th>
-                <th className="whitespace-nowrap p-4 font-semibold">
-                  เลขที่เกียรติบัตร
-                </th>
+                {certificateEnabled && (
+                  <th className="whitespace-nowrap p-4 font-semibold">
+                    เลขที่เกียรติบัตร
+                  </th>
+                )}
                 <th className="w-10 rounded-tr-lg p-4">
                   <span className="sr-only">ดูรายละเอียด</span>
                 </th>
@@ -639,13 +829,16 @@ export default function TrackingModal({
             <tbody>
               {filteredStudents?.length === 0 ? (
                 <tr>
-                  <td className="p-8 text-center text-gray-500" colSpan={5}>
+                  <td
+                    className="p-8 text-center text-gray-500"
+                    colSpan={certificateEnabled ? 5 : 4}
+                  >
                     {emptyMessage}
                   </td>
                 </tr>
               ) : (
                 paginatedStudents?.map((student, i) => {
-                  const status = getProgressStatus(student);
+                  const status = getProgressStatus(student, certificateEnabled);
                   const StatusIcon = status.icon;
 
                   return (
@@ -711,29 +904,42 @@ export default function TrackingModal({
                           {status.label}
                         </span>
                       </td>
-                      <td className="p-4">
-                        {student.hasCertificate &&
-                        student.certificateNo != null ? (
-                          <div className="whitespace-nowrap">
-                            <p className="font-medium text-gray-900">
-                              {student.certificateNo}
-                            </p>
-                            {student.certificateIssuedAt && (
-                              <p className="mt-0.5 text-xs text-gray-500">
-                                {new Date(
-                                  student.certificateIssuedAt,
-                                ).toLocaleDateString("th-TH", {
-                                  day: "numeric",
-                                  month: "short",
-                                  year: "numeric",
-                                })}
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
+                      {certificateEnabled && (
+                        <td className="p-4">
+                          {student.hasCertificate ? (
+                            <div className="flex items-center gap-3">
+                              <div className="whitespace-nowrap">
+                                <p className="font-medium text-gray-900">
+                                  {student.certificateNo ?? "ไม่มีเลขที่"}
+                                </p>
+                                {student.certificateIssuedAt && (
+                                  <p className="mt-0.5 text-xs text-gray-500">
+                                    {new Date(
+                                      student.certificateIssuedAt,
+                                    ).toLocaleDateString("th-TH", {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                className="bg-[#e8f0ee] font-medium text-[#3d6357]"
+                                size="sm"
+                                startContent={<Eye size={14} />}
+                                variant="flat"
+                                onClick={(e) => e.stopPropagation()}
+                                onPress={() => setCertificateStudent(student)}
+                              >
+                                ดูเกียรติบัตร
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                      )}
                       <td className="p-4 text-right">
                         <ChevronRight
                           aria-hidden="true"
@@ -765,6 +971,11 @@ export default function TrackingModal({
           </div>
         )}
       </div>
+      <CertificatePreviewModal
+        campId={campId}
+        student={certificateStudent}
+        onClose={() => setCertificateStudent(null)}
+      />
     </>
   );
 
