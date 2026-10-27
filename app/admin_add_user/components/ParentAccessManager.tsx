@@ -144,6 +144,34 @@ function displayParentName(name: string) {
   return knownParts.join(" ") || "ไม่มี";
 }
 
+function MoreParentsToggle({
+  expanded,
+  hiddenCount,
+  onToggle,
+}: {
+  expanded: boolean;
+  hiddenCount: number;
+  onToggle: () => void;
+}) {
+  const label = expanded
+    ? "ซ่อนผู้ปกครองคนอื่น"
+    : `ดูผู้ปกครองอีก ${hiddenCount} คน`;
+
+  return (
+    <Tooltip content={label}>
+      <button
+        aria-expanded={expanded}
+        aria-label={label}
+        className="inline-flex h-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-[#5d7c6f] px-2 text-[11px] leading-none font-bold text-[#3d6357] transition-colors hover:bg-[#e8f0ee]"
+        type="button"
+        onClick={onToggle}
+      >
+        {expanded ? "−" : `+${hiddenCount}`}
+      </button>
+    </Tooltip>
+  );
+}
+
 function ParentCell({ name, phone }: { name: string; phone?: string }) {
   const displayName = displayParentName(name);
 
@@ -260,9 +288,13 @@ export default function ParentAccessManager() {
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<(ActiveRow | RequestRow | EventRow)[]>([]);
   const [total, setTotal] = useState(0);
-  const [pageSize, setPageSize] = useState(30);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  // Students whose additional parents are shown; others show only the first.
+  const [expandedStudents, setExpandedStudents] = useState<Set<number>>(
+    () => new Set(),
+  );
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [createdAccount, setCreatedAccount] = useState<{
@@ -316,7 +348,7 @@ export default function ParentAccessManager() {
       if (!response.ok) throw new Error(data.error || "โหลดข้อมูลไม่สำเร็จ");
       setRows(data.rows ?? []);
       setTotal(data.total ?? 0);
-      setPageSize(data.pageSize ?? 30);
+      setPageSize(data.pageSize ?? 10);
     } catch (reason) {
       setError(
         reason instanceof Error ? reason.message : "โหลดข้อมูลไม่สำเร็จ",
@@ -443,14 +475,17 @@ export default function ParentAccessManager() {
   }
 
   const createAccountButton = (row: ActiveRow) => (
-    <button
-      className="mt-2 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#d5e3da] bg-[#f4f8f5] px-2.5 py-1 text-xs font-semibold text-[#3d6357] transition-colors hover:bg-[#e8f0ee] disabled:cursor-not-allowed disabled:opacity-40"
-      disabled={busy}
-      type="button"
-      onClick={() => createAccount(row)}
-    >
-      <UserPlus size={14} /> สร้างบัญชีผู้ปกครองเพิ่ม
-    </button>
+    <Tooltip content="สร้างบัญชีผู้ปกครองเพิ่ม">
+      <button
+        aria-label="สร้างบัญชีผู้ปกครองเพิ่ม"
+        className="inline-flex cursor-pointer items-center text-[#5d7c6f] transition-colors hover:text-[#3d6357] active:opacity-50 disabled:cursor-not-allowed disabled:opacity-40"
+        disabled={busy}
+        type="button"
+        onClick={() => createAccount(row)}
+      >
+        <UserPlus size={18} />
+      </button>
+    </Tooltip>
   );
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -502,8 +537,8 @@ export default function ParentAccessManager() {
             {/* Top Row: Title */}
             <div className="flex flex-col items-start justify-between gap-4 xl:flex-row xl:items-center">
               <div>
-                <h2 className="font-semibold text-gray-800">
-                  {viewTitles[view]} ({loading ? "…" : total})
+                <h2 className="text-[30px] font-semibold text-gray-800">
+                  {viewTitles[view]}
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
                   {view === "active"
@@ -623,7 +658,6 @@ export default function ParentAccessManager() {
                       <tr key={row.studentId} className={rowClass}>
                         <td className={cellClass}>
                           <StudentCell student={row} />
-                          {createAccountButton(row)}
                         </td>
                         <td
                           className={`${cellClass} font-medium text-amber-700`}
@@ -631,65 +665,88 @@ export default function ParentAccessManager() {
                           ยังไม่ได้ผูกกับผู้ปกครอง
                         </td>
                         <td className={`${cellClass} text-gray-400`}>—</td>
-                        <td className={`${cellClass} text-right text-gray-400`}>
-                          —
+                        <td className={`${cellClass} text-right`}>
+                          {createAccountButton(row)}
                         </td>
                       </tr>
                     ) : (
-                      row.accesses.map((access, index) => (
+                      (expandedStudents.has(row.studentId)
+                        ? row.accesses
+                        : row.accesses.slice(0, 1)
+                      ).map((access, index, visible) => (
                         <tr
                           key={`${row.studentId}:${access.parentId}:${access.source}`}
                           className={rowClass}
                         >
                           {index === 0 && (
-                            <td
-                              className={cellClass}
-                              rowSpan={row.accesses.length}
-                            >
+                            <td className={cellClass} rowSpan={visible.length}>
                               <StudentCell student={row} />
-                              {createAccountButton(row)}
                             </td>
                           )}
                           <td className={cellClass}>
-                            <ParentCell
-                              name={access.parentName}
-                              phone={access.parentPhone}
-                            />
+                            <div className="flex items-start gap-2">
+                              <ParentCell
+                                name={access.parentName}
+                                phone={access.parentPhone}
+                              />
+                              {index === 0 && row.accesses.length > 1 && (
+                                <MoreParentsToggle
+                                  expanded={expandedStudents.has(row.studentId)}
+                                  hiddenCount={row.accesses.length - 1}
+                                  onToggle={() =>
+                                    setExpandedStudents((current) => {
+                                      const next = new Set(current);
+
+                                      if (!next.delete(row.studentId)) {
+                                        next.add(row.studentId);
+                                      }
+
+                                      return next;
+                                    })
+                                  }
+                                />
+                              )}
+                            </div>
                           </td>
                           <td className={cellClass}>
                             <SourceCell row={access} />
                           </td>
                           <td className={`${cellClass} text-right`}>
-                            {access.revocable ? (
-                              <Tooltip
-                                color="danger"
-                                content={
-                                  access.source === "PRIMARY"
-                                    ? "ลบบัญชีผู้ปกครอง"
-                                    : "เพิกถอนสิทธิ์"
-                                }
-                              >
-                                <button
-                                  aria-label={
+                            <div className="inline-flex items-center gap-3">
+                              {index === 0 && createAccountButton(row)}
+                              {access.revocable ? (
+                                <Tooltip
+                                  color="danger"
+                                  content={
                                     access.source === "PRIMARY"
                                       ? "ลบบัญชีผู้ปกครอง"
                                       : "เพิกถอนสิทธิ์"
                                   }
-                                  className="inline-flex cursor-pointer items-center text-[#E84A5F] transition-colors hover:text-[#FF847C] active:opacity-50 disabled:cursor-not-allowed disabled:opacity-40"
-                                  disabled={busy}
-                                  type="button"
-                                  onClick={() => revoke(row, access)}
                                 >
-                                  {access.source === "PRIMARY" ? (
-                                    <Trash2 size={18} />
-                                  ) : (
-                                    <UserX size={18} />
-                                  )}
-                                </button>
-                              </Tooltip>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
+                                  <button
+                                    aria-label={
+                                      access.source === "PRIMARY"
+                                        ? "ลบบัญชีผู้ปกครอง"
+                                        : "เพิกถอนสิทธิ์"
+                                    }
+                                    className="inline-flex cursor-pointer items-center text-[#E84A5F] transition-colors hover:text-[#FF847C] active:opacity-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                    disabled={busy}
+                                    type="button"
+                                    onClick={() => revoke(row, access)}
+                                  >
+                                    {access.source === "PRIMARY" ? (
+                                      <Trash2 size={18} />
+                                    ) : (
+                                      <UserX size={18} />
+                                    )}
+                                  </button>
+                                </Tooltip>
+                              ) : (
+                                index !== 0 && (
+                                  <span className="text-gray-400">—</span>
+                                )
+                              )}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -771,7 +828,7 @@ export default function ParentAccessManager() {
                 : `แสดง ${rows.length} จาก ${total} ${view === "active" ? "คน" : "รายการ"}`}
             </p>
             <div className="order-1 flex w-full flex-1 justify-center md:order-2">
-              {totalPages > 1 && (
+              {total > 0 && (
                 <Pagination
                   isCompact
                   showControls
