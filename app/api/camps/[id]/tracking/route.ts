@@ -22,6 +22,12 @@ export async function GET(request, context) {
       );
     }
 
+    const camp = await prisma.camp.findUnique({
+      where: { camp_id: campId },
+      select: { img_certificate_url: true },
+    });
+    const certificateEnabled = Boolean(camp?.img_certificate_url);
+
     // 1. Get total missions for the camp
     const missions = await prisma.mission.findMany({
       where: {
@@ -195,6 +201,7 @@ export async function GET(request, context) {
     return NextResponse.json({
       campId,
       totalMissions,
+      certificateEnabled,
       summary: {
         totalStudents: studentsProgress.length,
         issuedCertificates,

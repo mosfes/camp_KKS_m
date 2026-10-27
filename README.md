@@ -95,9 +95,29 @@ npm run test:camp-reminders
 npm run build
 ```
 
-Vercel invokes `/api/cron/camp-reminders` once per day at 00:00 UTC (07:00 in
-Thailand). The endpoint requires the `CRON_SECRET` bearer token and is not
-intended to be called from the browser.
+Admins manage reminders from **Admin → อีเมลแจ้งเตือนค่าย**: the send time
+(Bangkok hour), and a list of reminders (up to 10, added with +), each with its
+own days before the camp, recipients (students who have not registered,
+students who have registered, or all students, optionally plus camp staff), on/off switch, subject and text. Settings are
+stored in `camp_email_reminder_setting`; until an admin saves, only reminder 1
+(the join reminder, 7 days before, at 07:00) is sent. Templates accept Thai fields in square brackets:
+`[ชื่อผู้รับ]`, `[ชื่อค่าย]`, `[วันเริ่มค่าย]`, `[สถานที่]`, `[อีกกี่วัน]` and
+`[จำนวนวันที่เหลือ]` (the older `{{campName}}` form still works).
+Templates live in `camp_email_reminder_template`; the migration
+`20261027040000_seed_camp_email_reminder_templates` adds five starter templates,
+which admins can delete like any other. Admins can save any reminder card as a
+template (named after the reminder; saving the same
+name again replaces it) and delete it with the trash icon in the template menu.
+
+To honour the chosen hour the endpoint must be called hourly. Vercel Hobby
+allows only one Cron run per day, so `.github/workflows/camp-reminders.yml`
+calls `/api/cron/camp-reminders` every hour; add `CAMP_APP_URL` and
+`CRON_SECRET` as GitHub repository secrets. GitHub may start scheduled runs
+late, so mail can arrive up to about an hour after the chosen time. The daily
+Vercel Cron at 00:00 UTC (07:00 in Thailand) stays as a fallback: a reminder
+whose day was missed is still sent on a later run, before the camp starts. The
+endpoint requires the `CRON_SECRET` bearer token and is not intended to be
+called from the browser.
 
 ## Camp location tracking
 

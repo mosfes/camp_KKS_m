@@ -11,6 +11,10 @@ const StudentManager = dynamic(() => import("./components/StudentManager"));
 const CampManager = dynamic(() => import("./components/CampManager"));
 const BusLayoutManager = dynamic(() => import("./components/BusLayoutManager"));
 const VulgarWordsManager = dynamic(() => import("./components/VulgarWordsManager"));
+const CampReminderEmailManager = dynamic(
+  () => import("./components/CampReminderEmailManager"),
+  { ssr: false },
+);
 // โหลดข้อมูลฝั่ง client ทั้งหมดอยู่แล้ว ปิด SSR กัน id ของ HeroUI ไม่ตรงตอน hydrate
 const ParentAccessManager = dynamic(
   () => import("./components/ParentAccessManager"),
@@ -53,6 +57,11 @@ const sectionMap = {
     label: "ผังรถ",
     desc: "สร้างและเผยแพร่เทมเพลตผังรถให้หัวหน้าค่ายเลือกใช้",
     Component: BusLayoutManager,
+  },
+  campemail: {
+    label: "อีเมลแจ้งเตือนค่าย",
+    desc: "ตั้งเวลา จำนวนวันล่วงหน้า และข้อความของอีเมลเตือนก่อนเริ่มค่าย",
+    Component: CampReminderEmailManager,
   },
   vulgarwords: {
     label: "คลังคำหยาบ",

@@ -12,6 +12,7 @@ import {
   expireParentLinkRequests,
   maskParentPhone,
 } from "@/lib/parent-link-requests";
+import { formatParentUsername } from "@/lib/parent-username";
 
 const PAGE_SIZE = 30;
 const studentSelect = {
@@ -235,8 +236,9 @@ export async function GET(request: Request) {
             firstname: true,
             lastname: true,
             tel: true,
+            account_no: true,
           },
-          orderBy: { parents_id: "asc" },
+          orderBy: { account_no: "asc" },
         },
         parent_links: {
           select: {
@@ -290,6 +292,7 @@ export async function GET(request: Request) {
               parentName: `${item.firstname} ${item.lastname}`.trim(),
               parentPhone: maskParentPhone(item.tel),
               source: "PRIMARY",
+              username: formatParentUsername(row.students_id, item.account_no),
               grantedAt: null,
               revocable: true,
             })),
@@ -315,6 +318,91 @@ export async function GET(request: Request) {
     },
     { headers: { "Cache-Control": "private, no-store" } },
   );
+}
+
+/**
+ * Creates another parent account for a student, e.g. "28661-2", so a second
+ * parent can sign in after the first account has changed its password. The
+ * initial password is "kks" + student id and must be changed on first login.
+ */
+export async function POST(request: Request) {
+  const { teacher, error } = await requireAdmin();
+
+  if (error) return error;
+
+  let body: Record<string, unknown>;
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 });
+  }
+  const studentId = Number(body.studentId);
+
+  if (!Number.isSafeInteger(studentId) || studentId <= 0) {
+    return NextResponse.json({ error: "ข้อมูลไม่ถูกต้อง" }, { status: 400 });
+  }
+
+  const student = await prisma.students.findFirst({
+    where: { students_id: studentId, deletedAt: null },
+    select: { students_id: true },
+  });
+
+  if (!student) {
+    return NextResponse.json({ error: "ไม่พบนักเรียน" }, { status: 404 });
+  }
+
+  const bcrypt = await import("bcryptjs");
+  const passwordHash = await bcrypt.hash(`kks${studentId}`, 10);
+
+  try {
+    const account = await prisma.$transaction(async (tx) => {
+      const last = await tx.parents.aggregate({
+        where: { username_student_id: studentId },
+        _max: { account_no: true },
+      });
+      const accountNo = (last._max.account_no ?? 0) + 1;
+      const parent = await tx.parents.create({
+        data: {
+          firstname: "รอระบุ",
+          lastname: "รอระบุ",
+          tel: "0000000000",
+          password: passwordHash,
+          username_student_id: studentId,
+          account_no: accountNo,
+        },
+        select: { parents_id: true, account_no: true },
+      });
+
+      await tx.parent_student_link_events.create({
+        data: {
+          parents_id: parent.parents_id,
+          students_id: studentId,
+          action: "ACCOUNT_CREATED",
+          actor_type: "ADMIN",
+          actor_id: teacher.teachers_id,
+        },
+      });
+
+      return parent;
+    });
+
+    return NextResponse.json({
+      success: true,
+      parentId: account.parents_id,
+      username: formatParentUsername(studentId, account.account_no),
+      initialPassword: `kks${studentId}`,
+    });
+  } catch (reason) {
+    // Two admins creating an account at the same moment hit the unique index.
+    if ((reason as { code?: string })?.code === "P2002") {
+      return NextResponse.json(
+        { error: "มีการสร้างบัญชีพร้อมกัน กรุณาลองใหม่อีกครั้ง" },
+        { status: 409 },
+      );
+    }
+    throw reason;
+  }
 }
 
 export async function DELETE(request: Request) {

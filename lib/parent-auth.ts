@@ -33,9 +33,10 @@ export async function getParentSession(): Promise<ParentSession | null> {
 
     const parent = await prisma.parents.findFirst({
       where: {
+        // Old tokens without a parent id can only belong to the first account.
         ...(Number.isInteger(tokenParentId) && tokenParentId > 0
           ? { parents_id: tokenParentId }
-          : {}),
+          : { account_no: 1 }),
         username_student_id: primaryStudentId,
         student: { deletedAt: null },
       },

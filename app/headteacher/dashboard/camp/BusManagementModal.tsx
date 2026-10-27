@@ -5,7 +5,6 @@ import { Avatar } from "@heroui/avatar";
 import { Select, SelectItem } from "@heroui/select";
 import { Button } from "@heroui/button";
 import {
-  ArrowLeft,
   ArrowRightLeft,
   AlertTriangle,
   Bus,
@@ -854,20 +853,12 @@ export default function BusManagementModal({
     useState(false);
   const [changingTeacherAssignmentId, setChangingTeacherAssignmentId] =
     useState<number | null>(null);
-  const [showReminderOptions, setShowReminderOptions] = useState(false);
   const [sendingReminderAction, setSendingReminderAction] = useState<
     "board" | "alight" | null
   >(null);
   const [recentlySentReminderActions, setRecentlySentReminderActions] =
     useState<Array<"board" | "alight">>([]);
-  const [showCreate, setShowCreate] = useState(
-    Boolean(
-      initialData &&
-        !initialData.isEnded &&
-        !initialData.buses.length &&
-        initialData.permissions?.canConfigureAny,
-    ),
-  );
+  const [showCreate, setShowCreate] = useState(false);
   const [showEditBus, setShowEditBus] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
@@ -904,6 +895,7 @@ export default function BusManagementModal({
     selectedPositionId !== null && !showUnassignedConfirm,
   );
   const mountStatusConfirm = useMountedModal(pendingBusStatus !== null);
+  const mountCreate = useMountedModal(showCreate);
   const mountEditBus = useMountedModal(showEditBus);
   const mountDeleteConfirm = useMountedModal(showDeleteConfirm);
   const mountTripHistory = useMountedModal(showTripHistory);
@@ -1085,9 +1077,6 @@ export default function BusManagementModal({
             : busList[0]?.busId;
 
       setSelectedBusId(nextBusId || null);
-      setShowCreate(
-        !data.isEnded && !nextBusId && Boolean(data.permissions?.canConfigureAny),
-      );
     } catch (error: any) {
       showError(
         "โหลดข้อมูลไม่สำเร็จ",
@@ -2251,7 +2240,6 @@ export default function BusManagementModal({
   useEffect(() => {
     setBusStudentSearch("");
     setBusStudentStatusFilter("all");
-    setShowReminderOptions(false);
     setRecentlySentReminderActions([]);
   }, [selectedBusId]);
 
@@ -2302,15 +2290,10 @@ export default function BusManagementModal({
               <Button
                 className="shrink-0 bg-[#6b857a] px-3 text-sm font-medium text-white"
                 size="sm"
-                startContent={
-                  showCreate ? <ArrowLeft size={15} /> : <Plus size={15} />
-                }
-                onPress={() => {
-                  setShowCreate((current) => !current);
-                  setSelectedBusId(null);
-                }}
+                startContent={<Plus size={15} />}
+                onPress={() => setShowCreate(true)}
               >
-                {showCreate ? "กลับไปรายการรถ" : "สร้างรถ"}
+                สร้างรถ
               </Button>
             )}
           </div>
@@ -2378,315 +2361,7 @@ export default function BusManagementModal({
                 </div>
               </div>
 
-              {showCreate ? (
-                <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center gap-2">
-                    <Plus className="text-[#6b857a]" size={20} />
-                    <h3 className="font-bold text-gray-900">
-                      สร้างรถสำหรับห้องเรียน
-                    </h3>
-                  </div>
-                  {availableClassrooms.length === 0 ? (
-                    <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-                      ยังไม่มีห้องเรียนที่ลงทะเบียนในค่ายนี้
-                    </p>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <label className="text-sm font-semibold text-gray-700">
-                        ห้องเรียน
-                        <Select
-                          aria-label="ห้องเรียน"
-                          className="mt-1 w-full"
-                          classNames={{
-                            trigger:
-                              "min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-none",
-                            value: "text-sm font-normal text-gray-800",
-                            popoverContent:
-                              "rounded-xl border border-gray-200 bg-white p-1 shadow-lg",
-                          }}
-                          placeholder="เลือกห้องเรียน"
-                          selectedKeys={
-                            createForm.classroomId
-                              ? new Set([createForm.classroomId])
-                              : new Set()
-                          }
-                          onSelectionChange={(keys) => {
-                            const selectedValue = Array.from(keys)[0] || "";
-
-                            setCreateForm((form) => ({
-                              ...form,
-                              classroomId: String(selectedValue),
-                            }));
-                          }}
-                        >
-                          {availableClassrooms.map((classroom) => (
-                            <SelectItem
-                              key={classroom.classroomId}
-                              className="rounded-lg text-sm text-gray-700 hover:bg-[#e2eee7] data-[selected=true]:bg-[#6b857a] data-[selected=true]:text-white"
-                              textValue={`${gradeLabel(classroom.grade)} ห้อง ${classroom.roomName}`}
-                            >
-                              {gradeLabel(classroom.grade)} ห้อง{" "}
-                              {classroom.roomName} · จัดแล้ว{" "}
-                              {classroom.assignedStudentCount}/
-                              {classroom.studentCount} คน · เหลือ{" "}
-                              {classroom.unassignedStudentCount} คน
-                            </SelectItem>
-                          ))}
-                        </Select>
-                      </label>
-                      <label className="text-sm font-semibold text-gray-700">
-                        ชื่อรถ
-                        <input
-                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal outline-none focus:border-[#6b857a]"
-                          placeholder="เช่น คันที่1 ก123"
-                          value={createForm.name}
-                          onChange={(event) =>
-                            setCreateForm((form) => ({
-                              ...form,
-                              name: event.target.value,
-                            }))
-                          }
-                        />
-                      </label>
-                      {createForm.classroomId && (
-                        <div className="rounded-xl bg-[#edf5f0] px-4 py-3 text-sm text-[#365f4f] md:col-span-2">
-                          {(() => {
-                            const classroom = classrooms.find(
-                              (item) =>
-                                item.classroomId ===
-                                Number(createForm.classroomId),
-                            );
-
-                            return classroom
-                              ? `ห้องนี้มีรถ ${classroom.busCount} คัน · จัดแล้ว ${classroom.assignedStudentCount}/${classroom.studentCount} คน · เหลือ ${classroom.unassignedStudentCount} คน ระบบจะนำนักเรียนที่เหลือลงรถคันใหม่นี้ตามความจุ`
-                              : null;
-                          })()}
-                        </div>
-                      )}
-                      <div className="md:col-span-2">
-                        <p className="text-sm font-semibold text-gray-700">
-                          เทมเพลตผังรถ
-                        </p>
-                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                          <button
-                            className={`rounded-2xl border p-4 text-left transition ${
-                              createForm.layoutTemplateId === "custom"
-                                ? "border-[#6b857a] bg-[#edf5f0] ring-2 ring-[#6b857a]/15"
-                                : "border-gray-200 bg-white hover:border-[#9ab4a7]"
-                            }`}
-                            type="button"
-                            onClick={() =>
-                              setCreateForm((form) => ({
-                                ...form,
-                                layoutTemplateId: "custom",
-                              }))
-                            }
-                          >
-                            <span className="block text-sm font-bold text-gray-900">
-                              ผังรถทั่วไป
-                            </span>
-                            <span className="mt-1 block text-xs font-normal text-gray-500">
-                              กำหนดจำนวนชั้นและจำนวนแถวเอง
-                            </span>
-                          </button>
-                          {BUS_LAYOUT_TEMPLATES.map((template) => (
-                            <button
-                              key={template.id}
-                              className={`rounded-2xl border p-4 text-left transition ${
-                                createForm.layoutTemplateId === template.id
-                                  ? "border-[#6b857a] bg-[#edf5f0] ring-2 ring-[#6b857a]/15"
-                                  : "border-gray-200 bg-white hover:border-[#9ab4a7]"
-                              }`}
-                              type="button"
-                              onClick={() =>
-                                setCreateForm((form) => ({
-                                  ...form,
-                                  name: form.name || template.defaultBusName,
-                                  layoutTemplateId: template.id,
-                                  floorCount: String(template.floors.length),
-                                  rowCounts: template.floors.map(
-                                    (floor) => floor.rowCount,
-                                  ),
-                                }))
-                              }
-                            >
-                              <span className="block text-sm font-bold text-gray-900">
-                                {template.name}
-                              </span>
-                              <span className="mt-1 block text-xs font-normal text-gray-500">
-                                {template.description}
-                              </span>
-                            </button>
-                          ))}
-                          {publishedLayoutTemplates.length > 0 && (
-                            <div className="md:col-span-2 mt-1 flex items-center gap-2 border-t border-gray-100 pt-3">
-                              <span className="text-xs font-semibold text-[#557267]">
-                                ผังที่สร้างจากหน้าแอดมิน
-                              </span>
-                              <span className="text-[11px] font-normal text-gray-400">
-                                เลือกใช้ได้เมื่อเผยแพร่แล้ว
-                              </span>
-                            </div>
-                          )}
-                          {publishedLayoutTemplates.map((template) => {
-                            const templateKey = `db:${template.templateId}`;
-                            const isDraft = template.status === "DRAFT";
-
-                            return (
-                              <button
-                                key={templateKey}
-                                className={`rounded-2xl border p-4 text-left transition ${
-                                  isDraft
-                                    ? "cursor-not-allowed border-amber-200 bg-amber-50/60 opacity-80"
-                                    : createForm.layoutTemplateId ===
-                                        templateKey
-                                      ? "border-[#6b857a] bg-[#edf5f0] ring-2 ring-[#6b857a]/15"
-                                      : "border-gray-200 bg-white hover:border-[#9ab4a7]"
-                                }`}
-                                disabled={isDraft}
-                                type="button"
-                                onClick={() =>
-                                  setCreateForm((form) => ({
-                                    ...form,
-                                    name: form.name || template.name,
-                                    layoutTemplateId: templateKey,
-                                    floorCount: String(template.floorCount),
-                                    rowCounts: template.floors.map(
-                                      (floor) => floor.canvasRows,
-                                    ),
-                                  }))
-                                }
-                              >
-                                <span className="flex items-center justify-between gap-2 text-sm font-bold text-gray-900">
-                                  <span>{template.name}</span>
-                                  <span
-                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${
-                                      isDraft
-                                        ? "bg-amber-100 text-amber-700"
-                                        : "bg-[#dfeae3] text-[#365f4f]"
-                                    }`}
-                                  >
-                                    {isDraft
-                                      ? "ฉบับร่าง"
-                                      : `${template.capacity} ที่`}
-                                  </span>
-                                </span>
-                                <span className="mt-1 block text-xs font-normal text-gray-500">
-                                  {isDraft
-                                    ? "ต้องเผยแพร่จากหน้าแอดมินก่อนเลือกใช้"
-                                    : template.description ||
-                                      `ผังลากวาง ${template.floorCount} ชั้น`}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      {createForm.layoutTemplateId === "custom" ? (
-                        <>
-                          <div className="text-sm font-semibold text-gray-700 md:col-span-2">
-                            จำนวนชั้น
-                            <FloorCountRadioGroup
-                              name="create-floor-count"
-                              value={createForm.floorCount}
-                              onChange={(value) => {
-                                const floorCount = Number(value);
-
-                                setCreateForm((form) => ({
-                                  ...form,
-                                  floorCount: value,
-                                  rowCounts:
-                                    floorCount === 2
-                                      ? [
-                                          form.rowCounts[0] || 10,
-                                          form.rowCounts[1] || 10,
-                                        ]
-                                      : [form.rowCounts[0] || 10],
-                                }));
-                              }}
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4 md:col-span-2">
-                            {createForm.rowCounts
-                              .map((rowCount, index) => ({ rowCount, index }))
-                              .reverse()
-                              .map(({ rowCount, index }) => (
-                                <label
-                                  key={index}
-                                  className="text-sm font-semibold text-gray-700"
-                                >
-                                  {rowCountLabel(
-                                    index + 1,
-                                    Number(createForm.floorCount),
-                                  )}
-                                  <input
-                                    className={[
-                                      "mt-1 w-full rounded-xl border px-3 py-2.5 font-normal outline-none focus:border-[#6b857a]",
-                                      rowCount === ""
-                                        ? "border-red-400 bg-red-50"
-                                        : "border-gray-200",
-                                    ].join(" ")}
-                                    inputMode="numeric"
-                                    max={50}
-                                    min={1}
-                                    type="number"
-                                    value={rowCount}
-                                    onChange={(event) => {
-                                      const value = event.target.value;
-
-                                      setCreateForm((form) => ({
-                                        ...form,
-                                        rowCounts: form.rowCounts.map(
-                                          (currentValue, rowIndex) =>
-                                            rowIndex === index
-                                              ? value === ""
-                                                ? ""
-                                                : Math.max(1, Number(value))
-                                              : currentValue,
-                                        ),
-                                      }));
-                                    }}
-                                  />
-                                  {rowCount === "" && (
-                                    <span className="mt-1 block text-xs font-normal text-red-600">
-                                      กรุณากรอกจำนวนแถว
-                                    </span>
-                                  )}
-                                  <span className="mt-1 block text-xs font-normal text-gray-400">
-                                    4 ที่นั่งต่อแถว
-                                  </span>
-                                </label>
-                              ))}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="rounded-xl border border-[#dce8e0] bg-[#f7faf8] px-4 py-3 text-xs leading-relaxed text-[#365f4f] md:col-span-2">
-                          ระบบจะสร้างหมายเลขที่นั่ง 1–50 ตามผังจริงให้ทันที
-                          พร้อมช่องว่างบริเวณบันได โซฟา โต๊ะกลาง และห้องน้ำ
-                        </div>
-                      )}
-                      <div className="flex items-end justify-end gap-2 md:col-span-2">
-                        {buses.length > 0 && (
-                          <Button
-                            variant="light"
-                            onPress={() => setShowCreate(false)}
-                          >
-                            ยกเลิก
-                          </Button>
-                        )}
-                        <Button
-                          className="bg-[#6b857a] font-medium text-white"
-                          isDisabled={savingAction !== null}
-                          isLoading={savingAction === "create"}
-                          onPress={handleCreate}
-                        >
-                          สร้างรถและผังตำแหน่ง
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : selectedBus ? (
+              {selectedBus ? (
                 <div className="space-y-4">
                   {/* Selected Bus Overview Card */}
                   <div className="rounded-2xl border border-gray-100 bg-white p-4 sm:p-5 shadow-sm">
@@ -2868,32 +2543,15 @@ export default function BusManagementModal({
 
                   {selectedBus.permissions.canOperate && !isEnded && (
                     <div className="rounded-2xl border border-[#cfe0d6] bg-white p-4 shadow-sm">
-                      <Button
-                        aria-expanded={showReminderOptions}
-                        className="min-h-11 w-full justify-between bg-[#f1f7f4] px-4 font-semibold text-[#365f4f]"
-                        endContent={
-                          <ChevronDown
-                            className={`transition-transform ${showReminderOptions ? "rotate-180" : ""}`}
-                            size={17}
-                          />
-                        }
-                        isDisabled={
-                          selectedBus.status === "TRAVELING" ||
-                          busStudentCounts.on + busStudentCounts.off === 0
-                        }
-                        startContent={<BellRing size={17} />}
-                        onPress={() =>
-                          setShowReminderOptions((current) => !current)
-                        }
-                      >
+                      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#365f4f]">
+                        <BellRing size={17} />
                         {selectedBus.status === "TRAVELING"
                           ? "ส่งเตือนได้เมื่อรถจอด"
                           : "เตือนนักเรียนให้กดขึ้น–ลงรถ"}
-                      </Button>
+                      </div>
 
-                      {showReminderOptions &&
-                        selectedBus.status === "PARKED" && (
-                          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      {selectedBus.status === "PARKED" && (
+                          <div className="grid gap-2 sm:grid-cols-2">
                             <button
                               className="rounded-xl border border-[#cfe0d6] bg-[#f7faf8] p-3 text-left transition hover:border-[#6b857a] disabled:cursor-not-allowed disabled:opacity-50"
                               disabled={
@@ -4864,6 +4522,335 @@ export default function BusManagementModal({
                   }
                 >
                   ยืนยันการจอดรถ
+                </Button>
+              )}
+            </ModalFooter>
+          </ModalContent>
+        </Modal>}
+
+        {mountCreate && <Modal
+          classNames={{
+            base: "rounded-3xl",
+            header: "border-b border-gray-100 px-5 py-4",
+            body: "bg-[#f7faf8] p-5",
+            footer: "border-t border-gray-100 px-5 py-4",
+          }}
+          isOpen={showCreate}
+          placement="center"
+          scrollBehavior="inside"
+          size="3xl"
+          onOpenChange={setShowCreate}
+        >
+          <ModalContent>
+            <ModalHeader>
+              <div className="flex items-center gap-2">
+                <Plus className="text-[#6b857a]" size={20} />
+                <p className="text-lg font-bold text-gray-900">
+                  สร้างรถสำหรับห้องเรียน
+                </p>
+              </div>
+            </ModalHeader>
+            <ModalBody>
+              {availableClassrooms.length === 0 ? (
+                    <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
+                      ยังไม่มีห้องเรียนที่ลงทะเบียนในค่ายนี้
+                    </p>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <label className="text-sm font-semibold text-gray-700">
+                        ห้องเรียน
+                        <Select
+                          aria-label="ห้องเรียน"
+                          className="mt-1 w-full"
+                          classNames={{
+                            trigger:
+                              "min-h-11 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-none",
+                            value: "text-sm font-normal text-gray-800",
+                            popoverContent:
+                              "rounded-xl border border-gray-200 bg-white p-1 shadow-lg",
+                          }}
+                          placeholder="เลือกห้องเรียน"
+                          selectedKeys={
+                            createForm.classroomId
+                              ? new Set([createForm.classroomId])
+                              : new Set()
+                          }
+                          onSelectionChange={(keys) => {
+                            const selectedValue = Array.from(keys)[0] || "";
+
+                            setCreateForm((form) => ({
+                              ...form,
+                              classroomId: String(selectedValue),
+                            }));
+                          }}
+                        >
+                          {availableClassrooms.map((classroom) => (
+                            <SelectItem
+                              key={classroom.classroomId}
+                              className="rounded-lg text-sm text-gray-700 hover:bg-[#e2eee7] data-[selected=true]:bg-[#6b857a] data-[selected=true]:text-white"
+                              textValue={`${gradeLabel(classroom.grade)} ห้อง ${classroom.roomName}`}
+                            >
+                              {gradeLabel(classroom.grade)} ห้อง{" "}
+                              {classroom.roomName} · จัดแล้ว{" "}
+                              {classroom.assignedStudentCount}/
+                              {classroom.studentCount} คน · เหลือ{" "}
+                              {classroom.unassignedStudentCount} คน
+                            </SelectItem>
+                          ))}
+                        </Select>
+                      </label>
+                      <label className="text-sm font-semibold text-gray-700">
+                        ชื่อรถ
+                        <input
+                          className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2.5 font-normal outline-none focus:border-[#6b857a]"
+                          placeholder="เช่น คันที่1 ก123"
+                          value={createForm.name}
+                          onChange={(event) =>
+                            setCreateForm((form) => ({
+                              ...form,
+                              name: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                      {createForm.classroomId && (
+                        <div className="rounded-xl bg-[#edf5f0] px-4 py-3 text-sm text-[#365f4f] md:col-span-2">
+                          {(() => {
+                            const classroom = classrooms.find(
+                              (item) =>
+                                item.classroomId ===
+                                Number(createForm.classroomId),
+                            );
+
+                            return classroom
+                              ? `ห้องนี้มีรถ ${classroom.busCount} คัน · จัดแล้ว ${classroom.assignedStudentCount}/${classroom.studentCount} คน · เหลือ ${classroom.unassignedStudentCount} คน ระบบจะนำนักเรียนที่เหลือลงรถคันใหม่นี้ตามความจุ`
+                              : null;
+                          })()}
+                        </div>
+                      )}
+                      <div className="md:col-span-2">
+                        <p className="text-sm font-semibold text-gray-700">
+                          เทมเพลตผังรถ
+                        </p>
+                        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                          <button
+                            className={`rounded-2xl border p-4 text-left transition ${
+                              createForm.layoutTemplateId === "custom"
+                                ? "border-[#6b857a] bg-[#edf5f0] ring-2 ring-[#6b857a]/15"
+                                : "border-gray-200 bg-white hover:border-[#9ab4a7]"
+                            }`}
+                            type="button"
+                            onClick={() =>
+                              setCreateForm((form) => ({
+                                ...form,
+                                layoutTemplateId: "custom",
+                              }))
+                            }
+                          >
+                            <span className="block text-sm font-bold text-gray-900">
+                              ผังรถทั่วไป
+                            </span>
+                            <span className="mt-1 block text-xs font-normal text-gray-500">
+                              กำหนดจำนวนชั้นและจำนวนแถวเอง
+                            </span>
+                          </button>
+                          {BUS_LAYOUT_TEMPLATES.map((template) => (
+                            <button
+                              key={template.id}
+                              className={`rounded-2xl border p-4 text-left transition ${
+                                createForm.layoutTemplateId === template.id
+                                  ? "border-[#6b857a] bg-[#edf5f0] ring-2 ring-[#6b857a]/15"
+                                  : "border-gray-200 bg-white hover:border-[#9ab4a7]"
+                              }`}
+                              type="button"
+                              onClick={() =>
+                                setCreateForm((form) => ({
+                                  ...form,
+                                  name: form.name || template.defaultBusName,
+                                  layoutTemplateId: template.id,
+                                  floorCount: String(template.floors.length),
+                                  rowCounts: template.floors.map(
+                                    (floor) => floor.rowCount,
+                                  ),
+                                }))
+                              }
+                            >
+                              <span className="block text-sm font-bold text-gray-900">
+                                {template.name}
+                              </span>
+                              <span className="mt-1 block text-xs font-normal text-gray-500">
+                                {template.description}
+                              </span>
+                            </button>
+                          ))}
+                          {publishedLayoutTemplates.length > 0 && (
+                            <div className="md:col-span-2 mt-1 flex items-center gap-2 border-t border-gray-100 pt-3">
+                              <span className="text-xs font-semibold text-[#557267]">
+                                ผังที่สร้างจากหน้าแอดมิน
+                              </span>
+                              <span className="text-[11px] font-normal text-gray-400">
+                                เลือกใช้ได้เมื่อเผยแพร่แล้ว
+                              </span>
+                            </div>
+                          )}
+                          {publishedLayoutTemplates.map((template) => {
+                            const templateKey = `db:${template.templateId}`;
+                            const isDraft = template.status === "DRAFT";
+
+                            return (
+                              <button
+                                key={templateKey}
+                                className={`rounded-2xl border p-4 text-left transition ${
+                                  isDraft
+                                    ? "cursor-not-allowed border-amber-200 bg-amber-50/60 opacity-80"
+                                    : createForm.layoutTemplateId ===
+                                        templateKey
+                                      ? "border-[#6b857a] bg-[#edf5f0] ring-2 ring-[#6b857a]/15"
+                                      : "border-gray-200 bg-white hover:border-[#9ab4a7]"
+                                }`}
+                                disabled={isDraft}
+                                type="button"
+                                onClick={() =>
+                                  setCreateForm((form) => ({
+                                    ...form,
+                                    name: form.name || template.name,
+                                    layoutTemplateId: templateKey,
+                                    floorCount: String(template.floorCount),
+                                    rowCounts: template.floors.map(
+                                      (floor) => floor.canvasRows,
+                                    ),
+                                  }))
+                                }
+                              >
+                                <span className="flex items-center justify-between gap-2 text-sm font-bold text-gray-900">
+                                  <span>{template.name}</span>
+                                  <span
+                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${
+                                      isDraft
+                                        ? "bg-amber-100 text-amber-700"
+                                        : "bg-[#dfeae3] text-[#365f4f]"
+                                    }`}
+                                  >
+                                    {isDraft
+                                      ? "ฉบับร่าง"
+                                      : `${template.capacity} ที่`}
+                                  </span>
+                                </span>
+                                <span className="mt-1 block text-xs font-normal text-gray-500">
+                                  {isDraft
+                                    ? "ต้องเผยแพร่จากหน้าแอดมินก่อนเลือกใช้"
+                                    : template.description ||
+                                      `ผังลากวาง ${template.floorCount} ชั้น`}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      {createForm.layoutTemplateId === "custom" ? (
+                        <>
+                          <div className="text-sm font-semibold text-gray-700 md:col-span-2">
+                            จำนวนชั้น
+                            <FloorCountRadioGroup
+                              name="create-floor-count"
+                              value={createForm.floorCount}
+                              onChange={(value) => {
+                                const floorCount = Number(value);
+
+                                setCreateForm((form) => ({
+                                  ...form,
+                                  floorCount: value,
+                                  rowCounts:
+                                    floorCount === 2
+                                      ? [
+                                          form.rowCounts[0] || 10,
+                                          form.rowCounts[1] || 10,
+                                        ]
+                                      : [form.rowCounts[0] || 10],
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                            {createForm.rowCounts
+                              .map((rowCount, index) => ({ rowCount, index }))
+                              .reverse()
+                              .map(({ rowCount, index }) => (
+                                <label
+                                  key={index}
+                                  className="text-sm font-semibold text-gray-700"
+                                >
+                                  {rowCountLabel(
+                                    index + 1,
+                                    Number(createForm.floorCount),
+                                  )}
+                                  <input
+                                    className={[
+                                      "mt-1 w-full rounded-xl border px-3 py-2.5 font-normal outline-none focus:border-[#6b857a]",
+                                      rowCount === ""
+                                        ? "border-red-400 bg-red-50"
+                                        : "border-gray-200",
+                                    ].join(" ")}
+                                    inputMode="numeric"
+                                    max={50}
+                                    min={1}
+                                    type="number"
+                                    value={rowCount}
+                                    onChange={(event) => {
+                                      const value = event.target.value;
+
+                                      setCreateForm((form) => ({
+                                        ...form,
+                                        rowCounts: form.rowCounts.map(
+                                          (currentValue, rowIndex) =>
+                                            rowIndex === index
+                                              ? value === ""
+                                                ? ""
+                                                : Math.max(1, Number(value))
+                                              : currentValue,
+                                        ),
+                                      }));
+                                    }}
+                                  />
+                                  {rowCount === "" && (
+                                    <span className="mt-1 block text-xs font-normal text-red-600">
+                                      กรุณากรอกจำนวนแถว
+                                    </span>
+                                  )}
+                                  <span className="mt-1 block text-xs font-normal text-gray-400">
+                                    4 ที่นั่งต่อแถว
+                                  </span>
+                                </label>
+                              ))}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="rounded-xl border border-[#dce8e0] bg-[#f7faf8] px-4 py-3 text-xs leading-relaxed text-[#365f4f] md:col-span-2">
+                          ระบบจะสร้างหมายเลขที่นั่ง 1–50 ตามผังจริงให้ทันที
+                          พร้อมช่องว่างบริเวณบันได โซฟา โต๊ะกลาง และห้องน้ำ
+                        </div>
+                      )}
+
+                    </div>
+                  )}
+            </ModalBody>
+            <ModalFooter className="flex justify-end gap-2">
+              <Button
+                className="font-medium text-gray-600"
+                isDisabled={savingAction !== null}
+                variant="light"
+                onPress={() => setShowCreate(false)}
+              >
+                ยกเลิก
+              </Button>
+              {availableClassrooms.length > 0 && (
+                <Button
+                  className="bg-[#365f4f] font-medium text-white"
+                  isDisabled={savingAction !== null}
+                  isLoading={savingAction === "create"}
+                  onPress={handleCreate}
+                >
+                  สร้างรถและผังตำแหน่ง
                 </Button>
               )}
             </ModalFooter>

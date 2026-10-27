@@ -103,10 +103,15 @@ function cloneTemplate(template: LayoutTemplate): LayoutTemplate {
   return JSON.parse(JSON.stringify(template));
 }
 
+function floorNameFor(floorIndex: number, floorCount: number) {
+  if (floorCount === 1) return "ชั้นเดียว";
+  return floorIndex === 0 ? "ชั้นล่าง" : "ชั้นบน";
+}
+
 function normalizeTemplate(template: any): LayoutTemplate {
   return {
     ...template,
-    floors: template.floors.map((floor: any) => {
+    floors: template.floors.map((floor: any, floorIndex: number) => {
       const seats = floor.elements.filter(
         (element: any) => element.type === "SEAT",
       );
@@ -117,6 +122,7 @@ function normalizeTemplate(template: any): LayoutTemplate {
 
       return {
         ...floor,
+        floorName: floorNameFor(floorIndex, template.floors.length),
         elements: seats.map((element: any) => ({
           ...element,
           elementId: String(element.elementId),
@@ -155,7 +161,7 @@ export default function BusLayoutManager({
   mode?: "list" | "editor";
   templateId?: number;
 }) {
-  const { showError, showSuccess } = useStatusModal();
+  const { close, showConfirm, showError, showSuccess } = useStatusModal();
   const router = useRouter();
   const [templates, setTemplates] = useState<LayoutTemplate[]>([]);
   const [draft, setDraft] = useState<LayoutTemplate | null>(null);
@@ -518,11 +524,15 @@ export default function BusLayoutManager({
     mutateDraft((next) => {
       next.floors.push({
         floorNumber: 2,
-        floorName: "ชั้นบน",
+        floorName: "",
         canvasColumns: 12,
         canvasRows: 24,
         elements: [],
       });
+      next.floors = next.floors.map((floor, index) => ({
+        ...floor,
+        floorName: floorNameFor(index, next.floors.length),
+      }));
       next.floorCount = next.floors.length;
       return next;
     });
@@ -538,6 +548,7 @@ export default function BusLayoutManager({
       next.floors = next.floors.map((floor, index) => ({
         ...floor,
         floorNumber: index + 1,
+        floorName: floorNameFor(index, next.floors.length),
       }));
       next.floorCount = next.floors.length;
       return next;
@@ -587,12 +598,7 @@ export default function BusLayoutManager({
             { length: createForm.floorCount },
             (_, floorIndex) => ({
               floorNumber: floorIndex + 1,
-              floorName:
-                createForm.floorCount === 1
-                  ? "ชั้นเดียว"
-                  : floorIndex === 0
-                    ? "ชั้นล่าง"
-                    : "ชั้นบน",
+              floorName: floorNameFor(floorIndex, createForm.floorCount),
               canvasColumns: 12,
               canvasRows: 24,
               elements: [],
@@ -1128,7 +1134,17 @@ export default function BusLayoutManager({
                 <button
                   className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-600"
                   type="button"
-                  onClick={autoNumberSeats}
+                  onClick={() =>
+                    showConfirm(
+                      "เรียงเลขที่นั่งใหม่",
+                      "เลขที่นั่งทั้งหมดในชั้นนี้จะถูกตั้งใหม่ตามตำแหน่งบนผัง ยืนยันหรือไม่?",
+                      () => {
+                        autoNumberSeats();
+                        close();
+                      },
+                      "เรียงเลขใหม่",
+                    )
+                  }
                 >
                   เรียงเลขที่นั่งใหม่
                 </button>

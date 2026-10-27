@@ -23,6 +23,7 @@ export async function GET(
     const limit = parseInt(searchParams.get("limit") || "10");
     const search = searchParams.get("search") || "";
     const filter = searchParams.get("filter") || "all";
+    const registration = searchParams.get("registration") || "all";
     const includeSummary = searchParams.get("summary") !== "false";
 
     // Build base condition for student
@@ -78,6 +79,12 @@ export async function GET(
 
     const whereClause = {
       camp_camp_id: campId,
+      // enrolled_at = null means the student has not joined the camp yet
+      ...(registration === "registered"
+        ? { enrolled_at: { not: null } }
+        : registration === "unregistered"
+          ? { enrolled_at: null }
+          : {}),
       ...(Object.keys(studentCondition).length > 0
         ? { student: studentCondition }
         : {}),

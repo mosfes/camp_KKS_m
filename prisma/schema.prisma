@@ -111,11 +111,14 @@ model parents {
   session_version   Int       @default(0)
 
   username_student_id Int
+  /// 1 = login "28661"; 2+ = extra accounts created by an admin, login "28661-2".
+  account_no          Int                            @default(1)
   student             students                       @relation(fields: [username_student_id], references: [students_id])
   auth_tokens         parent_auth_tokens[]
   linked_students     parent_student_links[]
   link_requests       parent_student_link_requests[]
 
+  @@unique([username_student_id, account_no])
   @@index([email])
 }
 
@@ -1265,4 +1268,25 @@ model camp_email_daily_run {
   updated_at       DateTime  @updatedAt
 
   @@index([locked_at])
+}
+
+// Single row (id = 1) edited from the admin page. `reminders` holds the
+// per-type schedule and email copy; see lib/camp-reminder-config.ts.
+model camp_email_reminder_setting {
+  setting_id            Int      @id @default(1)
+  send_hour             Int      @default(7)
+  reminders             Json
+  updated_by_teacher_id Int?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+}
+
+// Reminder templates created by admins. `content` holds the reminder fields
+// (name, audience, daysBefore and copy); see lib/camp-reminder-config.ts.
+model camp_email_reminder_template {
+  template_id           Int      @id @default(autoincrement())
+  content               Json
+  created_by_teacher_id Int?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
 }

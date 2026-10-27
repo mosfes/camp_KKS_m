@@ -8,7 +8,7 @@ export async function revokeAdditionalParentLink({
 }: {
   parentId: number;
   studentId: number;
-  actorType: "STUDENT" | "ADMIN";
+  actorType: "ADMIN";
   actorId: number;
 }): Promise<"revoked" | "missing" | "primary"> {
   const primary = await prisma.parents.findFirst({
@@ -62,7 +62,7 @@ export async function deletePrimaryParentAccount({
   return prisma.$transaction(async (tx) => {
     const account = await tx.parents.findFirst({
       where: { parents_id: parentId, username_student_id: studentId },
-      select: { parents_id: true },
+      select: { parents_id: true, account_no: true },
     });
 
     if (!account) return "missing";
@@ -72,11 +72,15 @@ export async function deletePrimaryParentAccount({
       select: { students_id: true },
     });
 
-    await tx.parent_account_tombstones.upsert({
-      where: { students_id: studentId },
-      create: { students_id: studentId, deleted_parent_id: parentId },
-      update: { deleted_parent_id: parentId, deleted_at: new Date() },
-    });
+    // Only the first account can be recreated by the default login, so only
+    // deleting it needs a tombstone. Extra accounts are created by an admin.
+    if (account.account_no === 1) {
+      await tx.parent_account_tombstones.upsert({
+        where: { students_id: studentId },
+        create: { students_id: studentId, deleted_parent_id: parentId },
+        update: { deleted_parent_id: parentId, deleted_at: new Date() },
+      });
+    }
     await tx.parent_auth_tokens.deleteMany({ where: { parents_id: parentId } });
     await tx.parent_student_link_requests.deleteMany({
       where: { parents_id: parentId },

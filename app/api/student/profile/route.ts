@@ -44,6 +44,17 @@ export async function GET() {
             tel: true,
             username_student_id: true,
           },
+          orderBy: { account_no: "asc" },
+        },
+        // Parents who linked to this student later (approved requests).
+        parent_links: {
+          select: {
+            created_at: true,
+            parent: {
+              select: { parents_id: true, firstname: true, lastname: true, tel: true },
+            },
+          },
+          orderBy: { created_at: "asc" },
         },
       },
     });
@@ -99,8 +110,30 @@ export async function GET() {
         teacherMap.size > 0 ? Array.from(teacherMap.values()).join(", ") : null;
     }
 
+    const { parent_links: parentLinks, ...studentData } = student;
+    const parentAccess = [
+      ...student.parents.map((parent) => ({
+        parentId: parent.parents_id,
+        name: `${parent.firstname} ${parent.lastname}`.trim(),
+        tel: parent.tel && parent.tel !== "0000000000" ? parent.tel : null,
+        direct: true,
+        linkedAt: null,
+      })),
+      ...parentLinks.map((link) => ({
+        parentId: link.parent.parents_id,
+        name: `${link.parent.firstname} ${link.parent.lastname}`.trim(),
+        tel:
+          link.parent.tel && link.parent.tel !== "0000000000"
+            ? link.parent.tel
+            : null,
+        direct: false,
+        linkedAt: link.created_at,
+      })),
+    ];
+
     return NextResponse.json({
-      ...student,
+      ...studentData,
+      parentAccess,
       classroom: classroom
         ? {
             classroom_id: classroom.classroom_id,
@@ -209,7 +242,7 @@ export async function PUT(req: any) {
     // Update parent phone if parent exists, if not, create a placeholder record
     if (validated.parent_tel) {
       const existingParent = await prisma.parents.findFirst({
-        where: { username_student_id: studentId },
+        where: { username_student_id: studentId, account_no: 1 },
       });
 
       const parentTelDigits = validated.parent_tel.replace(/\D/g, "");

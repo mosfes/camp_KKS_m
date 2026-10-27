@@ -147,6 +147,7 @@ type CampAccess = {
   isHomeroomTeacher: boolean;
   isBusTeacher: boolean;
   hasTransport: boolean;
+  hasShirt: boolean;
 };
 
 function getCampIdFromPath(pathname: string) {
@@ -204,10 +205,13 @@ function filterCampMenuItems(
   items: SidebarMenuItem[],
   access: CampAccess | null,
 ) {
-  if (!access) return items.filter((item) => item.id !== "bus");
+  if (!access) {
+    return items.filter((item) => item.id !== "bus" && item.id !== "shirts");
+  }
 
   return items.filter((item) => {
     if (item.id === "bus" && !access.hasTransport) return false;
+    if (item.id === "shirts" && !access.hasShirt) return false;
     if (item.id === "bus") {
       return access.isOwner || access.isHomeroomTeacher || access.isBusTeacher;
     }
@@ -698,6 +702,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   isHomeroomTeacher: Boolean(data.isHomeroomTeacher),
                   isBusTeacher: Boolean(data.isBusTeacher),
                   hasTransport: Boolean(data.hasTransport),
+                  hasShirt: Boolean(data.hasShirt),
                 }
               : null,
           );

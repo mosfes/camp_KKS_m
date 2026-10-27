@@ -1,11 +1,16 @@
+import {
+  fillReminderPlaceholders,
+  type ReminderPlaceholderValues,
+  type ReminderTemplate,
+} from "@/lib/camp-reminder-config";
+
 type CampReminderEmailInput = {
-  recipientName: string;
-  campName: string;
-  campDate: string;
-  location: string;
-  action: string;
+  template: Pick<
+    ReminderTemplate,
+    "subject" | "heading" | "body" | "action" | "buttonLabel"
+  >;
+  values: ReminderPlaceholderValues;
   campUrl: string;
-  kind: "join" | "starting" | "tomorrow";
 };
 
 function escapeHtml(value: string): string {
@@ -17,34 +22,43 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#039;");
 }
 
+function singleLine(value: string): string {
+  return value.replace(/\s*[\r\n]+\s*/g, " ").trim();
+}
+
 export function createCampReminderEmail(input: CampReminderEmailInput) {
-  const heading =
-    input.kind === "join"
-      ? `อย่าลืมเข้าร่วมค่าย ${input.campName}`
-      : input.kind === "tomorrow"
-        ? `ค่าย ${input.campName} เริ่มพรุ่งนี้แล้ว`
-        : `ค่าย ${input.campName} ใกล้เริ่มแล้ว`;
-  const intro =
-    input.kind === "join"
-      ? "ขณะนี้คุณยังไม่ได้ยืนยันเข้าร่วมค่าย กรุณาเข้าร่วมผ่านระบบก่อนค่ายเริ่ม"
-      : input.kind === "tomorrow"
-        ? "ค่ายจะเริ่มในวันพรุ่งนี้ กรุณาตรวจสอบเวลา สถานที่ และสิ่งที่ต้องเตรียมให้เรียบร้อย"
-        : "เตรียมตัวให้พร้อมสำหรับค่ายที่กำลังจะเริ่ม และตรวจสอบรายละเอียดล่าสุดได้จากระบบ";
-  const buttonLabel =
-    input.kind === "join" ? "เข้าร่วมค่าย" : "ดูรายละเอียดค่าย";
+  const fill = (template: string) =>
+    fillReminderPlaceholders(template, input.values);
+  const subject = singleLine(fill(input.template.subject));
+  const heading = singleLine(fill(input.template.heading));
+  const body = fill(input.template.body).trim();
+  const action = singleLine(fill(input.template.action));
+  const buttonLabel = singleLine(fill(input.template.buttonLabel));
+  const paragraphs = body
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
   const safe = {
-    name: escapeHtml(input.recipientName),
+    name: escapeHtml(input.values.name),
     heading: escapeHtml(heading),
-    intro: escapeHtml(intro),
-    campName: escapeHtml(input.campName),
-    campDate: escapeHtml(input.campDate),
-    location: escapeHtml(input.location),
-    action: escapeHtml(input.action),
+    campName: escapeHtml(input.values.campName),
+    campDate: escapeHtml(input.values.campDate),
+    location: escapeHtml(input.values.location),
+    action: escapeHtml(action),
     url: escapeHtml(input.campUrl),
     buttonLabel: escapeHtml(buttonLabel),
   };
+  const bodyHtml = paragraphs
+    .map(
+      (paragraph) =>
+        `<p style="line-height:1.7">${escapeHtml(paragraph).replace(/\n/g, "<br>")}</p>`,
+    )
+    .join("\n        ");
   const link = input.campUrl
     ? `<a href="${safe.url}" style="display:inline-block;background:#5f8878;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:700">${safe.buttonLabel}</a>`
+    : "";
+  const actionLine = action
+    ? `<br>\n          สิ่งที่ต้องทำ: ${safe.action}`
     : "";
   const html = `<!doctype html>
 <html lang="th">
@@ -54,12 +68,11 @@ export function createCampReminderEmail(input: CampReminderEmailInput) {
         <div style="color:#5f8878;font-size:14px;font-weight:700;margin-bottom:12px">KKS CAMP</div>
         <h1 style="font-size:24px;line-height:1.4;margin:0 0 16px">${safe.heading}</h1>
         <p style="line-height:1.7">สวัสดี ${safe.name}</p>
-        <p style="line-height:1.7">${safe.intro}</p>
+        ${bodyHtml}
         <div style="background:#f4f7f5;border-radius:12px;padding:18px;margin:24px 0;line-height:1.8">
           <strong>${safe.campName}</strong><br>
           วันที่: ${safe.campDate}<br>
-          สถานที่: ${safe.location}<br>
-          สิ่งที่ต้องทำ: ${safe.action}
+          สถานที่: ${safe.location}${actionLine}
         </div>
         ${link}
         <p style="font-size:12px;color:#6b7280;margin-top:28px">ข้อความนี้ส่งโดยอัตโนมัติจากระบบ KKS Camp</p>
@@ -67,7 +80,7 @@ export function createCampReminderEmail(input: CampReminderEmailInput) {
     </div>
   </body>
 </html>`;
-  const text = `${heading}\n\nสวัสดี ${input.recipientName}\n${intro}\n\nค่าย: ${input.campName}\nวันที่: ${input.campDate}\nสถานที่: ${input.location}\nสิ่งที่ต้องทำ: ${input.action}${input.campUrl ? `\n${input.campUrl}` : ""}\n\nข้อความนี้ส่งโดยอัตโนมัติจากระบบ KKS Camp`;
+  const text = `${heading}\n\nสวัสดี ${input.values.name}\n${paragraphs.join("\n\n")}\n\nค่าย: ${input.values.campName}\nวันที่: ${input.values.campDate}\nสถานที่: ${input.values.location}${action ? `\nสิ่งที่ต้องทำ: ${action}` : ""}${input.campUrl ? `\n${input.campUrl}` : ""}\n\nข้อความนี้ส่งโดยอัตโนมัติจากระบบ KKS Camp`;
 
-  return { subject: heading, html, text };
+  return { subject, html, text };
 }

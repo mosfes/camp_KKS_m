@@ -53,6 +53,13 @@ interface StudentProfile {
     lastname: string;
     tel: string;
   }[];
+  parentAccess?: {
+    parentId: number;
+    name: string;
+    tel: string | null;
+    direct: boolean;
+    linkedAt: string | null;
+  }[];
   classroom?: {
     grade_label?: string;
     class_name?: string;
@@ -427,7 +434,6 @@ export default function StudentProfilePage({
     `${profile.firstname[0] || ""}${profile.lastname[0] || ""}` || "นร";
   const currentAvatarSrc = previewImage || pendingImageUrl || avatarUrl;
   const age = calculateAge(profile.birthday);
-  const parentPhone = profile.parents?.[0]?.tel;
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
@@ -891,33 +897,57 @@ export default function StudentProfilePage({
                   }
                 />
 
-                <InfoItem
-                  badge={
-                    parentPhone ? (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
-                        ฉุกเฉิน
-                      </span>
-                    ) : null
-                  }
-                  copyValue={parentPhone || undefined}
-                  icon={<Phone size={15} />}
-                  label="เบอร์โทรผู้ปกครอง (ฉุกเฉิน)"
-                  value={
-                    parentPhone ? (
-                      <div className="flex items-center gap-2 font-mono">
-                        <span>{formatPhoneNumber(parentPhone)}</span>
-                        <a
-                          className="text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5 ml-1 font-sans font-semibold"
-                          href={`tel:${parentPhone}`}
-                        >
-                          <ExternalLink size={12} /> โทรฉุกเฉิน
-                        </a>
-                      </div>
-                    ) : (
-                      "ไม่ระบุ"
-                    )
-                  }
-                />
+                <div className="pt-1">
+                  <p className="mb-2 text-xs font-semibold text-gray-500">
+                    ผู้ปกครองที่ดูข้อมูลของคุณได้
+                  </p>
+                  {(profile.parentAccess ?? []).length === 0 ? (
+                    <p className="text-sm text-gray-400">
+                      ยังไม่ได้ผูกกับผู้ปกครอง
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {(profile.parentAccess ?? []).map((parent) => (
+                        <InfoItem
+                          key={`${parent.parentId}:${parent.direct}`}
+                          badge={
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-semibold">
+                              {parent.direct ? "ผูกโดยตรง" : "ผูกเพิ่ม"}
+                            </span>
+                          }
+                          copyValue={parent.tel || undefined}
+                          icon={<Phone size={15} />}
+                          label={
+                            parent.name
+                              .split(/\s+/)
+                              .filter((part) => part && part !== "รอระบุ")
+                              .join(" ") || "ผู้ปกครอง (ยังไม่ได้กรอกชื่อ)"
+                          }
+                          subValue={
+                            parent.linkedAt
+                              ? `ผูกเมื่อ ${new Date(parent.linkedAt).toLocaleDateString("th-TH", { dateStyle: "medium", timeZone: "Asia/Bangkok" })}`
+                              : undefined
+                          }
+                          value={
+                            parent.tel ? (
+                              <div className="flex items-center gap-2 font-mono">
+                                <span>{formatPhoneNumber(parent.tel)}</span>
+                                <a
+                                  className="text-xs text-blue-600 hover:underline inline-flex items-center gap-0.5 ml-1 font-sans font-semibold"
+                                  href={`tel:${parent.tel}`}
+                                >
+                                  <ExternalLink size={12} /> โทร
+                                </a>
+                              </div>
+                            ) : (
+                              "ไม่มีเบอร์โทร"
+                            )
+                          }
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </SectionCard>

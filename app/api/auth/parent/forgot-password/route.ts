@@ -12,6 +12,7 @@ import {
 } from "@/lib/parent-account-email";
 import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { parseParentUsername } from "@/lib/parent-username";
 import { sendResendBatch } from "@/lib/resend";
 
 const GENERIC_MESSAGE =
@@ -33,11 +34,12 @@ export async function POST(request: Request) {
     const recipientEmail = normalizeEmail(
       body.recipientEmail ?? body.parentEmail,
     );
-    const studentId = Number(username);
+    const parsedUsername = parseParentUsername(username);
 
-    if (!/^\d+$/.test(username) || !Number.isSafeInteger(studentId)) {
+    if (!parsedUsername) {
       return NextResponse.json({ message: GENERIC_MESSAGE });
     }
+    const { studentId, accountNo } = parsedUsername;
 
     if (recipientEmail && !isValidEmail(recipientEmail)) {
       return NextResponse.json(
@@ -75,6 +77,7 @@ export async function POST(request: Request) {
     const parent = await prisma.parents.findFirst({
       where: {
         username_student_id: studentId,
+        account_no: accountNo,
         student: { deletedAt: null },
       },
       select: {

@@ -96,7 +96,7 @@ export default function ParentLoginPage() {
                     "text-sm text-gray-700 placeholder:text-gray-400 font-medium",
                 }}
                 id="parent-username"
-                placeholder="รหัสนักเรียน"
+                placeholder="รหัสนักเรียน เช่น 28661 หรือ 28661-2"
                 type="text"
                 value={username}
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}

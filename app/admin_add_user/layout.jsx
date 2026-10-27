@@ -18,6 +18,7 @@ import {
   Files,
   BusFront,
   UserRoundCheck,
+  MailCheck,
 } from "lucide-react";
 
 const menuItems = [
@@ -29,6 +30,7 @@ const menuItems = [
   { id: "parentaccess", label: "สิทธิ์ผู้ปกครอง", icon: UserRoundCheck },
   { id: "camp", label: "ค่าย", icon: Tent },
   { id: "buslayout", label: "ผังรถ", icon: BusFront },
+  { id: "campemail", label: "อีเมลแจ้งเตือนค่าย", icon: MailCheck },
   { id: "vulgarwords", label: "คลังคำหยาบ", icon: ShieldAlert },
 ];
 
