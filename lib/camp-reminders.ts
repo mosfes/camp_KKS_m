@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import {
   getBangkokDateAsUtcMidnight,
   getBangkokDateKey,
+  getBangkokDaysUntil,
+  getBangkokHour,
 } from "@/lib/bangkok-date";
 import {
   ResendApiError,
@@ -13,15 +15,18 @@ import {
 } from "@/lib/resend";
 import { createCampReminderEmail } from "@/lib/camp-reminder-email";
 import {
+  countdownText,
+  MAX_DAYS_BEFORE,
+  NOT_JOINED_AUDIENCE,
+  PARTICIPANTS_AUDIENCE,
+  reminderSchedule,
+  type ReminderTemplate,
+} from "@/lib/camp-reminder-config";
+import { getCampReminderSettings } from "@/lib/camp-reminder-settings";
+import {
   addDateKeyDays,
   dueReminderTypes,
-  JOIN_DAYS_BEFORE,
-  JOIN_REMINDER_TYPE,
-  STARTING_DAYS_BEFORE,
-  STARTING_REMINDER_TYPE,
-  TOMORROW_DAYS_BEFORE,
-  TOMORROW_REMINDER_TYPE,
-  type ReminderType,
+  reminderWindowEndKey,
 } from "@/lib/camp-reminder-policy";
 
 const DEFAULT_DAILY_LIMIT = 90;
@@ -36,14 +41,6 @@ class DailyQuotaUnavailableError extends Error {
     super("Daily Resend quota is exhausted or the Cron lock was lost");
     this.name = "DailyQuotaUnavailableError";
   }
-}
-
-function isReminderType(value: string): value is ReminderType {
-  return (
-    value === JOIN_REMINDER_TYPE ||
-    value === STARTING_REMINDER_TYPE ||
-    value === TOMORROW_REMINDER_TYPE
-  );
 }
 
 type Recipient = {
@@ -129,7 +126,12 @@ function studentName(student: {
   return `${student.prefix_name ?? ""}${student.firstname} ${student.lastname}`.trim();
 }
 
-async function loadCampRecipients(campId: number, reminderType: ReminderType) {
+type RecipientTarget = Pick<ReminderTemplate, "audience" | "includeTeachers">;
+
+async function loadCampRecipients(
+  campId: number,
+  { audience, includeTeachers }: RecipientTarget,
+) {
   const camp = await prisma.camp.findFirst({
     where: { camp_id: campId, deletedAt: null },
     select: {
@@ -246,8 +248,8 @@ async function loadCampRecipients(campId: number, reminderType: ReminderType) {
       );
 
       if (
-        (reminderType === JOIN_REMINDER_TYPE && isEnrolled) ||
-        (reminderType !== JOIN_REMINDER_TYPE && !isEnrolled)
+        (audience === NOT_JOINED_AUDIENCE && isEnrolled) ||
+        (audience === PARTICIPANTS_AUDIENCE && !isEnrolled)
       ) {
         continue;
       }
@@ -273,7 +275,7 @@ async function loadCampRecipients(campId: number, reminderType: ReminderType) {
 
   // Include all staff sources used by the current camp UI. The creator and
   // primary homeroom teachers are not always present in teacher_enrollment.
-  if (reminderType !== JOIN_REMINDER_TYPE) {
+  if (includeTeachers) {
     addTeacher(camp.created_by);
     for (const enrollment of camp.teacher_enrollment)
       addTeacher(enrollment.teacher);
@@ -293,7 +295,7 @@ async function loadCampRecipients(campId: number, reminderType: ReminderType) {
 async function ensureReminderRows(
   camp: NonNullable<Awaited<ReturnType<typeof loadCampRecipients>>>["camp"],
   recipients: Recipient[],
-  reminderType: ReminderType,
+  reminderType: string,
 ) {
   const campStartDateKey = getBangkokDateKey(camp.start_date);
 
@@ -395,6 +397,7 @@ async function ensureReminderRows(
 async function refreshPendingCampRecipients(
   dateFromKey: string,
   dateToKey: string,
+  remindersById: Map<string, ReminderTemplate>,
   refreshed = new Set<string>(),
 ) {
   const pendingKeys = await prisma.camp_email_reminder.findMany({
@@ -407,17 +410,16 @@ async function refreshPendingCampRecipients(
   });
 
   for (const pendingKey of pendingKeys) {
-    if (!isReminderType(pendingKey.reminder_type)) continue;
+    const reminder = remindersById.get(pendingKey.reminder_type);
+
+    if (!reminder) continue;
 
     const key = `${pendingKey.camp_camp_id}:${pendingKey.reminder_type}`;
 
     if (refreshed.has(key)) continue;
     refreshed.add(key);
 
-    const loaded = await loadCampRecipients(
-      pendingKey.camp_camp_id,
-      pendingKey.reminder_type,
-    );
+    const loaded = await loadCampRecipients(pendingKey.camp_camp_id, reminder);
 
     if (loaded) {
       await ensureReminderRows(
@@ -476,7 +478,7 @@ async function releaseDailyRunLock(dateKey: string, lockToken: string) {
 async function claimPendingReminders(options: {
   dateFromKey: string;
   dateToKey: string;
-  reminderType: ReminderType;
+  reminderType: string;
   limit: number;
   dailyDateKey: string;
   dailyLimit: number;
@@ -586,6 +588,7 @@ function formatThaiDate(date: Date): string {
 
 function messagesFor(
   rows: Awaited<ReturnType<typeof claimPendingReminders>>,
+  remindersById: Map<string, ReminderTemplate>,
 ): ResendMessage[] {
   const baseUrl = applicationUrl();
 
@@ -594,25 +597,20 @@ function messagesFor(
     const campPath = isTeacher
       ? `/headteacher/open-camp/${row.camp.public_id}`
       : `/student/dashboard/camp/${row.camp.public_id}`;
-
-    const isJoinReminder = row.reminder_type === JOIN_REMINDER_TYPE;
-    const isTomorrowReminder = row.reminder_type === TOMORROW_REMINDER_TYPE;
+    // Rows are only claimed for enabled reminders, so the template exists.
+    const template = remindersById.get(row.reminder_type)!;
+    const daysLeft = getBangkokDaysUntil(row.camp.start_date);
     const email = createCampReminderEmail({
-      recipientName: row.recipient_name,
-      campName: row.camp.name,
-      campDate: formatThaiDate(row.camp.start_date),
-      location: row.camp.location,
-      action: isJoinReminder
-        ? "กดเข้าร่วมค่ายในระบบ"
-        : isTomorrowReminder
-          ? "ตรวจสอบรายละเอียดและเตรียมตัวสำหรับวันพรุ่งนี้"
-          : "เตรียมตัวเข้าค่าย",
+      template,
+      values: {
+        name: row.recipient_name,
+        campName: row.camp.name,
+        campDate: formatThaiDate(row.camp.start_date),
+        location: row.camp.location,
+        daysLeft: String(daysLeft),
+        countdown: countdownText(daysLeft),
+      },
       campUrl: baseUrl ? `${baseUrl}${campPath}` : "",
-      kind: isJoinReminder
-        ? "join"
-        : isTomorrowReminder
-          ? "tomorrow"
-          : "starting",
     });
 
     return { to: row.recipient_email, ...email };
@@ -769,15 +767,52 @@ async function recoverStaleSendingReminders() {
   });
 }
 
-export async function runCampReminderJob() {
+export async function runCampReminderJob(now: Date = new Date()) {
   validateResendConfig();
 
-  const todayKey = getBangkokDateKey(new Date());
-  const joinTargetKey = addDays(todayKey, JOIN_DAYS_BEFORE);
-  const startingTargetKey = addDays(todayKey, STARTING_DAYS_BEFORE);
-  const tomorrowTargetKey = addDays(todayKey, TOMORROW_DAYS_BEFORE);
+  const settings = await getCampReminderSettings();
+  const schedule = reminderSchedule(settings);
+  const remindersById = new Map(
+    settings.reminders
+      .filter((reminder) => reminder.enabled)
+      .map((reminder) => [reminder.id, reminder]),
+  );
+  const todayKey = getBangkokDateKey(now);
+  const currentHour = getBangkokHour(now);
   const windowStartKey = addDays(todayKey, 1);
-  const windowEndKey = joinTargetKey;
+  // Nearest deadline first, so the more urgent reminders win when the daily
+  // quota is tight.
+  const enabledTypes = Object.keys(schedule).sort(
+    (a, b) => schedule[a] - schedule[b],
+  );
+  const typeWindowEndKeys: Record<string, string> = {};
+
+  for (const type of enabledTypes) {
+    typeWindowEndKeys[type] = reminderWindowEndKey(
+      todayKey,
+      schedule[type],
+      currentHour,
+      settings.sendHour,
+    );
+  }
+
+  const windowEndKey = Object.values(typeWindowEndKeys).reduce(
+    (latest, key) => (key > latest ? key : latest),
+    todayKey,
+  );
+
+  // The hourly trigger lands here before the configured send hour too; skip
+  // the database work when nothing can be due yet.
+  if (windowEndKey < windowStartKey) {
+    return {
+      today: todayKey,
+      locked: false,
+      sendHour: settings.sendHour,
+      currentHour,
+      message: "No reminders are due yet",
+    };
+  }
+
   const upcomingRange = dateRange(windowStartKey, windowEndKey);
   const runLockToken = await acquireDailyRunLock(todayKey);
 
@@ -827,8 +862,9 @@ export async function runCampReminderJob() {
       data: { status: "EXHAUSTED" },
     });
 
-    // Reconcile the entire D+1..D+7 window. This catches up safely if Vercel
-    // skipped a daily invocation; the queue's unique key prevents duplicates.
+    // Reconcile every camp whose reminder is already due. This catches up
+    // safely if a scheduled invocation was skipped; the queue's unique key
+    // prevents duplicates.
     const upcomingCamps = await prisma.camp.findMany({
       where: {
         deletedAt: null,
@@ -838,29 +874,43 @@ export async function runCampReminderJob() {
       orderBy: [{ start_date: "asc" }, { camp_id: "asc" }],
     });
 
-    const eligibleRecipients = {
-      joinCamp: 0,
-      startingSoon: 0,
-      startingTomorrow: 0,
-    };
+    // Rows for a reminder the admin removed or switched off must not go out
+    // later if it is re-enabled with a changed schedule.
+    await prisma.camp_email_reminder.updateMany({
+      where: {
+        status: { in: ["PENDING", "FAILED"] },
+        reminder_type: { notIn: enabledTypes },
+      },
+      data: {
+        status: "SKIPPED",
+        last_error: "Reminder was removed or disabled",
+        claimed_at: null,
+      },
+    });
+
+    const eligibleRecipients: Record<string, number> = {};
     const refreshed = new Set<string>();
 
     for (const camp of upcomingCamps) {
       const startDateKey = getBangkokDateKey(camp.start_date);
-      const reminderTypes = dueReminderTypes(todayKey, startDateKey);
+      const reminderTypes = dueReminderTypes(
+        todayKey,
+        startDateKey,
+        schedule,
+        currentHour,
+        settings.sendHour,
+      );
 
       for (const reminderType of reminderTypes) {
-        const loaded = await loadCampRecipients(camp.camp_id, reminderType);
+        const loaded = await loadCampRecipients(
+          camp.camp_id,
+          remindersById.get(reminderType)!,
+        );
 
         if (!loaded) continue;
 
-        if (reminderType === JOIN_REMINDER_TYPE) {
-          eligibleRecipients.joinCamp += loaded.recipients.length;
-        } else if (reminderType === STARTING_REMINDER_TYPE) {
-          eligibleRecipients.startingSoon += loaded.recipients.length;
-        } else {
-          eligibleRecipients.startingTomorrow += loaded.recipients.length;
-        }
+        eligibleRecipients[reminderType] =
+          (eligibleRecipients[reminderType] ?? 0) + loaded.recipients.length;
 
         await ensureReminderRows(loaded.camp, loaded.recipients, reminderType);
         refreshed.add(`${camp.camp_id}:${reminderType}`);
@@ -869,7 +919,12 @@ export async function runCampReminderJob() {
 
     // Re-read any rows left from an earlier run so a changed roster or camp date
     // is applied before a delayed retry is sent.
-    await refreshPendingCampRecipients(windowStartKey, windowEndKey, refreshed);
+    await refreshPendingCampRecipients(
+      windowStartKey,
+      windowEndKey,
+      remindersById,
+      refreshed,
+    );
 
     const limit = dailyLimit();
     const dailyRun = await prisma.camp_email_daily_run.findUniqueOrThrow({
@@ -885,16 +940,14 @@ export async function runCampReminderJob() {
     while (attempted < limit && Date.now() - startedAt < JOB_TIME_BUDGET_MS) {
       let rows: Awaited<ReturnType<typeof claimPendingReminders>> = [];
 
-      // Starting-soon reminders have the nearer deadline; retry those before
-      // the less urgent join-camp reminders when the account quota is tight.
-      for (const candidateType of [
-        TOMORROW_REMINDER_TYPE,
-        STARTING_REMINDER_TYPE,
-        JOIN_REMINDER_TYPE,
-      ] as const) {
+      for (const candidateType of enabledTypes) {
+        const candidateWindowEndKey = typeWindowEndKeys[candidateType];
+
+        if (candidateWindowEndKey < windowStartKey) continue;
+
         const candidateRows = await claimPendingReminders({
           dateFromKey: windowStartKey,
-          dateToKey: windowEndKey,
+          dateToKey: candidateWindowEndKey,
           reminderType: candidateType,
           limit: Math.min(BATCH_SIZE, limit - attempted),
           dailyDateKey: todayKey,
@@ -914,7 +967,7 @@ export async function runCampReminderJob() {
 
       try {
         const result = await sendResendBatch({
-          messages: messagesFor(rows),
+          messages: messagesFor(rows, remindersById),
           idempotencyKey: rows[0].batch_key || randomUUID(),
         });
 
@@ -973,11 +1026,9 @@ export async function runCampReminderJob() {
     return {
       today: todayKey,
       locked: false,
-      targets: {
-        joinCamp: joinTargetKey,
-        startingSoon: startingTargetKey,
-        startingTomorrow: tomorrowTargetKey,
-      },
+      sendHour: settings.sendHour,
+      currentHour,
+      targets: typeWindowEndKeys,
       camps: upcomingCamps.length,
       eligibleRecipients,
       dailyLimit: limit,
@@ -993,4 +1044,95 @@ export async function runCampReminderJob() {
   } finally {
     await releaseDailyRunLock(todayKey, runLockToken);
   }
+}
+
+// Rows in these states will not be sent again automatically.
+const SETTLED_STATUSES = new Set(["SENT", "SENDING", "UNKNOWN", "EXHAUSTED"]);
+
+/**
+ * Per-camp delivery progress for the admin page: emails already sent and
+ * emails still to go for each enabled reminder, using the live roster.
+ */
+export async function getCampReminderProgress(now: Date = new Date()) {
+  const settings = await getCampReminderSettings();
+  const enabled = settings.reminders
+    .map((reminder, index) => ({ reminder, number: index + 1 }))
+    .filter(({ reminder }) => reminder.enabled);
+  const todayKey = getBangkokDateKey(now);
+  const range = dateRange(
+    addDays(todayKey, 1),
+    addDays(todayKey, MAX_DAYS_BEFORE),
+  );
+  const camps = await prisma.camp.findMany({
+    where: {
+      deletedAt: null,
+      start_date: { gte: range.from, lt: range.to },
+    },
+    select: { camp_id: true, name: true, start_date: true },
+    orderBy: [{ start_date: "asc" }, { camp_id: "asc" }],
+  });
+
+  return Promise.all(
+    camps.map(async (camp) => {
+      const startDateKey = getBangkokDateKey(camp.start_date);
+      const rows = await prisma.camp_email_reminder.findMany({
+        where: {
+          camp_camp_id: camp.camp_id,
+          camp_start_date_key: startDateKey,
+        },
+        select: { reminder_type: true, recipient_key: true, status: true },
+      });
+      // Reminders with the same audience share one roster query.
+      const rosters = new Map<string, Promise<Recipient[]>>();
+      const rosterFor = (target: RecipientTarget) => {
+        const key = `${target.audience}:${target.includeTeachers}`;
+
+        if (!rosters.has(key)) {
+          rosters.set(
+            key,
+            loadCampRecipients(camp.camp_id, target).then(
+              (loaded) => loaded?.recipients ?? [],
+            ),
+          );
+        }
+
+        return rosters.get(key)!;
+      };
+      const reminders = await Promise.all(
+        enabled.map(async ({ reminder, number }) => {
+          const own = rows.filter((row) => row.reminder_type === reminder.id);
+          const settled = new Set(
+            own
+              .filter((row) => SETTLED_STATUSES.has(row.status))
+              .map((row) => row.recipient_key),
+          );
+
+          return {
+            id: reminder.id,
+            name: reminder.name,
+            number,
+            sendDateKey: addDays(startDateKey, -reminder.daysBefore),
+            sent: own.filter((row) => row.status === "SENT").length,
+            remaining: (await rosterFor(reminder)).filter(
+              (recipient) => !settled.has(recipient.key),
+            ).length,
+            problems: own.filter(
+              (row) => row.status === "UNKNOWN" || row.status === "EXHAUSTED",
+            ).length,
+          };
+        }),
+      );
+
+      return {
+        campId: camp.camp_id,
+        name: camp.name,
+        startDateKey,
+        // Includes reminders since removed or switched off.
+        sent: rows.filter((row) => row.status === "SENT").length,
+        remaining: reminders.reduce((sum, item) => sum + item.remaining, 0),
+        problems: reminders.reduce((sum, item) => sum + item.problems, 0),
+        reminders,
+      };
+    }),
+  );
 }

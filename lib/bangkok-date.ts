@@ -17,6 +17,17 @@ export function getBangkokDateKey(input: DateInput = new Date()): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+export function getBangkokHour(input: DateInput = new Date()): number {
+  const date = input instanceof Date ? input : new Date(input);
+  const hour = new Intl.DateTimeFormat("en-US", {
+    timeZone: BANGKOK_TIME_ZONE,
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+
+  return Number(hour) % 24;
+}
+
 export function isBangkokDateBefore(
   input: DateInput,
   comparedTo: DateInput = new Date(),

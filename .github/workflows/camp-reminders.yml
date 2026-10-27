@@ -1,0 +1,30 @@
+# Calls the camp reminder Cron endpoint every hour so the send time chosen on
+# the admin page is honoured. Vercel Hobby only allows one Cron run per day,
+# which stays in vercel.json as a fallback. GitHub may start scheduled runs
+# late, so emails can arrive up to about an hour after the chosen time.
+#
+# Repository secrets: CAMP_APP_URL (https://your-domain) and CRON_SECRET.
+name: Camp reminder emails
+
+on:
+  schedule:
+    - cron: "5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call reminder endpoint
+        env:
+          CAMP_APP_URL: ${{ secrets.CAMP_APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CAMP_APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "CAMP_APP_URL or CRON_SECRET secret is not set; skipping."
+            exit 0
+          fi
+          curl --fail-with-body --silent --show-error --max-time 90 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "${CAMP_APP_URL%/}/api/cron/camp-reminders"
