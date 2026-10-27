@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireTeacher } from "@/lib/auth";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 import { canViewCampTracking } from "@/lib/camp-tracking-auth";
+import { getCertificateEligibility } from "@/lib/certificate-eligibility";
 
 export async function GET(request, context) {
   const { teacher, error: authError } = await requireTeacher();
@@ -24,9 +25,15 @@ export async function GET(request, context) {
 
     const camp = await prisma.camp.findUnique({
       where: { camp_id: campId },
-      select: { img_certificate_url: true },
+      select: {
+        img_certificate_url: true,
+        cert_mission_completion_percent: true,
+        cert_require_survey: true,
+      },
     });
     const certificateEnabled = Boolean(camp?.img_certificate_url);
+    const missionPercent = camp?.cert_mission_completion_percent ?? 100;
+    const requireSurvey = Boolean(camp?.cert_require_survey);
 
     // 1. Get total missions for the camp
     const missions = await prisma.mission.findMany({
@@ -127,6 +134,10 @@ export async function GET(request, context) {
           },
           take: 1,
         },
+        survey_response: {
+          select: { response_id: true },
+          take: 1,
+        },
       },
     });
 
@@ -169,13 +180,29 @@ export async function GET(request, context) {
           ? Math.min(100, Math.round((completedMissions / totalMissions) * 100))
           : 0;
 
+      const hasCertificate = enr ? enr.certificate.length > 0 : false;
+      // Same rule the certificate endpoint applies, so the tracking view
+      // explains why a student with finished missions has no certificate yet.
+      const eligibility = getCertificateEligibility({
+        totalMissions,
+        completedMissionIds: enr
+          ? enr.mission_result.map((result) => result.mission_mission_id)
+          : [],
+        missionPercent,
+        requireSurvey,
+        hasSurveyResponse: enr ? enr.survey_response.length > 0 : false,
+        hasIssuedCertificate: hasCertificate,
+      });
+
       studentsProgress.push({
         ...student,
         isEnrolled: enr?.enrolled_at != null,
         completedMissions,
         totalMissions,
         progressPercentage,
-        hasCertificate: enr ? enr.certificate.length > 0 : false,
+        missionRequirementMet: eligibility.missionRequirementMet,
+        hasSurveyResponse: enr ? enr.survey_response.length > 0 : false,
+        hasCertificate,
         certificateNo: enr?.certificate[0]?.certificate_no ?? null,
         certificateIssuedAt:
           enr?.certificate[0]?.issue_date?.toISOString() ?? null,
@@ -202,6 +229,7 @@ export async function GET(request, context) {
       campId,
       totalMissions,
       certificateEnabled,
+      requireSurvey,
       summary: {
         totalStudents: studentsProgress.length,
         issuedCertificates,
