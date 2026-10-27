@@ -14,7 +14,7 @@ import {
 } from "@/lib/parent-link-requests";
 import { formatParentUsername } from "@/lib/parent-username";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 10;
 const studentSelect = {
   students_id: true,
   firstname: true,
