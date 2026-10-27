@@ -33,6 +33,7 @@ import {
   MapPin,
   Users,
   Award,
+  ClipboardList,
   ChevronDown,
   ChevronRight,
   Download,
@@ -61,6 +62,8 @@ interface StudentProgress {
   completedMissions: number;
   totalMissions: number;
   progressPercentage: number;
+  missionRequirementMet: boolean;
+  hasSurveyResponse: boolean;
   hasCertificate: boolean;
   certificateNo: number | null;
   certificateIssuedAt: string | null;
@@ -70,6 +73,7 @@ interface TrackingData {
   campId: number;
   totalMissions: number;
   certificateEnabled?: boolean;
+  requireSurvey?: boolean;
   summary: {
     totalStudents: number;
     issuedCertificates: number;
@@ -82,6 +86,7 @@ type ProgressFilter =
   | "all"
   | "not_enrolled"
   | "mission_incomplete"
+  | "mission_complete_survey_pending"
   | "mission_complete_certificate_pending"
   | "issued";
 type TrackingView = "location" | "progress" | "both";
@@ -97,26 +102,21 @@ interface TrackingModalProps {
   initialLocationData?: TrackerData | null;
 }
 
-function hasCompletedAllMissions(student: StudentProgress) {
-  return student.completedMissions >= student.totalMissions;
-}
+type ProgressStage = Exclude<ProgressFilter, "all">;
 
-function matchesProgressFilter(
+function getProgressStage(
   student: StudentProgress,
-  filter: ProgressFilter,
   certificateEnabled: boolean,
-) {
-  if (filter === "all") return true;
-  if (filter === "issued") return certificateEnabled && student.hasCertificate;
-  if (certificateEnabled && student.hasCertificate) return false;
-  if (filter === "not_enrolled") return !student.isEnrolled;
-  if (!student.isEnrolled) return false;
+  surveyGateEnabled: boolean,
+): ProgressStage {
+  if (certificateEnabled && student.hasCertificate) return "issued";
+  if (!student.isEnrolled) return "not_enrolled";
+  if (!student.missionRequirementMet) return "mission_incomplete";
+  if (surveyGateEnabled && !student.hasSurveyResponse) {
+    return "mission_complete_survey_pending";
+  }
 
-  const missionsCompleted = hasCompletedAllMissions(student);
-
-  return filter === "mission_incomplete"
-    ? !missionsCompleted
-    : missionsCompleted;
+  return "mission_complete_certificate_pending";
 }
 
 function TrackingShell({
@@ -206,6 +206,15 @@ const PROGRESS_FILTERS: {
     iconClass: "text-amber-500",
     helperClass: "text-amber-600",
     activeClass: "border-amber-400 ring-1 ring-amber-200",
+  },
+  {
+    key: "mission_complete_survey_pending",
+    label: "ภารกิจครบ รอทำแบบสอบถาม",
+    helper: "ต้องทำแบบสอบถามก่อนรับเกียรติบัตร",
+    icon: ClipboardList,
+    iconClass: "text-orange-500",
+    helperClass: "text-orange-600",
+    activeClass: "border-orange-400 ring-1 ring-orange-200",
   },
   {
     key: "mission_complete_certificate_pending",
@@ -377,49 +386,66 @@ function CertificatePreviewModal({
   );
 }
 
-function getProgressFilters(certificateEnabled: boolean) {
-  if (certificateEnabled) return PROGRESS_FILTERS;
+function getProgressFilters(
+  certificateEnabled: boolean,
+  surveyGateEnabled: boolean,
+) {
+  const filters = surveyGateEnabled
+    ? PROGRESS_FILTERS
+    : PROGRESS_FILTERS.filter(
+        (item) => item.key !== "mission_complete_survey_pending",
+      );
 
-  return PROGRESS_FILTERS.filter((item) => item.key !== "issued").map((item) =>
-    item.key === "mission_incomplete"
-      ? { ...item, helper: "ยังทำภารกิจไม่ครบ" }
-      : item.key === "mission_complete_certificate_pending"
-        ? { ...item, label: "ภารกิจครบแล้ว", helper: "ทำภารกิจครบทุกข้อ" }
-        : item,
-  );
+  if (certificateEnabled) return filters;
+
+  return filters
+    .filter((item) => item.key !== "issued")
+    .map((item) =>
+      item.key === "mission_incomplete"
+        ? { ...item, helper: "ยังทำภารกิจไม่ครบ" }
+        : item.key === "mission_complete_certificate_pending"
+          ? { ...item, label: "ภารกิจครบแล้ว", helper: "ทำภารกิจครบทุกข้อ" }
+          : item,
+    );
 }
 
 function getProgressStatus(
   student: StudentProgress,
   certificateEnabled: boolean,
+  surveyGateEnabled: boolean,
 ) {
-  if (certificateEnabled && student.hasCertificate) {
-    return {
-      label: "ได้รับเกียรติบัตรแล้ว",
-      icon: Trophy,
-      className: "border-emerald-100 bg-emerald-50 text-emerald-700",
-    };
+  switch (getProgressStage(student, certificateEnabled, surveyGateEnabled)) {
+    case "issued":
+      return {
+        label: "ได้รับเกียรติบัตรแล้ว",
+        icon: Trophy,
+        className: "border-emerald-100 bg-emerald-50 text-emerald-700",
+      };
+    case "not_enrolled":
+      return {
+        label: "ยังไม่ลงทะเบียน",
+        icon: Clock,
+        className: "border-slate-200 bg-slate-50 text-slate-600",
+      };
+    case "mission_complete_survey_pending":
+      return {
+        label: "ภารกิจครบ รอทำแบบสอบถาม",
+        icon: ClipboardList,
+        className: "border-orange-100 bg-orange-50 text-orange-700",
+      };
+    case "mission_complete_certificate_pending":
+      return {
+        label: certificateEnabled ? "ภารกิจครบ รอเกียรติบัตร" : "ภารกิจครบแล้ว",
+        icon: Award,
+        className: "border-blue-100 bg-blue-50 text-blue-700",
+      };
+    default:
+      return {
+        label: "ภารกิจยังไม่ครบ",
+        icon: Clock,
+        className: "border-amber-100 bg-amber-50 text-amber-700",
+      };
   }
-  if (!student.isEnrolled) {
-    return {
-      label: "ยังไม่ลงทะเบียน",
-      icon: Clock,
-      className: "border-slate-200 bg-slate-50 text-slate-600",
-    };
-  }
-  if (hasCompletedAllMissions(student)) {
-    return {
-      label: certificateEnabled ? "ภารกิจครบ รอเกียรติบัตร" : "ภารกิจครบแล้ว",
-      icon: Award,
-      className: "border-blue-100 bg-blue-50 text-blue-700",
-    };
-  }
-
-  return {
-    label: "ภารกิจยังไม่ครบ",
-    icon: Clock,
-    className: "border-amber-100 bg-amber-50 text-amber-700",
-  };
 }
 
 function TrackingProgressSkeleton() {
@@ -580,9 +606,11 @@ export default function TrackingModal({
     useState<StudentProgress | null>(null);
 
   const certificateEnabled = data?.certificateEnabled !== false;
+  // Only gate on the survey when a certificate can actually be issued.
+  const surveyGateEnabled = certificateEnabled && data?.requireSurvey === true;
   const progressFilters = useMemo(
-    () => getProgressFilters(certificateEnabled),
-    [certificateEnabled],
+    () => getProgressFilters(certificateEnabled, surveyGateEnabled),
+    [certificateEnabled, surveyGateEnabled],
   );
 
   const progressCounts = useMemo(() => {
@@ -590,30 +618,29 @@ export default function TrackingModal({
       all: data?.students.length ?? 0,
       not_enrolled: 0,
       mission_incomplete: 0,
+      mission_complete_survey_pending: 0,
       mission_complete_certificate_pending: 0,
       issued: 0,
     };
 
     data?.students.forEach((student) => {
-      if (certificateEnabled && student.hasCertificate) {
-        counts.issued += 1;
-      } else if (!student.isEnrolled) {
-        counts.not_enrolled += 1;
-      } else if (hasCompletedAllMissions(student)) {
-        counts.mission_complete_certificate_pending += 1;
-      } else {
-        counts.mission_incomplete += 1;
-      }
+      counts[
+        getProgressStage(student, certificateEnabled, surveyGateEnabled)
+      ] += 1;
     });
 
     return counts;
-  }, [data, certificateEnabled]);
+  }, [data, certificateEnabled, surveyGateEnabled]);
 
   const filteredStudents = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     return data?.students.filter((student) => {
-      if (!matchesProgressFilter(student, progressFilter, certificateEnabled))
+      if (
+        progressFilter !== "all" &&
+        getProgressStage(student, certificateEnabled, surveyGateEnabled) !==
+          progressFilter
+      )
         return false;
       if (!query) return true;
 
@@ -623,7 +650,13 @@ export default function TrackingModal({
 
       return matchName || matchNickname || matchId;
     });
-  }, [data, progressFilter, searchQuery, certificateEnabled]);
+  }, [
+    data,
+    progressFilter,
+    searchQuery,
+    certificateEnabled,
+    surveyGateEnabled,
+  ]);
 
   const pages = Math.ceil((filteredStudents?.length || 0) / ITEMS_PER_PAGE);
 
@@ -649,11 +682,13 @@ export default function TrackingModal({
           ? certificateEnabled
             ? "ไม่มีนักเรียนที่ภารกิจยังไม่ครบและยังไม่ได้รับเกียรติบัตร"
             : "ไม่มีนักเรียนที่ภารกิจยังไม่ครบ"
-          : progressFilter === "mission_complete_certificate_pending"
-            ? certificateEnabled
-              ? "ไม่มีนักเรียนที่ทำภารกิจครบแต่ยังไม่ได้รับเกียรติบัตร"
-              : "ไม่มีนักเรียนที่ทำภารกิจครบแล้ว"
-            : "ไม่พบรายชื่อในระบบ";
+          : progressFilter === "mission_complete_survey_pending"
+            ? "ไม่มีนักเรียนที่ทำภารกิจครบแต่ยังไม่ได้ทำแบบสอบถาม"
+            : progressFilter === "mission_complete_certificate_pending"
+              ? certificateEnabled
+                ? "ไม่มีนักเรียนที่ทำภารกิจครบแต่ยังไม่ได้รับเกียรติบัตร"
+                : "ไม่มีนักเรียนที่ทำภารกิจครบแล้ว"
+              : "ไม่พบรายชื่อในระบบ";
 
   const progressContent = loading ? (
     <TrackingProgressSkeleton />
@@ -668,7 +703,9 @@ export default function TrackingModal({
         aria-label="กรองนักเรียนตามความก้าวหน้าและเกียรติบัตร"
         className={`mb-8 grid grid-cols-2 gap-3 md:gap-6 ${
           certificateEnabled
-            ? "md:grid-cols-3 xl:grid-cols-5"
+            ? surveyGateEnabled
+              ? "md:grid-cols-3 xl:grid-cols-6"
+              : "md:grid-cols-3 xl:grid-cols-5"
             : "md:grid-cols-4"
         }`}
         role="tablist"
@@ -838,7 +875,11 @@ export default function TrackingModal({
                 </tr>
               ) : (
                 paginatedStudents?.map((student, i) => {
-                  const status = getProgressStatus(student, certificateEnabled);
+                  const status = getProgressStatus(
+                    student,
+                    certificateEnabled,
+                    surveyGateEnabled,
+                  );
                   const StatusIcon = status.icon;
 
                   return (
