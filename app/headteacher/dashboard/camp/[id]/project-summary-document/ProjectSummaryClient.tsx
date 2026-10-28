@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   FileText,
+  FileType2,
   ImagePlus,
   Images,
   LockKeyhole,
@@ -24,6 +25,9 @@ import { useParams } from "next/navigation";
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
+import DocumentPreviewModal, {
+  fetchPreviewPdf,
+} from "@/components/documents/DocumentPreviewModal";
 import DeferredDateRangePicker from "@/components/documents/DeferredDateRangePicker";
 import DocumentPersonnelPicker from "@/components/documents/DocumentPersonnelPicker";
 import { useDocumentAutoSave } from "@/components/documents/useDocumentAutoSave";
@@ -405,7 +409,10 @@ function StandardsEditor({
                 className="rounded-xl border border-gray-200 bg-gray-50 p-4"
               >
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <strong className="min-w-0 truncate text-sm text-gray-700" title={standardHeading}>
+                  <strong
+                    className="min-w-0 truncate text-sm text-gray-700"
+                    title={standardHeading}
+                  >
                     {standardHeading}
                   </strong>
                   <div className="flex items-center gap-3">
@@ -468,8 +475,8 @@ function StandardsEditor({
                   )}
                   {subItems.map((subItem: any, subIndex: number) => (
                     <div
-                      className="relative grid gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:grid-cols-2"
                       key={subIndex}
+                      className="relative grid gap-3 rounded-xl border border-gray-200 bg-white p-3 sm:grid-cols-2"
                     >
                       <Field label="ข้อย่อย">
                         <input
@@ -646,9 +653,16 @@ export default function ProjectSummaryDocumentPage({
   const campId = String(params.id);
   const { showError, showSuccess, showConfirm, setIsLoading } =
     useStatusModal();
-  const [document, setDocument] = useState<any>(initialData?.summary.document || null);
-  const [sourceData, setSourceData] = useState<any>(initialData?.summary.sourceData || null);
-  const [photos, setPhotos] = useState<any[]>(initialData?.summary.photos || []);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [document, setDocument] = useState<any>(
+    initialData?.summary.document || null,
+  );
+  const [sourceData, setSourceData] = useState<any>(
+    initialData?.summary.sourceData || null,
+  );
+  const [photos, setPhotos] = useState<any[]>(
+    initialData?.summary.photos || [],
+  );
   const [selectedAppendixPhotoIds, setSelectedAppendixPhotoIds] = useState<
     number[]
   >([]);
@@ -656,7 +670,9 @@ export default function ProjectSummaryDocumentPage({
   const [standardOptions, setStandardOptions] = useState<
     DocumentStandardOption[]
   >(normalizeDocumentStandardOptions(initialData?.referenceOptions));
-  const [templates, setTemplates] = useState<any[]>(initialData?.templates || []);
+  const [templates, setTemplates] = useState<any[]>(
+    initialData?.templates || [],
+  );
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(!initialData);
@@ -695,6 +711,7 @@ export default function ProjectSummaryDocumentPage({
 
   const loadTemplates = async () => {
     const response = await fetch("/api/project-summary-document-templates");
+
     if (!response.ok) return [];
     const data = await response.json();
     const items = Array.isArray(data) ? data : [];
@@ -711,6 +728,7 @@ export default function ProjectSummaryDocumentPage({
       body: JSON.stringify({ campId }),
     });
     const data = await response.json();
+
     if (!response.ok) {
       throw new Error(data.error || "สรุปผลแบบสอบถามด้วย AI ไม่สำเร็จ");
     }
@@ -736,11 +754,13 @@ export default function ProjectSummaryDocumentPage({
       fetch("/api/document-reference-options"),
     ]);
     const summaryData = await summaryResponse.json();
+
     if (!summaryResponse.ok) {
       throw new Error(summaryData.error || "โหลดเอกสารสรุปไม่สำเร็จ");
     }
 
     let nextDocument = summaryData.document;
+
     if (
       !nextDocument.camp_project_summary_document_id ||
       !nextDocument.top_strengths?.length ||
@@ -750,6 +770,7 @@ export default function ProjectSummaryDocumentPage({
     ) {
       try {
         const aiSummary = await requestAiSummary();
+
         nextDocument = {
           ...nextDocument,
           top_strengths: nextDocument.top_strengths?.length
@@ -796,6 +817,7 @@ export default function ProjectSummaryDocumentPage({
   useEffect(() => {
     if (initialData) {
       const current = initialData.summary.document;
+
       if (
         !current.camp_project_summary_document_id ||
         !current.top_strengths?.length ||
@@ -807,19 +829,29 @@ export default function ProjectSummaryDocumentPage({
           .then((aiSummary) => {
             setDocument((latest: any) => ({
               ...latest,
-              top_strengths: latest.top_strengths?.length ? latest.top_strengths : aiSummary.strengths,
-              suggestions: latest.suggestions?.length ? latest.suggestions : aiSummary.improvements,
-              recommendations: latest.recommendations || (
-                aiSummary.recommendations.length ? aiSummary.recommendations : aiSummary.improvements
-              ).join("\n"),
-              continuation_reason: latest.continuation_reason || aiSummary.continuationReason,
+              top_strengths: latest.top_strengths?.length
+                ? latest.top_strengths
+                : aiSummary.strengths,
+              suggestions: latest.suggestions?.length
+                ? latest.suggestions
+                : aiSummary.improvements,
+              recommendations:
+                latest.recommendations ||
+                (aiSummary.recommendations.length
+                  ? aiSummary.recommendations
+                  : aiSummary.improvements
+                ).join("\n"),
+              continuation_reason:
+                latest.continuation_reason || aiSummary.continuationReason,
             }));
             setInitiallyDirty(true);
           })
           .catch(() => {
-            if (!current.camp_project_summary_document_id) setInitiallyDirty(true);
+            if (!current.camp_project_summary_document_id)
+              setInitiallyDirty(true);
           });
       }
+
       return;
     }
     load()
@@ -922,6 +954,7 @@ export default function ProjectSummaryDocumentPage({
         }),
       });
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data.error || "บันทึกเท็มเพลตไม่สำเร็จ");
       }
@@ -964,6 +997,7 @@ export default function ProjectSummaryDocumentPage({
             { method: "DELETE" },
           );
           const data = await response.json();
+
           if (!response.ok) {
             throw new Error(data.error || "ลบเท็มเพลตไม่สำเร็จ");
           }
@@ -1019,6 +1053,7 @@ export default function ProjectSummaryDocumentPage({
 
   const updateTargetList = (key: string, values: string[]) => {
     const current = Array.isArray(document[key]) ? document[key] : [];
+
     update(
       key,
       values.map((value, index) => ({
@@ -1114,6 +1149,7 @@ export default function ProjectSummaryDocumentPage({
       const evaluations = source.survey?.evaluationResults?.length
         ? source.survey.evaluationResults
         : document.evaluation_results;
+
       setSourceData(source);
       setDocument((current: any) => ({
         ...current,
@@ -1161,10 +1197,9 @@ export default function ProjectSummaryDocumentPage({
     }
   };
 
-  const download = async (format: "pdf" | "docx") => {
+  const openPreview = async () => {
     if (!readOnly && !(await save("DRAFT", { silent: true }))) return;
-    window.location.href =
-      "/api/camps/" + campId + "/project-summary-document/" + format;
+    setPreviewOpen(true);
   };
 
   const openMissionPhotoPicker = async () => {
@@ -1177,10 +1212,12 @@ export default function ProjectSummaryDocumentPage({
           "/project-summary-document/photos/from-missions",
       );
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data.error || "โหลดรูปจากภารกิจไม่สำเร็จ");
       }
       const missions = Array.isArray(data.missions) ? data.missions : [];
+
       setMissionPhotoSources(missions);
       setSelectedMissionPhotoIds([]);
       setExpandedStationPhotoIds([]);
@@ -1248,6 +1285,7 @@ export default function ProjectSummaryDocumentPage({
   const importMissionPhotos = async () => {
     if (!selectedMissionPhotoIds.length) {
       showError("ยังไม่ได้เลือกรูป", "กรุณาเลือกอย่างน้อย 1 รูป");
+
       return;
     }
 
@@ -1271,6 +1309,7 @@ export default function ProjectSummaryDocumentPage({
         },
       );
       const data = await response.json();
+
       if (!response.ok) {
         throw new Error(data.error || "เพิ่มรูปจากภารกิจไม่สำเร็จ");
       }
@@ -1294,6 +1333,7 @@ export default function ProjectSummaryDocumentPage({
 
   const uploadPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+
     event.target.value = "";
     if (!file) return;
 
@@ -1307,6 +1347,7 @@ export default function ProjectSummaryDocumentPage({
       }
 
       const formData = new FormData();
+
       formData.append("file", file);
       formData.append("caption", photoCaption);
       const response = await fetch(
@@ -1314,6 +1355,7 @@ export default function ProjectSummaryDocumentPage({
         { method: "POST", body: formData },
       );
       const photo = await response.json();
+
       if (!response.ok) {
         throw new Error(photo.error || "อัปโหลดรูปไม่สำเร็จ");
       }
@@ -1333,6 +1375,7 @@ export default function ProjectSummaryDocumentPage({
       "/api/camps/" + campId + "/project-summary-document/photos/" + photoId,
       { method: "DELETE" },
     );
+
     if (!response.ok) {
       showError("ลบไม่สำเร็จ", "ไม่สามารถลบรูปภาพได้");
 
@@ -1371,6 +1414,7 @@ export default function ProjectSummaryDocumentPage({
         },
       );
       const updatedPhoto = await response.json();
+
       if (!response.ok) {
         throw new Error(updatedPhoto.error || "บันทึกคำบรรยายภาพไม่สำเร็จ");
       }
@@ -1416,6 +1460,7 @@ export default function ProjectSummaryDocumentPage({
             },
           );
           const data = await response.json();
+
           if (!response.ok) {
             throw new Error(data.error || "ลบรูปภาพไม่สำเร็จ");
           }
@@ -1519,8 +1564,8 @@ export default function ProjectSummaryDocumentPage({
             isFinalized={readOnly}
             saveStatus={saveStatus}
             title="เอกสารสรุปโครงการ"
-            onDownload={download}
             onFinalize={() => save("FINALIZED")}
+            onPreview={openPreview}
             onRetrySave={() => save("DRAFT", { silent: true })}
             onUnlock={() => update("status", "DRAFT")}
           />
@@ -1731,15 +1776,19 @@ export default function ProjectSummaryDocumentPage({
             isDisabled={readOnly}
             value={parseDocumentDuration(document.duration_text)}
             onChange={(range) =>
-              update("duration_text", range ? formatDocumentDuration(range) : "")
+              update(
+                "duration_text",
+                range ? formatDocumentDuration(range) : "",
+              )
             }
           />
-          {document.duration_text && !parseDocumentDuration(document.duration_text) && (
-            <p className="mt-2 text-xs text-gray-500">
-              ข้อความเดิม: {document.duration_text}
-              {!readOnly && " — กรุณาเลือกช่วงวันที่จากปฏิทินเพื่อแก้ไข"}
-            </p>
-          )}
+          {document.duration_text &&
+            !parseDocumentDuration(document.duration_text) && (
+              <p className="mt-2 text-xs text-gray-500">
+                ข้อความเดิม: {document.duration_text}
+                {!readOnly && " — กรุณาเลือกช่วงวันที่จากปฏิทินเพื่อแก้ไข"}
+              </p>
+            )}
         </Section>
 
         <Section number="8" title="สถานที่ดำเนินงาน">
@@ -2235,8 +2284,8 @@ export default function ProjectSummaryDocumentPage({
         </Section>
 
         <Section
-          title="แบบประเมินผลการดำเนินงานตามกิจกรรม"
           description="ข้อ 11-12 เติมจากผลวิเคราะห์ AI ที่มีอยู่โดยอัตโนมัติ และสามารถแก้ไขข้อความได้"
+          title="แบบประเมินผลการดำเนินงานตามกิจกรรม"
         >
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="1. การดำเนินงาน">
@@ -2535,8 +2584,8 @@ export default function ProjectSummaryDocumentPage({
 
                         return (
                           <div
-                            className="overflow-hidden rounded-xl border border-gray-200 bg-white"
                             key={station.stationId}
+                            className="overflow-hidden rounded-xl border border-gray-200 bg-white"
                           >
                             <div className="flex items-start gap-3 bg-[#f7faf9] p-3">
                               <input
@@ -2592,8 +2641,8 @@ export default function ProjectSummaryDocumentPage({
 
                                   return (
                                     <div
-                                      className="rounded-lg border border-gray-200 bg-white p-3 hover:border-[#9eb5ab]"
                                       key={mission.missionId}
+                                      className="rounded-lg border border-gray-200 bg-white p-3 hover:border-[#9eb5ab]"
                                     >
                                       <div className="flex items-start gap-3">
                                         <input
@@ -2644,6 +2693,7 @@ export default function ProjectSummaryDocumentPage({
 
                                             return (
                                               <button
+                                                key={photo.id}
                                                 aria-label={`${selected ? "ยกเลิกการเลือก" : "เลือก"}รูปของ ${photo.studentName}`}
                                                 aria-pressed={selected}
                                                 className={`group relative overflow-hidden rounded-lg border-2 transition ${
@@ -2651,7 +2701,6 @@ export default function ProjectSummaryDocumentPage({
                                                     ? "border-[#5d7c6f] ring-2 ring-[#5d7c6f]/20"
                                                     : "border-transparent hover:border-[#9eb5ab]"
                                                 }`}
-                                                key={photo.id}
                                                 type="button"
                                                 onClick={() =>
                                                   toggleMissionPhotoSelection(
@@ -2797,12 +2846,12 @@ export default function ProjectSummaryDocumentPage({
 
                   return (
                     <div
+                      key={photoId}
                       className={`relative overflow-hidden rounded-xl border-2 bg-gray-50 transition ${
                         selected
                           ? "border-[#5d7c6f] ring-2 ring-[#5d7c6f]/20"
                           : "border-gray-200"
                       }`}
-                      key={photoId}
                     >
                       <button
                         aria-label={
@@ -2887,7 +2936,9 @@ export default function ProjectSummaryDocumentPage({
                             <button
                               aria-label={`${photo.caption ? "แก้ไข" : "เพิ่ม"}คำบรรยายรูป ${index + 1}`}
                               className={`group flex items-center gap-2 rounded-lg text-sm text-gray-600 hover:text-[#4d685e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/40 disabled:pointer-events-none disabled:cursor-default ${
-                                photo.caption ? "min-w-0 flex-1 text-left" : "ml-auto"
+                                photo.caption
+                                  ? "min-w-0 flex-1 text-left"
+                                  : "ml-auto"
                               }`}
                               disabled={readOnly}
                               type="button"
@@ -2927,6 +2978,27 @@ export default function ProjectSummaryDocumentPage({
           )}
         </Section>
       </main>
+
+      <DocumentPreviewModal
+        extraDownloads={[
+          {
+            key: "docx",
+            label: "ดาวน์โหลด Word",
+            icon: <FileType2 size={16} />,
+            onPress: () => {
+              window.location.href = `/api/camps/${campId}/project-summary-document/docx`;
+            },
+          },
+        ]}
+        fileName="project-summary.pdf"
+        isOpen={previewOpen}
+        loadPdf={() =>
+          fetchPreviewPdf(`/api/camps/${campId}/project-summary-document/pdf`)
+        }
+        note="ไฟล์ Word มีเนื้อหาเดียวกับตัวอย่างนี้"
+        title="เอกสารสรุปโครงการ"
+        onClose={() => setPreviewOpen(false)}
+      />
     </div>
   );
 }

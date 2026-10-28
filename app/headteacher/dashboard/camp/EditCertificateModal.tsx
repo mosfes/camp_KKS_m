@@ -11,6 +11,7 @@ import CertificateSettings from "./CertificateSettings";
 import CampBreadcrumb from "./CampBreadcrumb";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
+import DocumentPreviewModal from "@/components/documents/DocumentPreviewModal";
 
 interface CampDetail {
   camp_id: number;
@@ -121,7 +122,7 @@ export default function EditCertificateModal({
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
   const [exportCondition, setExportCondition] = useState<string>("all");
-  const [isExporting, setIsExporting] = useState(false);
+  const [certPreviewOpen, setCertPreviewOpen] = useState(false);
 
   const enrolledCount =
     campData?.certificate_candidate_count ??
@@ -209,50 +210,32 @@ export default function EditCertificateModal({
 
   if (!isOpen) return null;
 
-  const handleExport = async () => {
+  const handleExport = () => {
     if (!campData) return;
+    setCertPreviewOpen(true);
+  };
 
-    // Check if the current settings differ from saved ones
-    // We assume the user has saved their changes before exporting.
+  const loadCertificatesPdf = async () => {
+    if (!campData) throw new Error("ไม่พบข้อมูลค่าย");
+    const url = `/api/camps/${campData.camp_id}/certificate/bulk?condition=${exportCondition}`;
+    const response = await fetch(url, { method: "GET" });
+    const data = await response.json().catch(() => ({}));
 
-    try {
-      setIsExporting(true);
-      const url = `/api/camps/${campData.camp_id}/certificate/bulk?condition=${exportCondition}`;
-
-      const response = await fetch(url, {
-        method: "GET",
-      });
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          data.error || "เกิดข้อผิดพลาดในการดาวน์โหลดเกียรติบัตร",
-        );
-      }
-
-      if (!data.certificate) {
-        throw new Error("ข้อมูลสำหรับสร้างเกียรติบัตรไม่ครบถ้วน");
-      }
-
-      const renderer = await import("@/lib/certificate-renderer");
-      const blob = await renderer.renderCertificatesPdf(
-        data.certificate as CertificateRenderManifest,
-      );
-
-      renderer.downloadCertificateBlob(
-        blob,
-        `certificates_camp_${campData.camp_id}.pdf`,
-      );
-
-      showSuccess("สำเร็จ", "ดาวน์โหลดเกียรติบัตรเรียบร้อยแล้ว");
-    } catch (error: any) {
-      showError(
-        "ข้อผิดพลาด",
-        error.message || "ไม่สามารถดาวน์โหลดเกียรติบัตรได้",
-      );
-    } finally {
-      setIsExporting(false);
+    if (!response.ok) {
+      throw new Error(data.error || "เกิดข้อผิดพลาดในการดาวน์โหลดเกียรติบัตร");
     }
+
+    if (!data.certificate) {
+      throw new Error("ข้อมูลสำหรับสร้างเกียรติบัตรไม่ครบถ้วน");
+    }
+
+    const renderer = await import("@/lib/certificate-renderer");
+
+    return {
+      blob: await renderer.renderCertificatesPdf(
+        data.certificate as CertificateRenderManifest,
+      ),
+    };
   };
 
   const uploadCertificateImage = (
@@ -675,9 +658,8 @@ export default function EditCertificateModal({
             <Button
               className="w-full font-medium bg-[#1a3a32]/10 text-[#1a3a32] hover:bg-[#1a3a32]/20 sm:w-auto"
               isDisabled={!campData?.img_certificate_url}
-              isLoading={isExporting}
               size="sm"
-              startContent={!isExporting && <Download size={16} />}
+              startContent={<Download size={16} />}
               onPress={handleExport}
             >
               ดาวน์โหลด PDF รวม
@@ -706,8 +688,8 @@ export default function EditCertificateModal({
               <Button
                 className="w-full font-medium bg-[#1a3a32] text-white shadow-md shadow-[#1a3a32]/20 sm:w-auto"
                 form="certForm"
-                isLoading={isSubmitting}
                 isDisabled={isSubmitting}
+                isLoading={isSubmitting}
                 startContent={<Save size={18} />}
                 type="submit"
               >
@@ -717,6 +699,13 @@ export default function EditCertificateModal({
           </div>
         </div>
       </div>
+      <DocumentPreviewModal
+        fileName={`certificates_camp_${campData?.camp_id}.pdf`}
+        isOpen={certPreviewOpen}
+        loadPdf={loadCertificatesPdf}
+        title="เกียรติบัตรรวม"
+        onClose={() => setCertPreviewOpen(false)}
+      />
     </div>
   );
 }

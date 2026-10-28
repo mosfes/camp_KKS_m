@@ -1,21 +1,16 @@
 "use client";
 
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { DocumentSaveStatus } from "./useDocumentAutoSave";
 
 import {
   AlertCircle,
   CheckCircle2,
-  ChevronDown,
-  Download,
+  Eye,
   FileCheck2,
-  FileText,
-  FileType2,
   Loader2,
   UnlockKeyhole,
 } from "lucide-react";
-
-type DownloadFormat = "pdf" | "docx";
 
 interface DocumentEditorHeaderProps {
   description: string;
@@ -23,7 +18,7 @@ interface DocumentEditorHeaderProps {
   isFinalized: boolean;
   saveStatus: DocumentSaveStatus;
   title: string;
-  onDownload: (format: DownloadFormat) => void | Promise<void>;
+  onPreview: () => void | Promise<void>;
   onFinalize: () => void | Promise<unknown>;
   onRetrySave: () => void | Promise<unknown>;
   onUnlock: () => void;
@@ -35,19 +30,11 @@ export default function DocumentEditorHeader({
   isFinalized,
   saveStatus,
   title,
-  onDownload,
+  onPreview,
   onFinalize,
   onRetrySave,
   onUnlock,
 }: DocumentEditorHeaderProps) {
-  const downloadAndClose = (
-    event: MouseEvent<HTMLButtonElement>,
-    format: DownloadFormat,
-  ) => {
-    event.currentTarget.closest("details")?.removeAttribute("open");
-    void onDownload(format);
-  };
-
   return (
     <section className="overflow-visible rounded-2xl border border-[#dce5e1] bg-white shadow-sm">
       <div className="flex flex-col gap-5 p-5 md:p-6 lg:flex-row lg:items-center lg:justify-between">
@@ -136,52 +123,14 @@ export default function DocumentEditorHeader({
             </>
           )}
 
-          <details className="group relative">
-            <summary className="flex h-10 cursor-pointer list-none items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:border-[#aebfb8] hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/30 [&::-webkit-details-marker]:hidden">
-              <Download size={16} />
-              ดาวน์โหลด
-              <ChevronDown
-                className="transition-transform group-open:rotate-180"
-                size={15}
-              />
-            </summary>
-            <div className="absolute right-0 z-30 mt-2 w-60 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl shadow-gray-900/10">
-              <button
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/30"
-                type="button"
-                onClick={(event) => downloadAndClose(event, "pdf")}
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-600">
-                  <FileText size={16} />
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold text-gray-800">
-                    ดาวน์โหลด PDF
-                  </span>
-                  <span className="block text-xs text-gray-500">
-                    เหมาะสำหรับพิมพ์และส่งต่อ
-                  </span>
-                </span>
-              </button>
-              <button
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/30"
-                type="button"
-                onClick={(event) => downloadAndClose(event, "docx")}
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                  <FileType2 size={16} />
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold text-gray-800">
-                    ดาวน์โหลด Word
-                  </span>
-                  <span className="block text-xs text-gray-500">
-                    สำหรับแก้ไขเพิ่มเติมภายหลัง
-                  </span>
-                </span>
-              </button>
-            </div>
-          </details>
+          <button
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:border-[#aebfb8] hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5d7c6f]/30"
+            type="button"
+            onClick={() => void onPreview()}
+          >
+            <Eye size={16} />
+            ดูตัวอย่างและดาวน์โหลด
+          </button>
         </div>
       </div>
     </section>

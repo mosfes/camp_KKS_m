@@ -23,9 +23,14 @@ import dynamic from "next/dynamic";
 
 import CampBreadcrumb from "../../CampBreadcrumb";
 
-const BreakdownModal = dynamic(() => import("./BreakdownModal"), { ssr: false });
+const BreakdownModal = dynamic(() => import("./BreakdownModal"), {
+  ssr: false,
+});
 
 import { useStatusModal } from "@/components/StatusModalProvider";
+import DocumentPreviewModal, {
+  fetchPreviewPdf,
+} from "@/components/documents/DocumentPreviewModal";
 
 interface Student {
   grade_snapshot?: string | null;
@@ -147,7 +152,11 @@ type InitialStudents = {
   pagination: { totalPages: number };
 };
 
-export default function CampStudentsPage({ initialData }: { initialData: InitialStudents | null }) {
+export default function CampStudentsPage({
+  initialData,
+}: {
+  initialData: InitialStudents | null;
+}) {
   const { showSuccess, showError } = useStatusModal();
   const params = useParams();
   const campId = params?.id;
@@ -155,11 +164,13 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
   const initialLoadPending = useRef(Boolean(initialData));
   const initialSearchPending = useRef(true);
   const [students, setStudents] = useState<Student[]>(initialData?.data || []);
-  const [summary, setSummary] = useState<Summary | null>(initialData?.summary || null);
+  const [summary, setSummary] = useState<Summary | null>(
+    initialData?.summary || null,
+  );
   const [campName, setCampName] = useState<string>(initialData?.campName || "");
   const [loading, setLoading] = useState(!initialData);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [modal, setModal] = useState<{
     open: boolean;
     type: "allergy" | "disease" | "remark";
@@ -169,7 +180,9 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
   } | null>(null);
 
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(initialData?.pagination?.totalPages || 1);
+  const [totalPages, setTotalPages] = useState(
+    initialData?.pagination?.totalPages || 1,
+  );
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [registration, setRegistration] = useState("all");
@@ -188,6 +201,7 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
   useEffect(() => {
     if (initialSearchPending.current) {
       initialSearchPending.current = false;
+
       return;
     }
     // The first effect above already loads the initial empty-search page.
@@ -245,7 +259,8 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
         let classroomStr = "-";
 
         const historicalClassroom = row.classroom;
-        const historicalGrade = row.grade_snapshot || historicalClassroom?.grade;
+        const historicalGrade =
+          row.grade_snapshot || historicalClassroom?.grade;
 
         if (historicalGrade) {
           const gradeStr = String(historicalGrade).replace("Level_", "");
@@ -275,6 +290,7 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
       const { exportCampStudentsToExcel } = await import(
         "@/lib/export-camp-students-excel"
       );
+
       exportCampStudentsToExcel({
         campName: campName || json.campName || "",
         summary: {
@@ -294,37 +310,12 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
     }
   };
 
-  const handleExportPdf = async () => {
+  const handleExportPdf = () => {
     if (!summary || summary.totalStudents === 0) return;
-    try {
-      setIsExportingPdf(true);
-      const res = await fetch(`/api/camps/${campId}/students/pdf`);
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-
-        throw new Error(errJson?.error || "ดาวน์โหลดไฟล์ PDF ไม่สำเร็จ");
-      }
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-
-      a.href = url;
-      const cleanCampName = (campName || "camp").replace(/[/\\?%*:|"<>]/g, "-");
-
-      a.download = `ข้อมูลนักเรียน_${cleanCampName}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      showSuccess("สำเร็จ", "ดาวน์โหลดไฟล์ PDF (.pdf) เรียบร้อยแล้ว");
-    } catch (err: any) {
-      console.error("Export PDF error:", err);
-      showError("เกิดข้อผิดพลาด", err.message || "ไม่สามารถสร้างไฟล์ PDF ได้");
-    } finally {
-      setIsExportingPdf(false);
-    }
+    setPdfPreviewOpen(true);
   };
+
+  const cleanCampName = (campName || "camp").replace(/[/\\?%*:|"<>]/g, "-");
 
   return (
     <div className="min-h-screen bg-[#f5f5f2]">
@@ -591,12 +582,9 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
                     isDisabled={
                       loading || !summary || summary.totalStudents === 0
                     }
-                    isLoading={isExportingPdf}
                     onPress={handleExportPdf}
                   >
-                    {!isExportingPdf && (
-                      <FileText className="h-4 w-4 text-rose-600 shrink-0" />
-                    )}
+                    <FileText className="h-4 w-4 text-rose-600 shrink-0" />
                     <span>ส่งออก PDF</span>
                   </Button>
                 </Tooltip>
@@ -757,6 +745,16 @@ export default function CampStudentsPage({ initialData }: { initialData: Initial
           onClose={() => setModal(null)}
         />
       )}
+      <DocumentPreviewModal
+        fileName={`ข้อมูลนักเรียน_${cleanCampName}_${new Date().toISOString().slice(0, 10)}.pdf`}
+        isOpen={pdfPreviewOpen}
+        loadPdf={async () => ({
+          blob: (await fetchPreviewPdf(`/api/camps/${campId}/students/pdf`))
+            .blob,
+        })}
+        title="ข้อมูลนักเรียน"
+        onClose={() => setPdfPreviewOpen(false)}
+      />
     </div>
   );
 }
