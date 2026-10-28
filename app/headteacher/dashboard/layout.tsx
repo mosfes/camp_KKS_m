@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  ShieldCheck,
   LayoutDashboard,
   MapPin,
   Shirt,
@@ -144,6 +145,7 @@ const campMenuItems: SidebarMenuItem[] = [
 
 type CampAccess = {
   isOwner: boolean;
+  isAdmin: boolean;
   isHomeroomTeacher: boolean;
   isBusTeacher: boolean;
   hasTransport: boolean;
@@ -663,6 +665,36 @@ function TabDefaultRedirect() {
   return null;
 }
 
+/* ── Admin banner ───────────────────────────────────────────── */
+function AdminCampBanner() {
+  const router = useRouter();
+
+  return (
+    <div
+      className="flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-amber-900"
+      role="status"
+    >
+      <div className="flex min-w-0 items-center gap-2 text-sm">
+        <ShieldCheck className="shrink-0 text-amber-600" size={18} />
+        <span className="truncate">
+          <span className="font-semibold">เข้ามาในฐานะแอดมิน</span>
+          <span className="hidden sm:inline">
+            {" "}
+            · แก้ไขค่ายได้เหมือนครูหัวหน้าค่าย
+          </span>
+        </span>
+      </div>
+      <button
+        className="shrink-0 rounded-full border border-amber-300 bg-white px-3 py-1 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+        type="button"
+        onClick={() => router.push("/admin_add_user?tab=camp")}
+      >
+        กลับหน้าแอดมิน
+      </button>
+    </div>
+  );
+}
+
 /* ── Root Layout ────────────────────────────────────────────── */
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -699,6 +731,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             data
               ? {
                   isOwner: Boolean(data.isOwner),
+                  isAdmin: Boolean(data.isAdmin),
                   isHomeroomTeacher: Boolean(data.isHomeroomTeacher),
                   isBusTeacher: Boolean(data.isBusTeacher),
                   hasTransport: Boolean(data.hasTransport),
@@ -744,6 +777,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
           {/* Page Content */}
           <main className="min-h-0 flex-1 min-w-0 bg-[#f5f5f2]">
+            {campId && campAccess?.isAdmin && <AdminCampBanner />}
             {children}
           </main>
         </div>

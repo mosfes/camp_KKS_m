@@ -369,7 +369,7 @@ const getCampsPaginated = async (page = 1, limit = 20, search = "", status = "",
     params.append('limit', limit);
 
     const res = await fetch(`${API_URL_CAMPS_ADMIN}?${params.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch camps');
+    if (!res.ok) throw new Error(`Failed to fetch camps (${res.status})`);
     return await res.json();
   } catch (error) {
     console.error("Error getting camps paginated:", error);

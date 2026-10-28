@@ -1,6 +1,6 @@
 "use client";
 import { useStatusModal } from "@/components/StatusModalProvider";
-import { BANGKOK_TIME_ZONE, getBangkokDateKey } from "@/lib/bangkok-date";
+import { BANGKOK_TIME_ZONE } from "@/lib/bangkok-date";
 import {
     Card,
     CardBody,
@@ -12,7 +12,6 @@ import {
     TableRow,
     TableCell,
     Input,
-    Textarea,
     Select,
     SelectItem,
     Chip,
@@ -21,19 +20,27 @@ import {
     ModalHeader,
     ModalBody,
     ModalFooter,
-    useDisclosure,
     Pagination,
     HeroUIProvider
 } from "@heroui/react";
-import CampDateRangePicker from "@/components/CampDateRangePicker";
-import { isCompleteCampDate } from "@/lib/camp-form-date";
 import { I18nProvider } from "@react-aria/i18n";
 import { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Users, Calendar, GraduationCap, SquarePen, Trash2, RotateCcw, Trash, Archive, AlertTriangle, ArrowLeft, X, Eye } from 'lucide-react';
+import { Search, MapPin, Users, Calendar, GraduationCap, SquarePen, Trash2, RotateCcw, Trash, Archive, AlertTriangle, ArrowLeft, LogIn } from 'lucide-react';
 import { useRouter } from "next/navigation";
 import adminService from "@/app/service/adminService";
 import { isBangkokDateBefore, isBangkokDateInRange } from "@/lib/bangkok-date";
 import { getCleanCampPath, rememberActiveCampId } from "@/lib/client-active-camp";
+import dynamic from "next/dynamic";
+import {
+    normalizeCampDetail,
+    saveCampEdit,
+} from "@/app/headteacher/dashboard/camp/campEdit";
+
+// ใช้โมดอลแก้ไขตัวเดียวกับครูหัวหน้าค่าย
+const EditCampModal = dynamic(
+    () => import("@/app/headteacher/dashboard/camp/EditCampModal"),
+    { ssr: false },
+);
 
 function CampLoadingTable({ trash = false }) {
     const columns = trash
@@ -115,7 +122,6 @@ const CampManager = ({ initialCamps = null }) => {
     const router = useRouter();
     const { showError, showSuccess, showConfirm } = useStatusModal();
 
-    const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
     const initialDataHandled = useRef(false);
     const [camps, setCamps] = useState(initialCamps?.data || []);
     const [isLoading, setIsLoading] = useState(!initialCamps);
@@ -130,58 +136,9 @@ const CampManager = ({ initialCamps = null }) => {
     );
     const [totalCamps, setTotalCamps] = useState(initialCamps?.pagination?.total || 0);
     const [showTrash, setShowTrash] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const submitInFlightRef = useRef(false);
-
-    // Edit form state
-    const [editingCamp, setEditingCamp] = useState(null);
-    const [formData, setFormData] = useState({
-        name: "",
-        location: "",
-        description: "",
-        status: "OPEN",
-        start_date: "",
-        end_date: "",
-        start_regis_date: "",
-        end_regis_date: "",
-    });
-
-    const [dateErrors, setDateErrors] = useState({ registration: "", camp: "" });
-
-    const validateDates = (data) => {
-        const errors = { registration: "", camp: "" };
-        const regisStart = data.start_regis_date ? new Date(data.start_regis_date) : null;
-        const regisEnd = data.end_regis_date ? new Date(data.end_regis_date) : null;
-        const campStart = data.start_date ? new Date(data.start_date) : null;
-        const campEnd = data.end_date ? new Date(data.end_date) : null;
-
-        if (regisEnd && campStart && regisEnd > campStart) {
-            errors.registration = "วันสิ้นสุดรับสมัคร ต้องไม่เกิน วันเริ่มค่าย";
-        }
-        if (regisStart && regisEnd && regisStart > regisEnd) {
-            errors.registration = "วันสิ้นสุดรับสมัคร ต้องไม่ก่อน วันเริ่มรับสมัคร";
-        }
-        if (campStart && regisEnd && campStart < regisEnd) {
-            errors.camp = "วันเริ่มค่าย ต้องไม่มาก่อน วันปิดรับสมัคร";
-        }
-        if (campStart && campEnd && campStart > campEnd) {
-            errors.camp = errors.camp || "วันสิ้นสุดค่าย ต้องมาหลัง วันเริ่มค่าย";
-        }
-
-        if ([data.start_regis_date, data.end_regis_date].some(date => date && !isCompleteCampDate(date))) {
-            errors.registration = "กรุณาเลือกวันที่รับสมัครให้ถูกต้อง";
-        }
-        if ([data.start_date, data.end_date].some(date => date && !isCompleteCampDate(date))) {
-            errors.camp = "กรุณาเลือกวันจัดค่ายให้ถูกต้อง";
-        }
-
-        setDateErrors(errors);
-        return !errors.registration && !errors.camp;
-    };
-
-    useEffect(() => {
-        validateDates(formData);
-    }, [formData.start_regis_date, formData.end_regis_date, formData.start_date, formData.end_date]);
+    const [editCamp, setEditCamp] = useState(null);
+    const [loadingEditId, setLoadingEditId] = useState(null);
+    const [isSavingEdit, setIsSavingEdit] = useState(false);
 
     useEffect(() => {
         if (initialCamps && !initialDataHandled.current) {
@@ -235,67 +192,42 @@ const CampManager = ({ initialCamps = null }) => {
         }
     };
 
-    const toInputDate = (dateStr) => {
-        if (!dateStr) return "";
+    const handleOpenEdit = async (camp) => {
+        if (loadingEditId) return;
+        setLoadingEditId(camp.camp_id);
         try {
-            return getBangkokDateKey(dateStr);
-        } catch {
-            return "";
-        }
-    };
-
-    const handleEdit = (camp) => {
-        setEditingCamp(camp);
-        setFormData({
-            name: camp.name || "",
-            location: camp.location || "",
-            description: camp.description || "",
-            status: camp.status || "OPEN",
-            start_date: toInputDate(camp.start_date),
-            end_date: toInputDate(camp.end_date),
-            start_regis_date: toInputDate(camp.start_regis_date),
-            end_regis_date: toInputDate(camp.end_regis_date),
-        });
-        onOpen();
-    };
-
-    const handleSubmitEdit = async (onClose) => {
-        if (submitInFlightRef.current) return;
-        if (!formData.name) {
-            showError("ข้อมูลไม่ครบ", "กรุณากรอกชื่อค่าย");
-            return;
-        }
-
-        if (!validateDates(formData)) {
-            showError("วันที่ไม่ถูกต้อง", "กรุณาตรวจสอบช่วงเวลาให้ถูกต้อง");
-            return;
-        }
-
-        submitInFlightRef.current = true;
-        setIsSubmitting(true);
-        try {
-            await adminService.updateCamp(editingCamp.camp_id, {
-                name: formData.name,
-                location: formData.location,
-                description: formData.description,
-                status: formData.status,
-                start_date: formData.start_date || undefined,
-                end_date: formData.end_date || undefined,
-                start_regis_date: formData.start_regis_date || undefined,
-                end_regis_date: formData.end_regis_date || undefined,
-                start_shirt_date: formData.start_regis_date || undefined,
-                end_shirt_date: formData.end_regis_date || undefined,
+            const response = await fetch(`/api/camps/${camp.camp_id}`, {
+                cache: "no-store",
             });
-            showSuccess("สำเร็จ", "แก้ไขข้อมูลค่ายสำเร็จ!");
-            setPage(1);
-            fetchCamps(1);
-            onClose();
+            if (!response.ok) throw new Error(`Failed to load camp (${response.status})`);
+            setEditCamp(normalizeCampDetail(await response.json()));
+        } catch (error) {
+            console.error("Error loading camp for edit:", error);
+            showError("เกิดข้อผิดพลาด", "ไม่สามารถโหลดข้อมูลค่ายได้");
+        } finally {
+            setLoadingEditId(null);
+        }
+    };
+
+    const handleEditSubmit = async (formData) => {
+        if (!editCamp) return;
+        setIsSavingEdit(true);
+        try {
+            const { campImageUploadFailed } = await saveCampEdit(
+                editCamp.camp_id,
+                formData,
+            );
+            if (campImageUploadFailed) {
+                showError("อัปโหลดรูปล้มเหลว", "ไม่สามารถอัปโหลดรูปปกค่ายได้");
+            }
+            setEditCamp(null);
+            showSuccess("สำเร็จ", "อัปเดตข้อมูลค่ายเรียบร้อยแล้ว");
+            fetchCamps(page);
         } catch (error) {
             console.error("Error updating camp:", error);
-            showError("เกิดข้อผิดพลาด", error.message);
+            showError("เกิดข้อผิดพลาด", "ไม่สามารถแก้ไขข้อมูลค่ายได้");
         } finally {
-            submitInFlightRef.current = false;
-            setIsSubmitting(false);
+            setIsSavingEdit(false);
         }
     };
 
@@ -393,10 +325,6 @@ const CampManager = ({ initialCamps = null }) => {
         } else {
             return { text: "ปิดลงทะเบียน", colorClass: "bg-slate-50 text-slate-400 border-slate-200/50" };
         }
-    };
-
-    const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     return (
@@ -502,7 +430,7 @@ const CampManager = ({ initialCamps = null }) => {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <span className="text-gray-500 text-sm">
+                                                <span className="text-gray-500 text-sm whitespace-nowrap">
                                                     {camp.created_by
                                                         ? `${camp.created_by.firstname} ${camp.created_by.lastname}`
                                                         : "-"}
@@ -603,7 +531,7 @@ const CampManager = ({ initialCamps = null }) => {
                                                 </Chip>
                                             </TableCell>
                                             <TableCell>
-                                                <span className="text-gray-600 text-sm">
+                                                <span className="text-gray-600 text-sm whitespace-nowrap">
                                                     {camp.created_by
                                                         ? `${camp.created_by.firstname} ${camp.created_by.lastname}`
                                                         : "-"}
@@ -636,13 +564,13 @@ const CampManager = ({ initialCamps = null }) => {
                                                     <span
                                                         className="cursor-pointer active:opacity-50 text-blue-500 hover:text-blue-700 transition-colors"
                                                         onClick={() => { rememberActiveCampId(camp.camp_id); router.push(getCleanCampPath()); }}
-                                                        title="ดูหน้าแสดงผลแบบหัวหน้าค่าย"
+                                                        title="เข้าค่าย (จัดการแบบครูหัวหน้าค่าย)"
                                                     >
-                                                        <Eye size={18} />
+                                                        <LogIn size={18} />
                                                     </span>
                                                     <span
-                                                        className="cursor-pointer active:opacity-50 text-sage hover:text-sage-dark"
-                                                        onClick={() => handleEdit(camp)}
+                                                        className={`cursor-pointer active:opacity-50 text-sage hover:text-sage-dark ${loadingEditId === camp.camp_id ? "animate-pulse opacity-50 pointer-events-none" : ""}`}
+                                                        onClick={() => handleOpenEdit(camp)}
                                                         title="แก้ไขข้อมูล"
                                                     >
                                                         <SquarePen size={18} />
@@ -690,126 +618,17 @@ const CampManager = ({ initialCamps = null }) => {
                 </CardBody>
             </Card>
 
-            {/* Edit Camp Modal */}
-            {isOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-                    <div className="relative bg-white rounded-2xl shadow-medium border border-gray-100 text-gray-800 p-6 flex flex-col gap-4 max-w-2xl w-full max-h-[90vh]">
-                        <div className="flex justify-between items-center pb-2 border-b">
-                            <h2 className="text-xl font-bold">แก้ไขข้อมูลค่าย</h2>
-                            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors"><X size={20}/></button>
-                        </div>
-                        <div className="overflow-y-auto flex-1 pr-2 flex flex-col gap-4">
-                            <div className="flex flex-col gap-1">
-                                        <label className="text-sm font-medium text-gray-700">ชื่อค่าย</label>
-                                        <Input
-                                            name="name"
-                                            value={formData.name}
-                                            onChange={handleChange}
-                                            variant="bordered"
-                                            radius="lg"
-                                            placeholder="กรอกชื่อค่าย"
-                                            classNames={{ inputWrapper: "bg-white" }}
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-sm font-medium text-gray-700">สถานที่</label>
-                                        <Input
-                                            name="location"
-                                            value={formData.location}
-                                            onChange={handleChange}
-                                            variant="bordered"
-                                            radius="lg"
-                                            placeholder="กรอกสถานที่"
-                                            classNames={{ inputWrapper: "bg-white" }}
-                                        />
-                                    </div>
-
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-sm font-medium text-gray-700">รายละเอียด</label>
-                                        <Textarea
-                                            name="description"
-                                            value={formData.description}
-                                            onChange={handleChange}
-                                            variant="bordered"
-                                            radius="lg"
-                                            placeholder="รายละเอียดค่าย"
-                                            minRows={2}
-                                            classNames={{ inputWrapper: "bg-white" }}
-                                        />
-                                    </div>
-
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                                                ช่วงเวลารับสมัคร
-                                            </label>
-                                            <CampDateRangePicker
-                                                aria-label="Registration Period"
-                                                className="w-full h-[56px]"
-                                                errorMessage={dateErrors.registration}
-                                                isInvalid={!!dateErrors.registration}
-                                                startDate={formData.start_regis_date}
-                                                endDate={formData.end_regis_date}
-                                                onChange={(startDate, endDate) => {
-                                                    setFormData(prev => ({ 
-                                                        ...prev, 
-                                                        start_regis_date: startDate,
-                                                        end_regis_date: endDate
-                                                    }));
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-bold text-[#6b857a] uppercase mb-1">
-                                                วันจัดค่าย
-                                            </label>
-                                            <CampDateRangePicker
-                                                aria-label="Camp Period"
-                                                className="w-full h-[56px]"
-                                                errorMessage={dateErrors.camp}
-                                                isInvalid={!!dateErrors.camp}
-                                                startDate={formData.start_date}
-                                                endDate={formData.end_date}
-                                                onChange={(startDate, endDate) => {
-                                                    setFormData(prev => ({ 
-                                                        ...prev, 
-                                                        start_date: startDate,
-                                                        end_date: endDate
-                                                    }));
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-
-                        </div>
-                        <div className="flex gap-2 pt-4 border-t mt-auto">
-                            <Button
-                                fullWidth
-                                className="font-medium text-gray-600"
-                                isDisabled={isSubmitting}
-                                variant="light"
-                                onPress={onClose}
-                            >
-                                ยกเลิก
-                            </Button>
-                            <Button
-                                fullWidth
-                                className="bg-[#6b857a] text-white rounded-xl font-bold shadow-sm hover:bg-[#5a7268]"
-                                isDisabled={isSubmitting}
-                                isLoading={isSubmitting}
-                                onPress={() => handleSubmitEdit(onClose)}
-                            >
-                                บันทึก
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
+
+        {editCamp && (
+            <EditCampModal
+                isOpen
+                campData={editCamp}
+                isLoading={isSavingEdit}
+                onClose={() => setEditCamp(null)}
+                onSubmit={handleEditSubmit}
+            />
+        )}
         </I18nProvider>
     );
 };

@@ -57,8 +57,8 @@ export async function GET(_request: Request, context: any) {
       return NextResponse.json({ error: "Camp not found" }, { status: 404 });
     }
 
-    const isOwner =
-      camp.created_by_teacher_id === teacherId || teacher.role === "ADMIN";
+    const isAdmin = teacher.role === "ADMIN";
+    const isOwner = camp.created_by_teacher_id === teacherId || isAdmin;
     const isHomeroomTeacher = camp.camp_classroom.some(
       ({ classroom }) =>
         classroom?.teachers_teachers_id === teacherId ||
@@ -70,6 +70,7 @@ export async function GET(_request: Request, context: any) {
     return NextResponse.json(
       {
         isOwner,
+        isAdmin,
         isHomeroomTeacher,
         isBusTeacher: camp.camp_bus_teacher.length > 0,
         hasTransport: camp.has_transport,
