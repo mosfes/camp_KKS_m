@@ -22,7 +22,8 @@ const developmentConnections =
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
-  "object-src 'none'",
+  // blob: lets the document preview show PDFs generated in the browser.
+  "object-src blob:",
   "frame-ancestors 'self'",
   `form-action 'self' ${clerkFrontendApi}`,
   `script-src 'self' 'unsafe-inline' blob: ${clerkFrontendApi} https://challenges.cloudflare.com https://*.protect.clerk.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.ggpht.com https://*.googleusercontent.com`,
@@ -30,7 +31,7 @@ const contentSecurityPolicy = [
   "img-src 'self' data: blob: https://res.cloudinary.com https://img.clerk.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   `connect-src 'self' data: blob: ${clerkFrontendApi} https://*.protect.clerk.com:* https://clerk-telemetry.com https://*.clerk-telemetry.com https://api.cloudinary.com https://res.cloudinary.com https://*.googleapis.com https://*.gstatic.com https://*.google.com${developmentConnections}`,
-  "frame-src 'self' https://challenges.cloudflare.com https://*.protect.clerk.com https://www.youtube.com https://player.vimeo.com https://drive.google.com https://*.google.com",
+  "frame-src 'self' blob: https://challenges.cloudflare.com https://*.protect.clerk.com https://www.youtube.com https://player.vimeo.com https://drive.google.com https://*.google.com",
   "worker-src 'self' blob:",
   "media-src 'self' blob: https://res.cloudinary.com",
   "manifest-src 'self'",
