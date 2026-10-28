@@ -17,6 +17,9 @@ import { Search, Shirt, FileSpreadsheet, FileText } from "lucide-react";
 import CampBreadcrumb from "./CampBreadcrumb";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
+import DocumentPreviewModal, {
+  fetchPreviewPdf,
+} from "@/components/documents/DocumentPreviewModal";
 
 interface StudentShirt {
   enrollmentId: number;
@@ -117,8 +120,10 @@ export default function ShirtTrackingModal({
   const initialDataPending = useRef(Boolean(initialData));
   const [loading, setLoading] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [data, setData] = useState<ShirtTrackingData | null>(initialData || null);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [data, setData] = useState<ShirtTrackingData | null>(
+    initialData || null,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
@@ -162,6 +167,7 @@ export default function ShirtTrackingModal({
     try {
       setIsExportingExcel(true);
       const { exportShirtsToExcel } = await import("@/lib/export-shirts-excel");
+
       exportShirtsToExcel({
         campName: effectiveCampName,
         summary: data.summary,
@@ -178,41 +184,15 @@ export default function ShirtTrackingModal({
     }
   };
 
-  const handleExportPdf = async () => {
+  const handleExportPdf = () => {
     if (!data || !data.hasShirt || data.students.length === 0) return;
-    try {
-      setIsExportingPdf(true);
-      const res = await fetch(`/api/camps/${campId}/shirts/pdf`);
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-
-        throw new Error(errJson?.error || "ดาวน์โหลดไฟล์ PDF ไม่สำเร็จ");
-      }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-
-      a.href = url;
-      const cleanCampName = (effectiveCampName || "camp").replace(
-        /[/\\?%*:|"<>]/g,
-        "-",
-      );
-
-      a.download = `รายการจองเสื้อ_${cleanCampName}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      showSuccess("สำเร็จ", "ดาวน์โหลดไฟล์ PDF (.pdf) เรียบร้อยแล้ว");
-    } catch (err: any) {
-      console.error("Failed to export PDF:", err);
-      showError("เกิดข้อผิดพลาด", err.message || "ไม่สามารถสร้างไฟล์ PDF ได้");
-    } finally {
-      setIsExportingPdf(false);
-    }
+    setPdfPreviewOpen(true);
   };
+
+  const cleanCampName = (effectiveCampName || "camp").replace(
+    /[/\\?%*:|"<>]/g,
+    "-",
+  );
 
   const filteredStudents = data?.students.filter((student) => {
     const query = searchQuery.trim().toLowerCase();
@@ -234,288 +214,298 @@ export default function ShirtTrackingModal({
   }, [page, filteredStudents]);
 
   return (
-    <Modal
-      backdrop="blur"
-      classNames={{
-        base: pageMode
-          ? "!m-0 !h-full !min-h-0 !max-h-none w-full !max-w-none rounded-none bg-[#f5f5f2] shadow-none"
-          : "bg-white rounded-3xl shadow-xl",
-        backdrop: pageMode ? "hidden" : "bg-black/40 backdrop-blur-sm",
-        wrapper: pageMode ? "camp-page-modal items-start p-0" : undefined,
-      }}
-      hideCloseButton={pageMode}
-      isDismissable={!pageMode}
-      isOpen={isOpen}
-      scrollBehavior="inside"
-      size="2xl"
-      onOpenChange={onClose}
-    >
-      <ModalContent
-        className={
-          pageMode
-            ? "!m-0 !h-full !min-h-0 !max-h-none !rounded-none !bg-[#f5f5f2] !shadow-none overflow-y-auto"
-            : undefined
-        }
+    <>
+      <Modal
+        backdrop="blur"
+        classNames={{
+          base: pageMode
+            ? "!m-0 !h-full !min-h-0 !max-h-none w-full !max-w-none rounded-none bg-[#f5f5f2] shadow-none"
+            : "bg-white rounded-3xl shadow-xl",
+          backdrop: pageMode ? "hidden" : "bg-black/40 backdrop-blur-sm",
+          wrapper: pageMode ? "camp-page-modal items-start p-0" : undefined,
+        }}
+        hideCloseButton={pageMode}
+        isDismissable={!pageMode}
+        isOpen={isOpen}
+        scrollBehavior="inside"
+        size="2xl"
+        onOpenChange={onClose}
       >
-        {() => (
-          <>
-            <ModalHeader
-              className={`relative flex flex-col gap-1 px-6 ${
-                pageMode
-                  ? "mx-auto w-full max-w-7xl border-0 pb-6 pt-8 sm:px-8"
-                  : "p-6 pb-2"
-              }`}
-            >
-              {pageMode && (
-                <CampBreadcrumb
-                  campId={campId}
-                  campName={effectiveCampName}
-                  className="mb-6"
-                  currentPage="รายการจองเสื้อ"
-                />
-              )}
-
-              <div className="flex items-center gap-3">
-                {pageMode ? (
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eaf1ee] text-[#5d7c6f] shadow-xs">
-                    <Shirt size={22} />
-                  </div>
-                ) : (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f0f4f2] text-[#6b857a]">
-                    <Shirt size={20} />
-                  </div>
+        <ModalContent
+          className={
+            pageMode
+              ? "!m-0 !h-full !min-h-0 !max-h-none !rounded-none !bg-[#f5f5f2] !shadow-none overflow-y-auto"
+              : undefined
+          }
+        >
+          {() => (
+            <>
+              <ModalHeader
+                className={`relative flex flex-col gap-1 px-6 ${
+                  pageMode
+                    ? "mx-auto w-full max-w-7xl border-0 pb-6 pt-8 sm:px-8"
+                    : "p-6 pb-2"
+                }`}
+              >
+                {pageMode && (
+                  <CampBreadcrumb
+                    campId={campId}
+                    campName={effectiveCampName}
+                    className="mb-6"
+                    currentPage="รายการจองเสื้อ"
+                  />
                 )}
-                <div className="min-w-0">
-                  <h2 className="text-xl font-bold leading-tight text-gray-900">
-                    รายการจองเสื้อ
-                  </h2>
-                  {effectiveCampName && (
-                    <p className="mt-0.5 max-w-[280px] sm:max-w-md md:max-w-lg truncate text-sm font-normal text-gray-500">
-                      {effectiveCampName}
-                    </p>
+
+                <div className="flex items-center gap-3">
+                  {pageMode ? (
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#eaf1ee] text-[#5d7c6f] shadow-xs">
+                      <Shirt size={22} />
+                    </div>
+                  ) : (
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f0f4f2] text-[#6b857a]">
+                      <Shirt size={20} />
+                    </div>
                   )}
-                </div>
-              </div>
-            </ModalHeader>
-
-            <ModalBody
-              className={
-                pageMode
-                  ? "mx-auto block w-full max-w-7xl overflow-visible bg-[#f5f5f2] px-4 pb-10 pt-0 sm:px-8"
-                  : "px-6 py-6"
-              }
-            >
-              {loading ? (
-                <ShirtTrackingSkeleton />
-              ) : data && !data.hasShirt ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500">
-                  <Shirt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="font-medium text-lg text-gray-700">
-                    ค่ายนี้ไม่ได้เปิดให้จองเสื้อ
-                  </p>
-                  <p className="text-sm mt-1">
-                    คุณสามารถเปิดการจองเสื้อได้ในหน้าแก้ไขข้อมูลค่าย
-                  </p>
-                </div>
-              ) : data ? (
-                <div className="space-y-5">
-                  {/* Summary Section */}
-                  <div className="bg-[#f0f4f2]/50 rounded-2xl p-5 border border-[#d1e0d9]">
-                    <h3 className="text-sm font-semibold text-[#5d7c6f] mb-3 flex items-center gap-2">
-                      <Shirt size={16} /> สรุปยอดจองเสื้อ (รวม{" "}
-                      {data.totalShirts} ตัว)
-                    </h3>
-
-                    {data.totalShirts === 0 ? (
-                      <div className="bg-white border border-[#d1e0d9] p-4 rounded-xl text-center">
-                        <p className="text-sm font-medium text-gray-600">
-                          ยังไม่มีผู้จองเสื้อ
-                        </p>
-                        {data.totalStudents > 0 && (
-                          <p className="text-xs text-gray-400 mt-1">
-                            (รอนักเรียนระบุไซส์ {data.totalStudents} คน)
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-3">
-                        {Object.entries(data.summary).map(([size, count]) => (
-                          <div
-                            key={size}
-                            className={`bg-white border px-4 py-2 rounded-xl flex items-center justify-between min-w-[100px] shadow-xs ${
-                              size === "รอระบุไซส์"
-                                ? "border-gray-200"
-                                : "border-[#d1e0d9]"
-                            }`}
-                          >
-                            <span
-                              className={`font-medium ${size === "รอระบุไซส์" ? "text-gray-500" : "text-gray-700"}`}
-                            >
-                              {size}
-                            </span>
-                            <span
-                              className={`font-bold ml-3 ${size === "รอระบุไซส์" ? "text-gray-600" : "text-[#6b857a]"}`}
-                            >
-                              {count}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                  <div className="min-w-0">
+                    <h2 className="text-xl font-bold leading-tight text-gray-900">
+                      รายการจองเสื้อ
+                    </h2>
+                    {effectiveCampName && (
+                      <p className="mt-0.5 max-w-[280px] sm:max-w-md md:max-w-lg truncate text-sm font-normal text-gray-500">
+                        {effectiveCampName}
+                      </p>
                     )}
                   </div>
+                </div>
+              </ModalHeader>
 
-                  {/* Toolbar Section: Search & Export Actions */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                    {/* Search Input */}
-                    <div className="relative flex-1">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                        <Search size={18} />
-                      </div>
-                      <input
-                        className="block w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl leading-5 bg-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5d7c6f]/30 focus:border-[#5d7c6f] shadow-xs transition-all"
-                        placeholder="ค้นหาชื่อ ชื่อเล่น หรือรหัสนักเรียน..."
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Export Action Buttons */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Tooltip
-                        closeDelay={0}
-                        content="ดาวน์โหลดตารางสรุปและรายชื่อในรูปแบบ Excel (.xlsx)"
-                        placement="top"
-                      >
-                        <Button
-                          aria-label="ส่งออกไฟล์ Excel"
-                          className="flex-1 sm:flex-initial h-10 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white hover:bg-emerald-50/70 hover:border-emerald-300 text-gray-700 hover:text-emerald-800 px-3.5 text-xs sm:text-sm font-medium shadow-xs transition-all active:scale-[0.98] disabled:opacity-40"
-                          isDisabled={
-                            loading || !data || data.students.length === 0
-                          }
-                          isLoading={isExportingExcel}
-                          onPress={handleExportExcel}
-                        >
-                          {!isExportingExcel && (
-                            <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                          )}
-                          <span>ส่งออก Excel</span>
-                        </Button>
-                      </Tooltip>
-
-                      <Tooltip
-                        closeDelay={0}
-                        content="ดาวน์โหลดรายงานสรุปและรายชื่อพร้อมพิมพ์ (.pdf)"
-                        placement="top"
-                      >
-                        <Button
-                          aria-label="ส่งออกไฟล์ PDF"
-                          className="flex-1 sm:flex-initial h-10 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white hover:bg-rose-50/70 hover:border-rose-300 text-gray-700 hover:text-rose-800 px-3.5 text-xs sm:text-sm font-medium shadow-xs transition-all active:scale-[0.98] disabled:opacity-40"
-                          isDisabled={
-                            loading || !data || data.students.length === 0
-                          }
-                          isLoading={isExportingPdf}
-                          onPress={handleExportPdf}
-                        >
-                          {!isExportingPdf && (
-                            <FileText className="h-4 w-4 text-rose-600 shrink-0" />
-                          )}
-                          <span>ส่งออก PDF</span>
-                        </Button>
-                      </Tooltip>
-                    </div>
+              <ModalBody
+                className={
+                  pageMode
+                    ? "mx-auto block w-full max-w-7xl overflow-visible bg-[#f5f5f2] px-4 pb-10 pt-0 sm:px-8"
+                    : "px-6 py-6"
+                }
+              >
+                {loading ? (
+                  <ShirtTrackingSkeleton />
+                ) : data && !data.hasShirt ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500">
+                    <Shirt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                    <p className="font-medium text-lg text-gray-700">
+                      ค่ายนี้ไม่ได้เปิดให้จองเสื้อ
+                    </p>
+                    <p className="text-sm mt-1">
+                      คุณสามารถเปิดการจองเสื้อได้ในหน้าแก้ไขข้อมูลค่าย
+                    </p>
                   </div>
+                ) : data ? (
+                  <div className="space-y-5">
+                    {/* Summary Section */}
+                    <div className="bg-[#f0f4f2]/50 rounded-2xl p-5 border border-[#d1e0d9]">
+                      <h3 className="text-sm font-semibold text-[#5d7c6f] mb-3 flex items-center gap-2">
+                        <Shirt size={16} /> สรุปยอดจองเสื้อ (รวม{" "}
+                        {data.totalShirts} ตัว)
+                      </h3>
 
-                  {/* Student List Section */}
-                  <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
-                    {paginatedStudents && paginatedStudents.length > 0 ? (
-                      <div className="divide-y divide-gray-100">
-                        {paginatedStudents.map((student, index) => (
-                          <div
-                            key={student.studentId}
-                            className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-gray-50/80"
-                          >
-                            <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                              <span className="w-5 shrink-0 text-center text-xs font-semibold text-gray-400">
-                                {(page - 1) * ITEMS_PER_PAGE + index + 1}
+                      {data.totalShirts === 0 ? (
+                        <div className="bg-white border border-[#d1e0d9] p-4 rounded-xl text-center">
+                          <p className="text-sm font-medium text-gray-600">
+                            ยังไม่มีผู้จองเสื้อ
+                          </p>
+                          {data.totalStudents > 0 && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              (รอนักเรียนระบุไซส์ {data.totalStudents} คน)
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-3">
+                          {Object.entries(data.summary).map(([size, count]) => (
+                            <div
+                              key={size}
+                              className={`bg-white border px-4 py-2 rounded-xl flex items-center justify-between min-w-[100px] shadow-xs ${
+                                size === "รอระบุไซส์"
+                                  ? "border-gray-200"
+                                  : "border-[#d1e0d9]"
+                              }`}
+                            >
+                              <span
+                                className={`font-medium ${size === "รอระบุไซส์" ? "text-gray-500" : "text-gray-700"}`}
+                              >
+                                {size}
                               </span>
-                              <Avatar
-                                className="h-10 w-10 shrink-0 bg-[#e8f0ee] text-[#3d6357]"
-                                imgProps={{
-                                  alt: `รูปโปรไฟล์ของ ${student.name}`,
-                                }}
-                                name={student.initials}
-                                src={student.profileImageUrl || undefined}
-                              />
-                              <div className="min-w-0">
-                                <h4 className="font-medium text-gray-900">
-                                  {student.name}
-                                </h4>
-                                <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500 font-light">
-                                  <span>
-                                    ชื่อเล่น: {student.nickname || "-"}
+                              <span
+                                className={`font-bold ml-3 ${size === "รอระบุไซส์" ? "text-gray-600" : "text-[#6b857a]"}`}
+                              >
+                                {count}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Toolbar Section: Search & Export Actions */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                      {/* Search Input */}
+                      <div className="relative flex-1">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                          <Search size={18} />
+                        </div>
+                        <input
+                          className="block w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl leading-5 bg-white text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#5d7c6f]/30 focus:border-[#5d7c6f] shadow-xs transition-all"
+                          placeholder="ค้นหาชื่อ ชื่อเล่น หรือรหัสนักเรียน..."
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Export Action Buttons */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Tooltip
+                          closeDelay={0}
+                          content="ดาวน์โหลดตารางสรุปและรายชื่อในรูปแบบ Excel (.xlsx)"
+                          placement="top"
+                        >
+                          <Button
+                            aria-label="ส่งออกไฟล์ Excel"
+                            className="flex-1 sm:flex-initial h-10 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white hover:bg-emerald-50/70 hover:border-emerald-300 text-gray-700 hover:text-emerald-800 px-3.5 text-xs sm:text-sm font-medium shadow-xs transition-all active:scale-[0.98] disabled:opacity-40"
+                            isDisabled={
+                              loading || !data || data.students.length === 0
+                            }
+                            isLoading={isExportingExcel}
+                            onPress={handleExportExcel}
+                          >
+                            {!isExportingExcel && (
+                              <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                            )}
+                            <span>ส่งออก Excel</span>
+                          </Button>
+                        </Tooltip>
+
+                        <Tooltip
+                          closeDelay={0}
+                          content="ดาวน์โหลดรายงานสรุปและรายชื่อพร้อมพิมพ์ (.pdf)"
+                          placement="top"
+                        >
+                          <Button
+                            aria-label="ส่งออกไฟล์ PDF"
+                            className="flex-1 sm:flex-initial h-10 flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white hover:bg-rose-50/70 hover:border-rose-300 text-gray-700 hover:text-rose-800 px-3.5 text-xs sm:text-sm font-medium shadow-xs transition-all active:scale-[0.98] disabled:opacity-40"
+                            isDisabled={
+                              loading || !data || data.students.length === 0
+                            }
+                            onPress={handleExportPdf}
+                          >
+                            <FileText className="h-4 w-4 text-rose-600 shrink-0" />
+                            <span>ส่งออก PDF</span>
+                          </Button>
+                        </Tooltip>
+                      </div>
+                    </div>
+
+                    {/* Student List Section */}
+                    <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                      {paginatedStudents && paginatedStudents.length > 0 ? (
+                        <div className="divide-y divide-gray-100">
+                          {paginatedStudents.map((student, index) => (
+                            <div
+                              key={student.studentId}
+                              className="flex items-center justify-between gap-3 p-4 transition-colors hover:bg-gray-50/80"
+                            >
+                              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                                <span className="w-5 shrink-0 text-center text-xs font-semibold text-gray-400">
+                                  {(page - 1) * ITEMS_PER_PAGE + index + 1}
+                                </span>
+                                <Avatar
+                                  className="h-10 w-10 shrink-0 bg-[#e8f0ee] text-[#3d6357]"
+                                  imgProps={{
+                                    alt: `รูปโปรไฟล์ของ ${student.name}`,
+                                  }}
+                                  name={student.initials}
+                                  src={student.profileImageUrl || undefined}
+                                />
+                                <div className="min-w-0">
+                                  <h4 className="font-medium text-gray-900">
+                                    {student.name}
+                                  </h4>
+                                  <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-500 font-light">
+                                    <span>
+                                      ชื่อเล่น: {student.nickname || "-"}
+                                    </span>
+                                    <span aria-hidden="true">·</span>
+                                    <span>
+                                      รหัสนักเรียน {student.studentId}
+                                    </span>
+                                    <span aria-hidden="true">·</span>
+                                    <span>{student.classroom}</span>
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 flex-col items-end gap-1">
+                                {student.shirtSize ? (
+                                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-bold border border-green-200">
+                                    ไซส์ {student.shirtSize}
                                   </span>
-                                  <span aria-hidden="true">·</span>
-                                  <span>รหัสนักเรียน {student.studentId}</span>
-                                  <span aria-hidden="true">·</span>
-                                  <span>{student.classroom}</span>
-                                </p>
+                                ) : (
+                                  <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-sm font-medium border border-gray-200">
+                                    รอระบุไซส์
+                                  </span>
+                                )}
                               </div>
                             </div>
-                            <div className="flex shrink-0 flex-col items-end gap-1">
-                              {student.shirtSize ? (
-                                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-bold border border-green-200">
-                                  ไซส์ {student.shirtSize}
-                                </span>
-                              ) : (
-                                <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-sm font-medium border border-gray-200">
-                                  รอระบุไซส์
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-12 text-center">
-                        <Shirt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500 font-medium text-sm">
-                          ไม่พบรายชื่อนักเรียน
-                        </p>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center">
+                          <Shirt className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500 font-medium text-sm">
+                            ไม่พบรายชื่อนักเรียน
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Pagination */}
+                    {pages > 1 && (
+                      <div className="flex justify-center mt-4 pb-2">
+                        <Pagination
+                          classNames={{
+                            cursor: "bg-[#5d7c6f] text-white font-bold",
+                          }}
+                          page={page}
+                          total={pages}
+                          onChange={setPage}
+                        />
                       </div>
                     )}
                   </div>
+                ) : null}
+              </ModalBody>
 
-                  {/* Pagination */}
-                  {pages > 1 && (
-                    <div className="flex justify-center mt-4 pb-2">
-                      <Pagination
-                        classNames={{
-                          cursor: "bg-[#5d7c6f] text-white font-bold",
-                        }}
-                        page={page}
-                        total={pages}
-                        onChange={setPage}
-                      />
-                    </div>
-                  )}
-                </div>
-              ) : null}
-            </ModalBody>
-
-            {!pageMode && (
-              <ModalFooter className="border-t border-gray-100 p-6 pt-2">
-                <Button
-                  className="bg-gray-100 px-6 font-medium text-gray-700 hover:bg-gray-200"
-                  onPress={onClose}
-                >
-                  ปิดหน้าต่าง
-                </Button>
-              </ModalFooter>
-            )}
-          </>
-        )}
-      </ModalContent>
-    </Modal>
+              {!pageMode && (
+                <ModalFooter className="border-t border-gray-100 p-6 pt-2">
+                  <Button
+                    className="bg-gray-100 px-6 font-medium text-gray-700 hover:bg-gray-200"
+                    onPress={onClose}
+                  >
+                    ปิดหน้าต่าง
+                  </Button>
+                </ModalFooter>
+              )}
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+      <DocumentPreviewModal
+        fileName={`รายการจองเสื้อ_${cleanCampName}_${new Date().toISOString().slice(0, 10)}.pdf`}
+        isOpen={pdfPreviewOpen}
+        loadPdf={async () => ({
+          blob: (await fetchPreviewPdf(`/api/camps/${campId}/shirts/pdf`)).blob,
+        })}
+        title="รายการจองเสื้อ"
+        onClose={() => setPdfPreviewOpen(false)}
+      />
+    </>
   );
 }

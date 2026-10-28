@@ -27,8 +27,9 @@ import {
     AutocompleteItem
 } from "@heroui/react";
 import { useState, useEffect, useRef } from "react";
-import { Trash2, Trash, Archive, SquarePen, Settings } from 'lucide-react';
+import { Trash2, Trash, Archive, SquarePen, Settings, School, Users, UserCheck, DoorOpen } from 'lucide-react';
 import TrashManager from "./TrashManager";
+import SummaryCard from "./SummaryCard";
 import studentService from "@/app/service/adminService";
 import { PlusIcon } from "./Icons";
 
@@ -93,6 +94,7 @@ const ClassroomManager = ({ initialClassrooms = null }) => {
     const [hasMore, setHasMore] = useState((initialClassrooms?.pagination?.totalPages || 1) > 1);
     const [totalClassrooms, setTotalClassrooms] = useState(initialClassrooms?.pagination?.total || 0);
     const [totalPages, setTotalPages] = useState(initialClassrooms?.pagination?.totalPages || 1);
+    const [summary, setSummary] = useState(null);
     const skipInitialFetch = useRef(Boolean(initialClassrooms));
     const [isSubmitting, setIsSubmitting] = useState(false);
     const submitInFlightRef = useRef(false);
@@ -289,6 +291,7 @@ const ClassroomManager = ({ initialClassrooms = null }) => {
                     showSuccess("สำเร็จ", "ลบสำเร็จ");
                     setPage(1);
                     fetchClassrooms(1);
+                    loadSummary();
                 } catch (error) {
                     showError("เกิดข้อผิดพลาด", error.message);
                 }
@@ -338,6 +341,15 @@ const ClassroomManager = ({ initialClassrooms = null }) => {
             });
 
         return teachers.filter(t => !assignedTeacherIds.includes(t.teachers_id.toString()));
+    };
+
+    useEffect(() => {
+        loadSummary();
+    }, [selectedYear]);
+
+    const loadSummary = async () => {
+        setSummary(null);
+        setSummary(await studentService.getClassroomSummary(selectedYear));
     };
 
     const fetchClassrooms = async (pageNum = 1) => {
@@ -455,6 +467,7 @@ const ClassroomManager = ({ initialClassrooms = null }) => {
             }
             setPage(1);
             fetchClassrooms(1);
+            loadSummary();
             onClose();
         } catch (error) {
             showError("เกิดข้อผิดพลาด", error.message);
@@ -479,12 +492,47 @@ const ClassroomManager = ({ initialClassrooms = null }) => {
 
 
 
+    const yearNote = selectedYear && selectedYear !== "all"
+        ? `ปีการศึกษา ${parseInt(selectedYear) + 543}`
+        : "ทุกปีการศึกษา";
+
     if (showTrash) {
-        return <TrashManager type="classroom" onBack={() => { setShowTrash(false); setPage(1); fetchClassrooms(1); }} />;
+        return <TrashManager type="classroom" onBack={() => { setShowTrash(false); setPage(1); fetchClassrooms(1); loadSummary(); }} />;
     }
 
     return (
         <div className="flex flex-col gap-6 w-full pt-4">
+            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <SummaryCard
+                    icon={School}
+                    label="ห้องเรียน"
+                    note={summary ? `ม.ต้น ${summary.lowerRooms} · ม.ปลาย ${summary.upperRooms} ห้อง` : yearNote}
+                    tone="bg-[#e8f0ee] text-[#3d6357]"
+                    value={summary?.rooms ?? null}
+                />
+                <SummaryCard
+                    icon={Users}
+                    label="นักเรียนในห้อง"
+                    note={summary && summary.rooms > 0 ? `เฉลี่ย ${Math.round(summary.students / summary.rooms)} คนต่อห้อง` : yearNote}
+                    tone="bg-sky-50 text-sky-700"
+                    value={summary?.students ?? null}
+                />
+                <SummaryCard
+                    icon={UserCheck}
+                    label="ครูประจำชั้น"
+                    note="รวมครูประจำชั้นร่วม"
+                    tone="bg-violet-50 text-violet-700"
+                    value={summary?.teachers ?? null}
+                />
+                <SummaryCard
+                    icon={DoorOpen}
+                    label="ห้องที่ยังไม่มีนักเรียน"
+                    note={yearNote}
+                    tone="bg-amber-50 text-amber-700"
+                    value={summary?.emptyRooms ?? null}
+                />
+            </section>
+
             <Card className="border border-gray-100 shadow-sm rounded-2xl bg-white" radius="none">
                 <CardBody className="p-4 md:p-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">

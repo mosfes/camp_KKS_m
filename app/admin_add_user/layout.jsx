@@ -34,14 +34,18 @@ const menuItems = [
   { id: "vulgarwords", label: "คลังคำหยาบ", icon: ShieldAlert },
 ];
 
+function getActiveTab(pathname, searchParams) {
+  if (pathname.startsWith("/admin_add_user/bus-layout")) return "buslayout";
+  if (pathname.startsWith("/admin_graduated_students")) return "student";
+  return searchParams.get("tab") || "overview";
+}
+
 /* ── Sidebar (Desktop only) ─────────────────────────────────── */
 function AdminSidebar({ collapsed, setCollapsed }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
-  const activeTab = pathname.startsWith("/admin_add_user/bus-layout")
-    ? "buslayout"
-    : searchParams.get("tab") || "overview";
+  const activeTab = getActiveTab(pathname, searchParams);
 
   return (
     <aside
@@ -118,9 +122,7 @@ function MobileSidebar({ isOpen, setIsOpen }) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
-  const activeTab = pathname.startsWith("/admin_add_user/bus-layout")
-    ? "buslayout"
-    : searchParams.get("tab") || "overview";
+  const activeTab = getActiveTab(pathname, searchParams);
 
   return (
     <div

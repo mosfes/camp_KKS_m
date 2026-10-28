@@ -3,23 +3,38 @@
 import dynamic from "next/dynamic";
 
 // Each section is its own route state. Load only the code for the selected tab.
-const OverviewManager = dynamic(() => import("./components/OverviewManager"));
-const TeacherManager = dynamic(() => import("./components/TeacherManager"));
-const DocumentDataManager = dynamic(() => import("./components/DocumentDataManager"));
-const ClassroomManager = dynamic(() => import("./components/ClassroomManager"));
-const StudentManager = dynamic(() => import("./components/StudentManager"));
-const CampManager = dynamic(() => import("./components/CampManager"));
-const BusLayoutManager = dynamic(() => import("./components/BusLayoutManager"));
-const VulgarWordsManager = dynamic(() => import("./components/VulgarWordsManager"));
-const CampReminderEmailManager = dynamic(
-  () => import("./components/CampReminderEmailManager"),
-  { ssr: false },
-);
-// โหลดข้อมูลฝั่ง client ทั้งหมดอยู่แล้ว ปิด SSR กัน id ของ HeroUI ไม่ตรงตอน hydrate
-const ParentAccessManager = dynamic(
-  () => import("./components/ParentAccessManager"),
-  { ssr: false },
-);
+// ทุก section ใช้ HeroUI ซึ่งสร้าง id ฝั่ง server กับ client ไม่ตรงกันตอน hydrate
+// จึงปิด SSR ทั้งหมด ข้อมูลตั้งต้นจาก server ยังส่งผ่าน props ได้ตามเดิม
+const OverviewManager = dynamic(() => import("./components/OverviewManager"), {
+  ssr: false,
+});
+const TeacherManager = dynamic(() => import("./components/TeacherManager"), {
+  ssr: false,
+});
+const DocumentDataManager = dynamic(() => import("./components/DocumentDataManager"), {
+  ssr: false,
+});
+const ClassroomManager = dynamic(() => import("./components/ClassroomManager"), {
+  ssr: false,
+});
+const StudentManager = dynamic(() => import("./components/StudentManager"), {
+  ssr: false,
+});
+const CampManager = dynamic(() => import("./components/CampManager"), {
+  ssr: false,
+});
+const BusLayoutManager = dynamic(() => import("./components/BusLayoutManager"), {
+  ssr: false,
+});
+const VulgarWordsManager = dynamic(() => import("./components/VulgarWordsManager"), {
+  ssr: false,
+});
+const CampReminderEmailManager = dynamic(() => import("./components/CampReminderEmailManager"), {
+  ssr: false,
+});
+const ParentAccessManager = dynamic(() => import("./components/ParentAccessManager"), {
+  ssr: false,
+});
 
 const sectionMap = {
   overview: {

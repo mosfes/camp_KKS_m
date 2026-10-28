@@ -9,11 +9,20 @@ import {
 import { parseDate } from "@internationalized/date";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
-import { LayoutTemplate, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  FileType2,
+  LayoutTemplate,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
+import DocumentPreviewModal, {
+  fetchPreviewPdf,
+} from "@/components/documents/DocumentPreviewModal";
 import DeferredDateRangePicker from "@/components/documents/DeferredDateRangePicker";
 import {
   formatDocumentDuration,
@@ -510,12 +519,17 @@ type InitialDocumentData = {
   referenceOptions: any[];
 };
 
-export default function ProjectDocumentPage({ initialData }: { initialData: InitialDocumentData | null }) {
+export default function ProjectDocumentPage({
+  initialData,
+}: {
+  initialData: InitialDocumentData | null;
+}) {
   const params = useParams();
   const campId = String(params.id);
   const { showError, showSuccess, showConfirm, setIsLoading } =
     useStatusModal();
   const initialDataPending = useRef(Boolean(initialData));
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [document, setDocument] = useState<any>(initialData?.document || null);
   const [people, setPeople] = useState<any[]>(initialData?.people || []);
   const [teachers, setTeachers] = useState<any[]>(initialData?.teachers || []);
@@ -525,13 +539,17 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
   const [strategyOptions, setStrategyOptions] = useState<
     DocumentStrategyOption[]
   >(normalizeDocumentStrategyOptions(initialData?.referenceOptions));
-  const [templates, setTemplates] = useState<any[]>(initialData?.templates || []);
+  const [templates, setTemplates] = useState<any[]>(
+    initialData?.templates || [],
+  );
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(!initialData);
   const [isRefreshingFromCamp, setIsRefreshingFromCamp] = useState(false);
   const [initiallyDirty, setInitiallyDirty] = useState(
-    Boolean(initialData?.document && !initialData.document.camp_project_document_id),
+    Boolean(
+      initialData?.document && !initialData.document.camp_project_document_id,
+    ),
   );
   const readOnly = document?.status === "FINALIZED";
   const { saveStatus, saveNow } = useDocumentAutoSave({
@@ -555,6 +573,7 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
   useEffect(() => {
     if (initialDataPending.current) {
       initialDataPending.current = false;
+
       return;
     }
     Promise.all([
@@ -831,9 +850,9 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
     }
   };
 
-  const download = async (format: "pdf" | "docx") => {
+  const openPreview = async () => {
     if (!readOnly && !(await save("DRAFT", { silent: true }))) return;
-    window.location.href = `/api/camps/${campId}/project-document/${format}`;
+    setPreviewOpen(true);
   };
 
   const applyTemplate = () => {
@@ -956,8 +975,8 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
             isFinalized={readOnly}
             saveStatus={saveStatus}
             title="เอกสารข้อเสนอโครงการ"
-            onDownload={download}
             onFinalize={() => save("FINALIZED")}
+            onPreview={openPreview}
             onRetrySave={() => save("DRAFT", { silent: true })}
             onUnlock={() => update("status", "DRAFT")}
           />
@@ -1892,6 +1911,27 @@ export default function ProjectDocumentPage({ initialData }: { initialData: Init
         </Section>
         </fieldset>
       </main>
+
+      <DocumentPreviewModal
+        extraDownloads={[
+          {
+            key: "docx",
+            label: "ดาวน์โหลด Word",
+            icon: <FileType2 size={16} />,
+            onPress: () => {
+              window.location.href = `/api/camps/${campId}/project-document/docx`;
+            },
+          },
+        ]}
+        fileName="project-document.pdf"
+        isOpen={previewOpen}
+        loadPdf={() =>
+          fetchPreviewPdf(`/api/camps/${campId}/project-document/pdf`)
+        }
+        note="ไฟล์ Word มีเนื้อหาเดียวกับตัวอย่างนี้"
+        title="เอกสารข้อเสนอโครงการ"
+        onClose={() => setPreviewOpen(false)}
+      />
     </div>
   );
 }

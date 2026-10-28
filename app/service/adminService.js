@@ -369,7 +369,7 @@ const getCampsPaginated = async (page = 1, limit = 20, search = "", status = "",
     params.append('limit', limit);
 
     const res = await fetch(`${API_URL_CAMPS_ADMIN}?${params.toString()}`);
-    if (!res.ok) throw new Error('Failed to fetch camps');
+    if (!res.ok) throw new Error(`Failed to fetch camps (${res.status})`);
     return await res.json();
   } catch (error) {
     console.error("Error getting camps paginated:", error);
@@ -458,8 +458,44 @@ const getOverviewStats = async (yearId) => {
   }
 };
 
+const getStudentSummary = async (yearId) => {
+  try {
+    const res = await fetch(`/api/students/summary?yearId=${encodeURIComponent(yearId)}`);
+    if (!res.ok) throw new Error('Failed to fetch student summary');
+    return await res.json();
+  } catch (error) {
+    console.error("Error getting student summary:", error);
+    return null;
+  }
+};
+
+const getTeacherSummary = async () => {
+  try {
+    const res = await fetch('/api/teachers/summary');
+    if (!res.ok) throw new Error('Failed to fetch teacher summary');
+    return await res.json();
+  } catch (error) {
+    console.error("Error getting teacher summary:", error);
+    return null;
+  }
+};
+
+const getClassroomSummary = async (yearId) => {
+  try {
+    const res = await fetch(`/api/classrooms/summary?yearId=${encodeURIComponent(yearId || "all")}`);
+    if (!res.ok) throw new Error('Failed to fetch classroom summary');
+    return await res.json();
+  } catch (error) {
+    console.error("Error getting classroom summary:", error);
+    return null;
+  }
+};
+
 export default {
   getOverviewStats,
+  getStudentSummary,
+  getTeacherSummary,
+  getClassroomSummary,
   getCampsPaginated,
   updateCamp,
   restoreCamp,

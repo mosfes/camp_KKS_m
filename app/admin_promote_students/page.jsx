@@ -3,6 +3,7 @@
 import {
   Accordion,
   AccordionItem,
+  Avatar,
   Button,
   Card,
   CardBody,
@@ -380,7 +381,7 @@ function PromoteStudentsContent() {
                     .map((student, studentIndex) => ({ student, studentIndex }))
                     .filter(({ student }) => {
                       const searchableText =
-                        `${student.name || ""} ${student.code || ""}`.toLocaleLowerCase(
+                        `${student.name || ""} ${student.nickname || ""} ${student.code || ""}`.toLocaleLowerCase(
                           "th",
                         );
                       return searchTerms.every((term) =>
@@ -403,7 +404,7 @@ function PromoteStudentsContent() {
                               inputWrapper: "border-gray-200 bg-white",
                             }}
                             isClearable
-                            placeholder="ค้นหารหัส ชื่อ หรือนามสกุล"
+                            placeholder="ค้นหารหัส ชื่อ นามสกุล หรือชื่อเล่น"
                             size="sm"
                             startContent={
                               <Search size={16} className="text-gray-400" />
@@ -447,13 +448,21 @@ function PromoteStudentsContent() {
                               key={student.studentId}
                               className="grid gap-3 rounded-lg border border-gray-200 bg-white p-3 md:grid-cols-[minmax(220px,1fr)_190px_minmax(260px,1fr)] md:items-end"
                             >
-                              <div>
-                                <p className="font-medium text-gray-800">
-                                  {student.name}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  รหัส {student.code}
-                                </p>
+                              <div className="flex items-center gap-3">
+                                <Avatar
+                                  className="h-10 w-10 shrink-0 bg-[#e8f0ee] text-sm font-medium text-[#3d6357]"
+                                  name={(student.firstname || "?").charAt(0)}
+                                  src={student.profileImageUrl || undefined}
+                                />
+                                <div className="min-w-0">
+                                  <p className="font-medium text-gray-800">
+                                    {student.name}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    รหัส {student.code} • ชื่อเล่น:{" "}
+                                    {student.nickname || "-"}
+                                  </p>
+                                </div>
                               </div>
                               <Select
                                 size="sm"

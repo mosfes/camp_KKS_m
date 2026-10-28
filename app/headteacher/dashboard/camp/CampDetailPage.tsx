@@ -35,6 +35,7 @@ import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 
 import CampBreadcrumb from "./CampBreadcrumb";
+import { normalizeCampDetail, saveCampEdit } from "./campEdit";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
 import {
@@ -147,37 +148,6 @@ interface CampDetail {
   student_enrollment?: any[];
 }
 
-function normalizeCampDetail(data: any): CampDetail {
-  const gradesSet = new Set<string>();
-  let planTypeName = "MSEC";
-  if (data.camp_classroom?.length) {
-    data.camp_classroom.forEach((cc: any) => {
-      if (cc.classroom?.grade) gradesSet.add(cc.classroom.grade);
-    });
-    planTypeName =
-      data.camp_classroom[0].classroom?.classroom_types?.name || "MSEC";
-  }
-  if ((!planTypeName || planTypeName === "MSEC") && data.plan_type) {
-    planTypeName = data.plan_type.name || "MSEC";
-  }
-  const dailySchedule = (data.camp_daily_schedule || [])
-    .sort((a: any, b: any) => a.day - b.day)
-    .map((schedule: any) => ({
-      day: schedule.day,
-      timeSlots: schedule.time_slots.map((slot: any) => ({
-        startTime: slot.startTime || slot.start_time,
-        endTime: slot.endTime || slot.end_time,
-        activity: slot.activity,
-      })),
-    }));
-  return {
-    ...data,
-    grade_level: Array.from(gradesSet).join(","),
-    plan_type_name: planTypeName,
-    daily_schedule: dailySchedule,
-  };
-}
-
 function CampSkeletonBlock({ className }: { className: string }) {
   return (
     <div
@@ -268,23 +238,6 @@ export default function CampDetailPage({
 }) {
   const router = useRouter();
 
-  const compressImage = async (file: File) => {
-    if (!file || !file.type.startsWith("image/")) return file;
-    try {
-      const imageCompression = (await import("browser-image-compression"))
-        .default;
-
-      return await imageCompression(file, {
-        maxSizeMB: 2,
-        maxWidthOrHeight: 2000,
-        useWebWorker: true,
-      });
-    } catch (e) {
-      console.error("Compression error:", e);
-
-      return file;
-    }
-  };
   const params = useParams();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -294,7 +247,7 @@ export default function CampDetailPage({
   const showOverviewManagementCards: boolean = false;
 
   const [camp, setCamp] = useState<CampDetail | null>(() =>
-    initialCamp ? normalizeCampDetail(initialCamp) : null,
+    initialCamp ? normalizeCampDetail<CampDetail>(initialCamp) : null,
   );
   const { showError, showSuccess, showConfirm, setIsLoading } =
     useStatusModal();
@@ -369,7 +322,7 @@ export default function CampDetailPage({
     if (campId) {
       if (String(initialCamp?.camp_id) === String(campId)) {
         if (camp?.camp_id !== initialCamp?.camp_id) {
-          setCamp(normalizeCampDetail(initialCamp));
+          setCamp(normalizeCampDetail<CampDetail>(initialCamp));
           setLoading(false);
         }
       } else {
@@ -511,7 +464,7 @@ export default function CampDetailPage({
 
       const data = await response.json();
 
-      setCamp(normalizeCampDetail(data));
+      setCamp(normalizeCampDetail<CampDetail>(data));
     } catch (error) {
       console.error("Error fetching camp detail:", error);
     } finally {
@@ -588,91 +541,14 @@ export default function CampDetailPage({
   const handleEditSubmit = async (formData: any) => {
     try {
       setIsEditing(true);
+      const { campImageUploadFailed } = await saveCampEdit(
+        String(campId),
+        formData,
+      );
 
-      let img_shirt_url = formData.shirtImage || "";
-      let img_camp_url = formData.campImage || "";
-
-      // Upload new shirt images if files were picked
-      let finalShirtUrls: (string | null)[] = [];
-
-      try {
-        const parsed = JSON.parse(
-          formData.shirtImages ? JSON.stringify(formData.shirtImages) : "[]",
-        );
-
-        finalShirtUrls = Array.isArray(parsed)
-          ? parsed.filter((url: any) => url != null)
-          : [formData.shirtImages];
-      } catch (e) {
-        finalShirtUrls = [formData.shirtImages];
+      if (campImageUploadFailed) {
+        showError("อัปโหลดรูปล้มเหลว", "ไม่สามารถอัปโหลดรูปปกค่ายได้");
       }
-
-      if (formData.shirtImageFiles && Array.isArray(formData.shirtImageFiles)) {
-        for (let i = 0; i < formData.shirtImageFiles.length; i++) {
-          const file = formData.shirtImageFiles[i];
-
-          if (file) {
-            try {
-              const compressedFile = await compressImage(file);
-              const uploadForm = new FormData();
-
-              uploadForm.append("file", compressedFile);
-              const uploadRes = await fetch("/api/upload", {
-                method: "POST",
-                body: uploadForm,
-              });
-
-              if (uploadRes.ok) {
-                const uploadData = await uploadRes.json();
-
-                finalShirtUrls[i] = uploadData.url;
-              }
-            } catch (uploadErr) {
-              console.error("Error during shirt upload:", uploadErr);
-            }
-          }
-        }
-      }
-      img_shirt_url = JSON.stringify(finalShirtUrls);
-
-      // Upload new camp image if a file was picked
-      if (formData.campImageFile) {
-        try {
-          const compressedFile = await compressImage(formData.campImageFile);
-          const uploadForm = new FormData();
-
-          uploadForm.append("file", compressedFile);
-          const uploadRes = await fetch("/api/upload", {
-            method: "POST",
-            body: uploadForm,
-          });
-
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-
-            img_camp_url = uploadData.url;
-          } else {
-            showError("อัปโหลดรูปล้มเหลว", "ไม่สามารถอัปโหลดรูปปกค่ายได้");
-          }
-        } catch (uploadErr) {
-          console.error("Error during camp image upload:", uploadErr);
-        }
-      }
-
-      const response = await fetch(`/api/camps/${campId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          img_shirt_url,
-          img_camp_url,
-          cert_name_x: formData.certNameX,
-          cert_name_y: formData.certNameY,
-          cert_font_size: formData.certFontSize,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update camp");
 
       await fetchCampDetail();
       setIsEditModalOpen(false);

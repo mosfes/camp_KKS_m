@@ -114,8 +114,8 @@ export async function GET(request) {
         totalPages: Math.ceil(total / limit),
       },
     });
-  } catch {
-    //     console.error("API_GET_ADMIN_CAMPS_ERROR:", error);
+  } catch (error) {
+    console.error("API_GET_ADMIN_CAMPS_ERROR:", error);
 
     return NextResponse.json(
       { _error: "ไม่สามารถดึงข้อมูลค่ายได้" },

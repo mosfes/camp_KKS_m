@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 async function getClassroomYear(db, classroomId) {
   const classroom = await db.classrooms.findUnique({
@@ -14,6 +15,10 @@ async function getClassroomYear(db, classroomId) {
 }
 
 export async function GET(req) {
+  const { error: authError } = await requireAdmin();
+
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(req.url);
     const yearId = searchParams.get("yearId");
@@ -39,14 +44,21 @@ export async function GET(req) {
     };
 
     const classroomConditions = {};
+    // นักเรียนที่ยังเรียนอยู่แต่ยังไม่ได้จัดห้องในปีการศึกษาที่เลือก
+    const unassigned = grade === "unassigned" && /^\d+$/.test(yearId || "");
 
-    if (yearId && yearId !== "all") {
+    if (unassigned) {
+      whereClause.status = "ACTIVE";
+      whereClause.classroom_students = {
+        none: { classroom: { academic_years_years_id: parseInt(yearId) } },
+      };
+    } else if (/^\d+$/.test(yearId || "")) {
       classroomConditions.academic_years_years_id = parseInt(yearId);
     }
-    if (grade && grade !== "all") {
+    if (!unassigned && /^Level_[1-6]$/.test(grade || "")) {
       classroomConditions.grade = grade;
     }
-    if (roomType && roomType !== "all") {
+    if (!unassigned && /^\d+$/.test(roomType || "")) {
       classroomConditions.type_classroom = parseInt(roomType);
     }
 
@@ -133,6 +145,10 @@ export async function GET(req) {
 }
 
 export async function POST(req) {
+  const { error: authError } = await requireAdmin();
+
+  if (authError) return authError;
+
   try {
     const body = await req.json();
 
@@ -411,6 +427,10 @@ export async function POST(req) {
 }
 
 export async function DELETE(req) {
+  const { error: authError } = await requireAdmin();
+
+  if (authError) return authError;
+
   try {
     const { searchParams } = new URL(req.url);
     const id = parseInt(searchParams.get("id"));
@@ -458,6 +478,10 @@ export async function DELETE(req) {
 }
 
 export async function PUT(req) {
+  const { error: authError } = await requireAdmin();
+
+  if (authError) return authError;
+
   try {
     const body = await req.json();
     const id = parseInt(body.students_id);

@@ -2,8 +2,13 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
 
 export async function POST(req) {
+  const { error: authError } = await requireAdmin();
+
+  if (authError) return authError;
+
   try {
     const body = await req.json();
     const { ids } = body;
