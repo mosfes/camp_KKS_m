@@ -10,6 +10,8 @@ import { parseDate } from "@internationalized/date";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
+  AlertCircle,
+  CheckCircle2,
   FileType2,
   LayoutTemplate,
   Plus,
@@ -116,6 +118,26 @@ function sumProcedureBudgets(procedures: any[] | null | undefined) {
   return (procedures || []).reduce(
     (total, procedure) => total + Number(procedure.budget || 0),
     0,
+  );
+}
+
+const CAMP_SOURCE_FIELDS = [
+  "fiscal_year",
+  "project_name",
+  "activity_name",
+  "responsible_people",
+  "rationale",
+  "duration_text",
+  "location_text",
+] as const;
+
+function isSyncedWithCamp(document: any, source: any) {
+  if (!document || !source) return false;
+
+  return CAMP_SOURCE_FIELDS.every(
+    (field) =>
+      String(document[field] ?? "").trim() ===
+      String(source[field] ?? "").trim(),
   );
 }
 
@@ -552,6 +574,7 @@ export default function ProjectDocumentPage({
     ),
   );
   const readOnly = document?.status === "FINALIZED";
+  const syncedWithCamp = isSyncedWithCamp(document, document?.camp_source);
   const { saveStatus, saveNow } = useDocumentAutoSave({
     document,
     endpoint: `/api/camps/${campId}/project-document`,
@@ -795,6 +818,16 @@ export default function ProjectDocumentPage({
 
       const source = data.camp_source;
 
+      if (isSyncedWithCamp(document, source)) {
+        setDocument((current: any) => ({ ...current, camp_source: source }));
+        showSuccess(
+          "ข้อมูลล่าสุดแล้ว",
+          "ข้อมูลในเอกสารตรงกับข้อมูลค่ายปัจจุบันอยู่แล้ว",
+        );
+
+        return;
+      }
+
       setDocument((current: any) => ({
         ...current,
         fiscal_year: source.fiscal_year,
@@ -993,10 +1026,28 @@ export default function ProjectDocumentPage({
         >
         <section className="flex flex-col gap-4 rounded-2xl border border-[#cad8d2] bg-[#f2f7f5] p-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="font-semibold text-gray-900">เติมข้อมูลจากค่าย</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-gray-900">เติมข้อมูลจากค่าย</p>
+              {syncedWithCamp ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                  <CheckCircle2 aria-hidden="true" size={13} />
+                  ข้อมูลล่าสุดแล้ว
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                  <AlertCircle aria-hidden="true" size={13} />
+                  ไม่ตรงกับข้อมูลค่าย
+                </span>
+              )}
+            </div>
             <p className="mt-1 text-sm text-gray-600">
               ดึงชื่อโครงการ ผู้สร้างค่าย คำอธิบาย วันจัดค่าย
               และสถานที่มาใส่ในเอกสารข้อเสนอ
+            </p>
+            <p aria-live="polite" className="mt-1 text-xs text-gray-500">
+              {syncedWithCamp
+                ? "ข้อมูลในเอกสารตรงกับข้อมูลค่ายปัจจุบันแล้ว"
+                : "ข้อมูลในเอกสารต่างจากข้อมูลค่ายปัจจุบัน กดดึงข้อมูลเพื่ออัปเดต"}
             </p>
           </div>
           <button

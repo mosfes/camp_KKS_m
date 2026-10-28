@@ -20,6 +20,7 @@ import {
   Check,
   Clock,
   Copy,
+  KeyRound,
   Search,
   Trash2,
   UserPlus,
@@ -85,6 +86,7 @@ const eventLabels: Record<string, string> = {
   REVOKED: "เพิกถอนสิทธิ์",
   ACCOUNT_DELETED: "ลบบัญชีผู้ปกครอง",
   ACCOUNT_CREATED: "สร้างบัญชีผู้ปกครองใหม่",
+  PASSWORD_RESET: "รีเซ็ตรหัสผ่านผู้ปกครอง",
 };
 
 type Summary = {
@@ -298,6 +300,7 @@ export default function ParentAccessManager() {
   const [error, setError] = useState("");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [createdAccount, setCreatedAccount] = useState<{
+    kind: "created" | "reset";
     studentName: string;
     username: string;
     password: string;
@@ -428,6 +431,51 @@ export default function ParentAccessManager() {
     );
   }
 
+  function resetPassword(row: ActiveRow, access: ParentAccess) {
+    if (busy) return;
+
+    showConfirm(
+      "รีเซ็ตรหัสผ่านผู้ปกครอง",
+      `ตั้งรหัสผ่านใหม่ให้บัญชี ${access.username ?? access.parentName} ของ ${row.studentName} รหัสเดิมจะใช้ไม่ได้และอุปกรณ์ที่เข้าสู่ระบบอยู่จะถูกออกจากระบบ ยืนยันหรือไม่?`,
+      async () => {
+        setBusy(true);
+        setError("");
+        try {
+          const response = await fetch(
+            "/api/admin/parent-links/reset-password",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ parentId: access.parentId }),
+            },
+          );
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || "รีเซ็ตรหัสผ่านไม่สำเร็จ");
+          }
+          // The confirm dialog stays open until something replaces it.
+          closeStatusModal();
+          setCopied(null);
+          setCreatedAccount({
+            kind: "reset",
+            studentName: row.studentName,
+            username: data.username,
+            password: data.password,
+          });
+        } catch (reason) {
+          showError(
+            "รีเซ็ตรหัสผ่านไม่สำเร็จ",
+            reason instanceof Error ? reason.message : "กรุณาลองใหม่อีกครั้ง",
+          );
+        } finally {
+          setBusy(false);
+        }
+      },
+      "รีเซ็ตรหัสผ่าน",
+    );
+  }
+
   function createAccount(row: ActiveRow) {
     if (busy) return;
 
@@ -456,6 +504,7 @@ export default function ParentAccessManager() {
           closeStatusModal();
           setCopied(null);
           setCreatedAccount({
+            kind: "created",
             studentName: row.studentName,
             username: data.username,
             password: data.initialPassword,
@@ -473,6 +522,13 @@ export default function ParentAccessManager() {
       "สร้างบัญชี",
     );
   }
+
+  const passwordLabel =
+    createdAccount?.kind === "reset" ? "รหัสผ่านใหม่" : "รหัสผ่านเริ่มต้น";
+  const passwordNote =
+    createdAccount?.kind === "reset"
+      ? "รหัสนี้แสดงครั้งเดียว กรุณาคัดลอกส่งให้ผู้ปกครอง และแนะนำให้เปลี่ยนรหัสผ่านหลังเข้าสู่ระบบ"
+      : "ผู้ปกครองต้องเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก";
 
   const createAccountButton = (row: ActiveRow) => (
     <Tooltip content="สร้างบัญชีผู้ปกครองเพิ่ม">
@@ -714,6 +770,19 @@ export default function ParentAccessManager() {
                           <td className={`${cellClass} text-right`}>
                             <div className="inline-flex items-center gap-3">
                               {index === 0 && createAccountButton(row)}
+                              {access.source === "PRIMARY" && (
+                                <Tooltip content="รีเซ็ตรหัสผ่าน">
+                                  <button
+                                    aria-label="รีเซ็ตรหัสผ่าน"
+                                    className="inline-flex cursor-pointer items-center text-[#5d7c6f] transition-colors hover:text-[#3d6357] active:opacity-50 disabled:cursor-not-allowed disabled:opacity-40"
+                                    disabled={busy}
+                                    type="button"
+                                    onClick={() => resetPassword(row, access)}
+                                  >
+                                    <KeyRound size={18} />
+                                  </button>
+                                </Tooltip>
+                              )}
                               {access.revocable ? (
                                 <Tooltip
                                   color="danger"
@@ -858,7 +927,9 @@ export default function ParentAccessManager() {
           {(close) => (
             <>
               <ModalHeader className="flex flex-col gap-1">
-                สร้างบัญชีผู้ปกครองแล้ว
+                {createdAccount?.kind === "reset"
+                  ? "รีเซ็ตรหัสผ่านแล้ว"
+                  : "สร้างบัญชีผู้ปกครองแล้ว"}
                 <span className="text-sm font-normal text-gray-500">
                   {createdAccount?.studentName}
                 </span>
@@ -867,11 +938,7 @@ export default function ParentAccessManager() {
                 {(
                   [
                     ["username", "ชื่อผู้ใช้", createdAccount?.username ?? ""],
-                    [
-                      "password",
-                      "รหัสผ่านเริ่มต้น",
-                      createdAccount?.password ?? "",
-                    ],
+                    ["password", passwordLabel, createdAccount?.password ?? ""],
                   ] as const
                 ).map(([key, label, value]) => (
                   <div
@@ -900,9 +967,7 @@ export default function ParentAccessManager() {
                     </Button>
                   </div>
                 ))}
-                <p className="text-xs text-gray-500">
-                  ผู้ปกครองต้องเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก
-                </p>
+                <p className="text-xs text-gray-500">{passwordNote}</p>
               </ModalBody>
               <ModalFooter>
                 <Button
@@ -913,7 +978,7 @@ export default function ParentAccessManager() {
                   onPress={() =>
                     void copyText(
                       "both",
-                      `ชื่อผู้ใช้: ${createdAccount?.username}\nรหัสผ่านเริ่มต้น: ${createdAccount?.password}\n(ต้องเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก)`,
+                      `ชื่อผู้ใช้: ${createdAccount?.username}\n${passwordLabel}: ${createdAccount?.password}\n(${passwordNote})`,
                     )
                   }
                 >
