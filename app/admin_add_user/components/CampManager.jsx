@@ -29,7 +29,7 @@ import { Search, MapPin, Users, Calendar, GraduationCap, SquarePen, Trash2, Rota
 import { useRouter } from "next/navigation";
 import adminService from "@/app/service/adminService";
 import { isBangkokDateBefore, isBangkokDateInRange } from "@/lib/bangkok-date";
-import { getCleanCampPath, rememberActiveCampId } from "@/lib/client-active-camp";
+import { getCleanCampPath, rememberActiveCampId, rememberAdminCampEntry } from "@/lib/client-active-camp";
 import dynamic from "next/dynamic";
 import {
     normalizeCampDetail,
@@ -563,7 +563,7 @@ const CampManager = ({ initialCamps = null }) => {
                                                 <div className="flex items-center gap-3">
                                                     <span
                                                         className="cursor-pointer active:opacity-50 text-blue-500 hover:text-blue-700 transition-colors"
-                                                        onClick={() => { rememberActiveCampId(camp.camp_id); router.push(getCleanCampPath()); }}
+                                                        onClick={() => { rememberActiveCampId(camp.camp_id); rememberAdminCampEntry(camp.camp_id); router.push(getCleanCampPath()); }}
                                                         title="เข้าค่าย (จัดการแบบครูหัวหน้าค่าย)"
                                                     >
                                                         <LogIn size={18} />

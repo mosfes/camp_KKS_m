@@ -50,3 +50,33 @@ export function getCleanBasePath() {
 export function getCleanTrackingStudentPath() {
   return getCleanCampPath("tracking/student");
 }
+
+// Marks that this tab entered the camp from the admin page, so the
+// admin banner shows only for that path and not in head-teacher mode.
+const ADMIN_CAMP_ENTRY_KEY = "admin_camp_entry_id";
+
+export function rememberAdminCampEntry(campId: string | number | null) {
+  if (typeof window === "undefined") return;
+
+  try {
+    if (campId === null) {
+      window.sessionStorage.removeItem(ADMIN_CAMP_ENTRY_KEY);
+    } else {
+      window.sessionStorage.setItem(ADMIN_CAMP_ENTRY_KEY, String(campId));
+    }
+  } catch {
+    // sessionStorage unavailable; the banner just stays hidden.
+  }
+}
+
+export function isAdminCampEntry(campId: string | number) {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return (
+      window.sessionStorage.getItem(ADMIN_CAMP_ENTRY_KEY) === String(campId)
+    );
+  } catch {
+    return false;
+  }
+}
