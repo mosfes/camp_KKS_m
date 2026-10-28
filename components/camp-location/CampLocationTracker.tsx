@@ -896,7 +896,7 @@ export default function CampLocationTracker({
   );
   const loadStudentRoute = useCallback(
     async (forceRefresh = false) => {
-      if (viewer !== "student") return;
+      if (viewer === "teacher") return;
 
       const origin = data?.students[0]?.latest ?? null;
       const destination = showDestination ? (data?.destination ?? null) : null;
@@ -1007,6 +1007,29 @@ export default function CampLocationTracker({
       viewer,
     ],
   );
+  // Parents always see the map, so calculate the route as soon as the child's
+  // latest position and the destination are known, and again when either moves.
+  const loadStudentRouteRef = useRef(loadStudentRoute);
+
+  loadStudentRouteRef.current = loadStudentRoute;
+  const parentRouteOrigin = data?.students[0]?.latest ?? null;
+  const parentRouteDestination = showDestination
+    ? (data?.destination ?? null)
+    : null;
+  const parentRouteSignature =
+    viewer === "parent" && parentRouteOrigin && parentRouteDestination
+      ? [
+          parentRouteOrigin.latitude,
+          parentRouteOrigin.longitude,
+          parentRouteDestination.latitude,
+          parentRouteDestination.longitude,
+        ].join(",")
+      : null;
+
+  useEffect(() => {
+    if (parentRouteSignature) void loadStudentRouteRef.current();
+  }, [parentRouteSignature]);
+
   const handleMapClick = useCallback((point: MapPoint) => {
     setDraftDestination({
       ...point,
@@ -1398,7 +1421,7 @@ export default function CampLocationTracker({
         </div>
       )}
 
-      {viewer === "student" && studentMapVisible && (
+      {(viewer === "parent" || (viewer === "student" && studentMapVisible)) && (
         <div className="border-b border-emerald-100 bg-emerald-50/70 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">
@@ -1479,7 +1502,7 @@ export default function CampLocationTracker({
               destination={mapDestination}
               editable={canConfigureDestination}
               path={mapPath}
-              routePath={viewer === "student" ? (studentRoute?.path ?? []) : []}
+              routePath={viewer === "teacher" ? [] : (studentRoute?.path ?? [])}
               students={studentsOnMap}
               onMapClick={handleMapClick}
             />
