@@ -38,6 +38,7 @@ import { toThumbnail } from "@/lib/cloudinary-url";
 import {
   getCleanCampPath,
   rememberActiveCampId,
+  rememberAdminCampEntry,
 } from "@/lib/client-active-camp";
 import { useMountedModal } from "@/hooks/useMountedModal";
 
@@ -602,6 +603,7 @@ function DashboardContent() {
     if (navigatingTo !== null) return;
     setNavigatingTo(campId);
     rememberActiveCampId(campId);
+    rememberAdminCampEntry(null);
     router.push(getCleanCampPath());
   };
 
@@ -1202,6 +1204,7 @@ function DashboardContent() {
                           variant="flat"
                           onPress={() => {
                             rememberActiveCampId(assignment.campId);
+                            rememberAdminCampEntry(null);
                             router.push(getCleanCampPath("bus-checkin"));
                           }}
                         >

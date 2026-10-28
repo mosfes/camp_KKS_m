@@ -36,6 +36,7 @@ import { StatusModalProvider } from "@/components/StatusModalProvider";
 import {
   CLEAN_CAMP_PATH,
   getCleanCampPath,
+  isAdminCampEntry,
   readActiveCampId,
   rememberActiveCampId,
 } from "@/lib/client-active-camp";
@@ -777,7 +778,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
           {/* Page Content */}
           <main className="min-h-0 flex-1 min-w-0 bg-[#f5f5f2]">
-            {campId && campAccess?.isAdmin && <AdminCampBanner />}
+            {campId && campAccess?.isAdmin && isAdminCampEntry(campId) && (
+              <AdminCampBanner />
+            )}
             {children}
           </main>
         </div>
