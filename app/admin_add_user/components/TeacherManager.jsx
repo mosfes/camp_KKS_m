@@ -26,8 +26,9 @@ import {
     Tooltip
 } from "@heroui/react";
 import { useState, useEffect, useRef } from "react";
-import { Trash2, Trash, Archive, SquarePen, Search, ClipboardPaste, HelpCircle } from 'lucide-react';
+import { Trash2, Trash, Archive, SquarePen, Search, ClipboardPaste, HelpCircle, Users, UserRound, ShieldCheck } from 'lucide-react';
 import TrashManager from "./TrashManager";
+import SummaryCard from "./SummaryCard";
 import studentService from "@/app/service/adminService";
 import { PlusIcon } from "./Icons";
 
@@ -62,6 +63,7 @@ const TeacherManager = ({ initialTeachers = null }) => {
     const [hasMore, setHasMore] = useState((initialTeachers?.pagination?.totalPages || 1) > 1);
     const [totalPages, setTotalPages] = useState(initialTeachers?.pagination?.totalPages || 1);
     const [totalTeachers, setTotalTeachers] = useState(initialTeachers?.pagination?.total || 0);
+    const [summary, setSummary] = useState(null);
     const skipInitialFetch = useRef(Boolean(initialTeachers));
     const [isOtherPrefix, setIsOtherPrefix] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,6 +118,14 @@ const TeacherManager = ({ initialTeachers = null }) => {
         setPage(1);
         fetchTeachers(1);
     }, [searchTerm]);
+
+    useEffect(() => {
+        loadSummary();
+    }, []);
+
+    const loadSummary = async () => {
+        setSummary(await studentService.getTeacherSummary());
+    };
 
     const fetchTeachers = async (pageNum = 1) => {
         setIsLoading(true);
@@ -180,6 +190,7 @@ const TeacherManager = ({ initialTeachers = null }) => {
                     showSuccess("สำเร็จ", "ลบข้อมูลสำเร็จ");
                     setPage(1);
                     fetchTeachers(1);
+                    loadSummary();
                 } catch (error) {
                     showError("เกิดข้อผิดพลาด", error.message);
                 }
@@ -215,6 +226,7 @@ const TeacherManager = ({ initialTeachers = null }) => {
             setFormData({ prefix_name: "", firstname: "", lastname: "", email: "", tel: "", role: "TEACHER" });
             setPage(1);
             fetchTeachers(1);
+            loadSummary();
             onClose();
         } catch (error) {
             showError("เกิดข้อผิดพลาด", error.message);
@@ -388,6 +400,7 @@ const TeacherManager = ({ initialTeachers = null }) => {
             setImportPreviewData([]);
             setPage(1);
             fetchTeachers(1);
+            loadSummary();
 
             showSuccess("สำเร็จ", `เพิ่มข้อมูลครูสำเร็จทั้งหมด ${result.count || payloadArray.length} รายการ `);
         } catch (error) {
@@ -399,11 +412,35 @@ const TeacherManager = ({ initialTeachers = null }) => {
 
 
     if (showTrash) {
-        return <TrashManager type="teacher" onBack={() => { setShowTrash(false); setPage(1); fetchTeachers(1); }} />;
+        return <TrashManager type="teacher" onBack={() => { setShowTrash(false); setPage(1); fetchTeachers(1); loadSummary(); }} />;
     }
 
     return (
         <div className="flex flex-col gap-6 w-full pt-4 light">
+            <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <SummaryCard
+                    icon={Users}
+                    label="ทั้งหมด"
+                    note={summary?.year ? `ครูประจำชั้นปี ${summary.year + 543}: ${summary.homeroom.toLocaleString("th-TH")} คน` : "บัญชีครูในระบบ"}
+                    tone="bg-[#e8f0ee] text-[#3d6357]"
+                    value={summary?.total ?? null}
+                />
+                <SummaryCard
+                    icon={UserRound}
+                    label="ครู"
+                    note="บัญชีครูทั่วไป"
+                    tone="bg-sky-50 text-sky-700"
+                    value={summary?.teachers ?? null}
+                />
+                <SummaryCard
+                    icon={ShieldCheck}
+                    label="ผู้ดูแลระบบ"
+                    note="จัดการข้อมูลทั้งระบบได้"
+                    tone="bg-violet-50 text-violet-700"
+                    value={summary?.admins ?? null}
+                />
+            </section>
+
             <Card className="border border-gray-100 shadow-sm rounded-2xl bg-white" radius="none">
                 <CardBody className="p-4 md:p-6">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4 w-full">

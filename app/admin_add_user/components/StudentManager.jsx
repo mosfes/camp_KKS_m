@@ -32,12 +32,12 @@ import {
     Avatar
 } from "@heroui/react";
 import { useState, useEffect, useRef } from "react";
-import * as XLSX from 'xlsx';
-import { Trash2, Trash, Archive, SquarePen, ArrowUp, FileDown, ClipboardPaste, HelpCircle, Search, GraduationCap } from 'lucide-react';
+import { Trash2, Trash, Archive, SquarePen, ArrowUp, FileDown, ClipboardPaste, HelpCircle, Search, GraduationCap, Users, BookOpen, School, UserRoundX } from 'lucide-react';
 import studentService from "@/app/service/adminService";
 import { useRouter } from "next/navigation";
 import { PlusIcon } from "./Icons";
 import TrashManager from "./TrashManager";
+import SummaryCard from "./SummaryCard";
 
 function StudentLoadingTable() {
     const columns = [
@@ -118,6 +118,7 @@ const StudentManager = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [totalStudents, setTotalStudents] = useState(0);
+    const [summary, setSummary] = useState(null);
 
     const gradeOptions = [
         { key: "Level_1", label: "ม.1", value: 1 },
@@ -238,6 +239,15 @@ const StudentManager = () => {
             fetchStudents(1);
         }
     }, [selectedYear, selectedGrade, selectedRoomType, searchTerm]);
+
+    useEffect(() => {
+        if (selectedYear) loadSummary();
+    }, [selectedYear]);
+
+    const loadSummary = async () => {
+        setSummary(null);
+        setSummary(await studentService.getStudentSummary(selectedYear));
+    };
 
     const fetchStudents = async (pageNum = 1) => {
         setIsLoading(true);
@@ -387,6 +397,7 @@ const StudentManager = () => {
                     showSuccess("สำเร็จ", "ลบนักเรียนออกจากห้องเรียนสำเร็จ");
                     setPage(1);
                     fetchStudents(1);
+                    loadSummary();
                 } catch (error) {
                     showError("เกิดข้อผิดพลาด", error.message);
                 }
@@ -429,6 +440,7 @@ const StudentManager = () => {
             }
             setPage(1);
             fetchStudents(1);
+            loadSummary();
             onClose();
         } catch (error) {
             console.error("Operation error:", error);
@@ -647,6 +659,7 @@ const StudentManager = () => {
             setImportPreviewData([]);
             setPage(1);
             fetchStudents(1);
+            loadSummary();
 
             showSuccess("สำเร็จ", `เพิ่มนักเรียนสำเร็จทั้งหมด ${result.length} รายการ (ข้ามรายการที่ซ้ำกัน)`);
         } catch (error) {
@@ -658,11 +671,44 @@ const StudentManager = () => {
 
 
     if (showTrash) {
-        return <TrashManager type="student" onBack={() => { setShowTrash(false); setPage(1); fetchStudents(1); }} />;
+        return <TrashManager type="student" onBack={() => { setShowTrash(false); setPage(1); fetchStudents(1); loadSummary(); }} />;
     }
 
     return (
         <div className="flex flex-col gap-6 w-full pt-4">
+            <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <SummaryCard
+                    icon={Users}
+                    label="นักเรียนปีนี้"
+                    note={summary ? `จากนักเรียนในระบบทั้งหมด ${summary.activeTotal.toLocaleString("th-TH")} คน` : `ปีการศึกษา ${parseInt(selectedYear) + 543}`}
+                    tone="bg-[#e8f0ee] text-[#3d6357]"
+                    value={summary?.yearStudents ?? null}
+                />
+                <SummaryCard
+                    icon={BookOpen}
+                    label="ม.ต้น"
+                    note="ม.1 – ม.3"
+                    tone="bg-sky-50 text-sky-700"
+                    value={summary?.lowerStudents ?? null}
+                />
+                <SummaryCard
+                    icon={School}
+                    label="ม.ปลาย"
+                    note="ม.4 – ม.6"
+                    tone="bg-violet-50 text-violet-700"
+                    value={summary?.upperStudents ?? null}
+                />
+                <SummaryCard
+                    icon={UserRoundX}
+                    isActive={selectedGrade === "unassigned"}
+                    onPress={() => setSelectedGrade(selectedGrade === "unassigned" ? "all" : "unassigned")}
+                    label="ยังไม่มีห้องเรียน"
+                    note={`ยังไม่ได้จัดห้องในปีการศึกษา ${parseInt(selectedYear) + 543}`}
+                    tone="bg-amber-50 text-amber-700"
+                    value={summary?.unassigned ?? null}
+                />
+            </section>
+
             <Card className="border border-gray-100 shadow-sm rounded-2xl bg-white" radius="none">
                 <CardBody className="p-4 md:p-6">
                     <div className="flex flex-col gap-4 mb-6">
@@ -777,6 +823,9 @@ const StudentManager = () => {
                                             {g.label}
                                         </SelectItem>
                                     ))}
+                                    <SelectItem key="unassigned" textValue="ระดับชั้น: ยังไม่มีห้องเรียน" className="text-amber-700">
+                                        ยังไม่มีห้องเรียน
+                                    </SelectItem>
                                 </Select>
                             </div>
                             <div className="flex-[0.5] min-w-[130px]">
@@ -785,6 +834,7 @@ const StudentManager = () => {
                                     placeholder="ประเภทห้อง"
                                     size="sm"
                                     selectedKeys={new Set([selectedRoomType])}
+                                    isDisabled={selectedGrade === "unassigned"}
                                     onChange={(e) => setSelectedRoomType(e.target.value)}
                                 >
                                     <SelectItem key="all" textValue="ประเภท: ทั้งหมด">ทั้งหมด</SelectItem>
@@ -846,7 +896,18 @@ const StudentManager = () => {
                                             </TableCell>
                                             <TableCell>{stu.email}</TableCell>
 
-                                            <TableCell>{getStudentClassroom(stu)}</TableCell>
+                                            <TableCell>
+                                                {selectedGrade === "unassigned" ? (
+                                                    <div className="flex flex-col">
+                                                        <span className="font-medium text-amber-700">ยังไม่มีห้องเรียน</span>
+                                                        {getLatestClassroomObj(stu) && (
+                                                            <span className="text-xs text-gray-400">
+                                                                ล่าสุด {getStudentClassroom(stu)} ปี {parseInt(getLatestClassroomObj(stu).academic_years?.year) + 543}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : getStudentClassroom(stu)}
+                                            </TableCell>
                                             <TableCell>{stu.tel}</TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-3">

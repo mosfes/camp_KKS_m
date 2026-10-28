@@ -80,6 +80,8 @@ export async function GET(request: Request) {
         prefixName: row.student.prefix_name,
         firstname: row.student.firstname,
         lastname: row.student.lastname,
+        nickname: row.student.nickname,
+        profileImageUrl: row.student.profile_image_url,
         academicYear: row.run.from_year,
         classroom: row.source_classroom
           ? `ม.6 ห้อง ${row.source_classroom.classroom_types.name}`

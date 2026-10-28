@@ -328,6 +328,9 @@ export async function GET(request: Request) {
           studentId: student.students_id,
           code: String(student.students_id),
           name: `${student.prefix_name ?? ""}${student.firstname} ${student.lastname}`,
+          firstname: student.firstname,
+          nickname: student.nickname ?? null,
+          profileImageUrl: student.profile_image_url ?? null,
           outcome,
           targetRoomKey: defaultTarget?.key ?? null,
         };
