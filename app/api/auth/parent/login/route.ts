@@ -216,14 +216,15 @@ export async function POST(req: Request) {
       prefix_name: student.prefix_name,
       firstname: student.firstname,
       lastname: student.lastname,
-      mustChangePassword,
+      mustChangePassword:
+        mustChangePassword || parent.must_change_password === true,
       sessionVersion: parent.session_version,
     };
 
     const response = NextResponse.json({
       success: true,
       student: sessionData,
-      mustChangePassword,
+      mustChangePassword: sessionData.mustChangePassword,
     });
 
     const { SignJWT } = await import("jose");

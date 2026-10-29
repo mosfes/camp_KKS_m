@@ -527,7 +527,7 @@ export default function ParentAccessManager() {
     createdAccount?.kind === "reset" ? "รหัสผ่านใหม่" : "รหัสผ่านเริ่มต้น";
   const passwordNote =
     createdAccount?.kind === "reset"
-      ? "รหัสนี้แสดงครั้งเดียว กรุณาคัดลอกส่งให้ผู้ปกครอง และแนะนำให้เปลี่ยนรหัสผ่านหลังเข้าสู่ระบบ"
+      ? "รหัสนี้แสดงครั้งเดียว กรุณาคัดลอกส่งให้ผู้ปกครอง ผู้ปกครองจะต้องตั้งรหัสผ่านใหม่เมื่อเข้าสู่ระบบ"
       : "ผู้ปกครองต้องเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งแรก";
 
   const createAccountButton = (row: ActiveRow) => (

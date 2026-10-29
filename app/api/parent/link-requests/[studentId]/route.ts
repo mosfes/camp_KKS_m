@@ -25,7 +25,7 @@ export async function PATCH(
     where: {
       parents_id: auth.session.parentId,
       students_id: studentId,
-      status: "REJECTED",
+      status: { in: ["REJECTED", "EXPIRED", "REVOKED"] },
       dismissed_at: null,
     },
     data: { dismissed_at: new Date() },
@@ -33,7 +33,7 @@ export async function PATCH(
 
   if (dismissed.count === 0) {
     return NextResponse.json(
-      { error: "ไม่พบคำขอที่ถูกปฏิเสธ" },
+      { error: "ไม่พบสถานะคำขอที่ซ่อนได้" },
       { status: 404 },
     );
   }

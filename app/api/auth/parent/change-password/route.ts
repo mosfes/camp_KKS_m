@@ -59,7 +59,7 @@ export async function POST(req: Request) {
         parents_id: session.parentId,
         username_student_id: session.primaryStudentId,
       },
-      select: { parents_id: true },
+      select: { parents_id: true, password: true },
     });
 
     if (!parent) {
@@ -71,12 +71,20 @@ export async function POST(req: Request) {
 
     const bcrypt = await import("bcryptjs");
 
+    if (await bcrypt.compare(newPassword, parent.password)) {
+      return NextResponse.json(
+        { error: "กรุณาตั้งรหัสผ่านใหม่ที่ไม่ซ้ำกับรหัสผ่านปัจจุบัน" },
+        { status: 400 },
+      );
+    }
+
     const passwordHash = await bcrypt.hash(newPassword, 10);
     // Other parents' approved links to this student stay; only admins revoke them.
     const updatedParent = await prisma.parents.update({
       where: { parents_id: parent.parents_id },
       data: {
         password: passwordHash,
+        must_change_password: false,
         session_version: { increment: 1 },
       },
       select: { session_version: true },

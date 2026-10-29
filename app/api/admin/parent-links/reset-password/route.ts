@@ -63,6 +63,8 @@ export async function POST(request: Request) {
       where: { parents_id: parent.parents_id },
       data: {
         password: passwordHash,
+        // ให้ผู้ปกครองตั้งรหัสผ่านของตัวเองหลังเข้าสู่ระบบด้วยรหัสที่แอดมินออกให้
+        must_change_password: true,
         session_version: { increment: 1 },
       },
     }),

@@ -107,6 +107,7 @@ export async function POST(request: Request) {
         where: { parents_id: resetToken.parents_id },
         data: {
           password: passwordHash,
+          must_change_password: false,
           session_version: { increment: 1 },
         },
       });

@@ -101,14 +101,16 @@ model student_push_subscription {
 }
 
 model parents {
-  parents_id        Int       @id @default(autoincrement())
-  firstname         String    @db.VarChar(255)
-  lastname          String    @db.VarChar(255)
-  tel               String    @db.VarChar(10)
-  email             String?   @db.VarChar(255)
-  email_verified_at DateTime?
-  password          String    @db.VarChar(255)
-  session_version   Int       @default(0)
+  parents_id           Int       @id @default(autoincrement())
+  firstname            String    @db.VarChar(255)
+  lastname             String    @db.VarChar(255)
+  tel                  String    @db.VarChar(10)
+  email                String?   @db.VarChar(255)
+  email_verified_at    DateTime?
+  password             String    @db.VarChar(255)
+  /// true after an admin resets the password; cleared once the parent sets their own.
+  must_change_password Boolean   @default(false)
+  session_version      Int       @default(0)
 
   username_student_id Int
   /// 1 = login "28661"; 2+ = extra accounts created by an admin, login "28661-2".
