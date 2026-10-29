@@ -61,7 +61,7 @@ export default function ParentChangePasswordPage() {
           </div>
           <p className="text-sm leading-relaxed text-emerald-50/90">
             เพื่อความปลอดภัย
-            กรุณาเปลี่ยนรหัสผ่านเริ่มต้นก่อนเข้าใช้งานระบบผู้ปกครอง
+            กรุณาตั้งรหัสผ่านของคุณเองก่อนเข้าใช้งานระบบผู้ปกครอง
           </p>
         </div>
 

@@ -84,7 +84,7 @@ export function ParentStudentPicker({
     }
   }
 
-  async function dismissRejectedRequest(studentIdToDismiss: number) {
+  async function dismissRequest(studentIdToDismiss: number) {
     if (busy) return;
 
     setBusy(true);
@@ -153,16 +153,14 @@ export function ParentStudentPicker({
                       }[request.status]
                     }
                   </span>
-                  {request.status === "REJECTED" && (
+                  {request.status !== "PENDING" && (
                     <button
-                      aria-label={`ซ่อนคำขอของนักเรียนรหัส ${request.students_id} ที่ถูกปฏิเสธ`}
+                      aria-label={`ซ่อนสถานะคำขอของนักเรียนรหัส ${request.students_id}`}
                       className="rounded-full p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5d7c6f] disabled:opacity-50"
                       disabled={busy}
                       title="ซ่อนคำขอนี้"
                       type="button"
-                      onClick={() =>
-                        void dismissRejectedRequest(request.students_id)
-                      }
+                      onClick={() => void dismissRequest(request.students_id)}
                     >
                       <X aria-hidden="true" size={16} />
                     </button>
