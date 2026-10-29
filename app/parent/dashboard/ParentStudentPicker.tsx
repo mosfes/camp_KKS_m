@@ -2,6 +2,13 @@
 
 import { useState } from "react";
 import {
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from "@heroui/react";
+import {
   ArrowUpRight,
   GraduationCap,
   Plus,
@@ -54,13 +61,21 @@ export function ParentStudentPicker({
   const [studentId, setStudentId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [linkError, setLinkError] = useState("");
   const [notice, setNotice] = useState("");
+
+  function closeLinkForm() {
+    if (busy) return;
+    setShowLinkForm(false);
+    setStudentId("");
+    setLinkError("");
+  }
 
   async function linkStudent(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     setBusy(true);
-    setError("");
+    setLinkError("");
     setNotice("");
     try {
       const response = await fetch("/api/parent/students", {
@@ -76,7 +91,7 @@ export function ParentStudentPicker({
       setNotice("ส่งคำขอแล้ว นักเรียนต้องยืนยันก่อนจึงจะดูข้อมูลได้");
       await onRefresh();
     } catch (reason) {
-      setError(
+      setLinkError(
         reason instanceof Error ? reason.message : "เชื่อมบัญชีไม่สำเร็จ",
       );
     } finally {
@@ -184,62 +199,90 @@ export function ParentStudentPicker({
               {students.length} คน
             </span>
             <button
-              aria-controls="parent-link-student-form"
-              aria-expanded={showLinkForm}
+              aria-haspopup="dialog"
               className="inline-flex items-center gap-1.5 rounded-xl border border-[#cbdcd1] bg-white px-3 py-2 text-sm font-medium text-[#365f4f] transition-colors hover:bg-[#edf5ef] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#5d7c6f]"
               type="button"
               onClick={() => {
                 setError("");
-                setShowLinkForm((value) => !value);
+                setLinkError("");
+                setShowLinkForm(true);
               }}
             >
               <Plus size={16} /> เพิ่มบุตรหลาน
             </button>
           </div>
         </div>
-        {showLinkForm && (
-          <form
-            className="mb-5 max-w-xl space-y-3 rounded-2xl border border-[#dfe9e0] bg-white p-5 shadow-sm"
-            id="parent-link-student-form"
-            onSubmit={linkStudent}
-          >
-            <p className="text-sm font-semibold text-gray-700">
-              ขอสิทธิ์ดูข้อมูลนักเรียนอีกคน
-            </p>
-            <p className="text-xs text-gray-500">
-              กรอกรหัสนักเรียน ระบบจะส่งคำขอไปให้นักเรียนยืนยัน คำขอมีอายุ 7 วัน
-            </p>
-            <p className="text-xs text-gray-500">
-              กรุณากรอกชื่อและเบอร์โทรใน{" "}
-              <a
-                className="font-semibold text-[#365f4f] underline"
-                href="/parent/profile"
-              >
-                โปรไฟล์ผู้ปกครอง
-              </a>{" "}
-              ก่อนส่งคำขอ เพื่อให้นักเรียนตรวจสอบผู้ขอได้
-            </p>
-            <div>
-              <input
-                required
-                aria-label="รหัสนักเรียนที่ต้องการเพิ่ม"
-                autoComplete="off"
-                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#5d7c6f]"
-                inputMode="numeric"
-                placeholder="รหัสนักเรียน"
-                value={studentId}
-                onChange={(event) => setStudentId(event.target.value)}
-              />
-            </div>
-            <button
-              className="rounded-xl bg-[#5d7c6f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
-              disabled={busy}
-              type="submit"
-            >
-              {busy ? "กำลังส่งคำขอ..." : "ส่งคำขอยืนยัน"}
-            </button>
-          </form>
-        )}
+        <Modal
+          backdrop="blur"
+          classNames={{
+            base: "rounded-2xl",
+            backdrop: "bg-black/50 backdrop-blur-sm",
+            wrapper: "!items-center !justify-center p-4",
+          }}
+          isDismissable={!busy}
+          isKeyboardDismissDisabled={busy}
+          isOpen={showLinkForm}
+          placement="center"
+          onOpenChange={(open) => {
+            if (!open) closeLinkForm();
+          }}
+        >
+          <ModalContent>
+            <form id="parent-link-student-form" onSubmit={linkStudent}>
+              <ModalHeader className="flex flex-col gap-1 text-[#24382e]">
+                ขอสิทธิ์ดูข้อมูลนักเรียนอีกคน
+              </ModalHeader>
+              <ModalBody className="gap-3">
+                <p className="text-sm text-gray-500">
+                  กรอกรหัสนักเรียน ระบบจะส่งคำขอไปให้นักเรียนยืนยัน คำขอมีอายุ 7
+                  วัน
+                </p>
+                <p className="text-sm text-gray-500">
+                  กรุณากรอกชื่อและเบอร์โทรใน{" "}
+                  <a
+                    className="font-semibold text-[#365f4f] underline"
+                    href="/parent/profile"
+                  >
+                    โปรไฟล์ผู้ปกครอง
+                  </a>{" "}
+                  ก่อนส่งคำขอ เพื่อให้นักเรียนตรวจสอบผู้ขอได้
+                </p>
+                <input
+                  required
+                  aria-label="รหัสนักเรียนที่ต้องการเพิ่ม"
+                  autoComplete="off"
+                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#5d7c6f]"
+                  inputMode="numeric"
+                  placeholder="รหัสนักเรียน"
+                  value={studentId}
+                  onChange={(event) => setStudentId(event.target.value)}
+                />
+                {linkError && (
+                  <p aria-live="polite" className="text-sm text-red-600">
+                    {linkError}
+                  </p>
+                )}
+              </ModalBody>
+              <ModalFooter>
+                <button
+                  className="rounded-xl border border-[#cbdcd1] bg-white px-4 py-2.5 text-sm font-medium text-[#365f4f] hover:bg-[#edf5ef] disabled:opacity-60"
+                  disabled={busy}
+                  type="button"
+                  onClick={closeLinkForm}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  className="rounded-xl bg-[#5d7c6f] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  disabled={busy}
+                  type="submit"
+                >
+                  {busy ? "กำลังส่งคำขอ..." : "ส่งคำขอยืนยัน"}
+                </button>
+              </ModalFooter>
+            </form>
+          </ModalContent>
+        </Modal>
         {notice && (
           <p aria-live="polite" className="mb-4 text-sm text-[#365f4f]">
             {notice}
