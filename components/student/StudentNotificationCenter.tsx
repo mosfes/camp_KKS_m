@@ -46,8 +46,12 @@ type NotificationPermissionState = NotificationPermission | "unsupported";
 type PushAvailability = "available" | "ios-install-required" | "unsupported";
 
 // แจ้งเตือนด่วนมาทาง web push และดึงใหม่ทันทีเมื่อกลับมาที่แอป
-// การ poll จึงเป็นแค่ตัวสำรอง ไม่ต้องถี่ (ลดภาระเซิร์ฟเวอร์ตอนคนเยอะ)
-const FOREGROUND_POLL_INTERVAL_MS = 45_000;
+// การ poll จึงเป็นแค่ตัวสำรอง (ลด CPU ของเซิร์ฟเวอร์ตอนคนเยอะ):
+// - ไม่มีค่ายที่กำลังจัดอยู่ → ไม่ poll เลย
+// - เปิด push แล้ว → poll ห่างๆ เผื่อ push ตกหล่น
+// - ยังไม่เปิด push → poll ถี่กว่า เพราะเป็นช่องทางเดียว
+const POLL_INTERVAL_WITHOUT_PUSH_MS = 45_000;
+const POLL_INTERVAL_WITH_PUSH_MS = 180_000;
 const NOTIFICATION_REQUEST_TIMEOUT_MS = 8_000;
 const MAX_STORED_IDS = 100;
 
@@ -143,6 +147,7 @@ export function StudentNotificationCenter({
   const [pushAvailability, setPushAvailability] =
     useState<PushAvailability>("unsupported");
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
+  const [hasLiveCamp, setHasLiveCamp] = useState(false);
   const [isEnablingPush, setIsEnablingPush] = useState(false);
   const [pushMessage, setPushMessage] = useState("");
 
@@ -174,6 +179,9 @@ export function StudentNotificationCenter({
       if (!response.ok) return;
 
       const result = await response.json();
+
+      setHasLiveCamp(result.hasLiveCamp === true);
+
       const nextNotifications: StudentNotification[] = Array.isArray(
         result.notifications,
       )
@@ -283,11 +291,6 @@ export function StudentNotificationCenter({
 
     void fetchNotifications();
 
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") {
-        void fetchNotifications();
-      }
-    }, FOREGROUND_POLL_INTERVAL_MS);
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         void fetchNotifications();
@@ -303,13 +306,29 @@ export function StudentNotificationCenter({
     window.addEventListener("pageshow", handlePageShow);
 
     return () => {
-      window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("pageshow", handlePageShow);
     };
   }, [fetchNotifications, studentId]);
+
+  useEffect(() => {
+    if (!studentId || !hasLiveCamp) return;
+
+    const timer = window.setInterval(
+      () => {
+        if (document.visibilityState === "visible") {
+          void fetchNotifications();
+        }
+      },
+      isPushSubscribed
+        ? POLL_INTERVAL_WITH_PUSH_MS
+        : POLL_INTERVAL_WITHOUT_PUSH_MS,
+    );
+
+    return () => window.clearInterval(timer);
+  }, [fetchNotifications, hasLiveCamp, isPushSubscribed, studentId]);
 
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;

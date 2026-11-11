@@ -381,6 +381,15 @@ export default function StudentDashboard({
     fetchData();
   }, []);
 
+  // poll สถานะรถเฉพาะเมื่อมีค่ายที่กำลังจัดอยู่และนักเรียนมีที่นั่งบนรถ
+  // นอกช่วงนั้นอัปเดตผ่าน push / ตอนกลับมาที่แอป / ปุ่มรีเฟรช (ประหยัด CPU)
+  const needsBusPolling = busAssignments.some(
+    (assignment) =>
+      assignment.configured &&
+      assignment.isUnderway &&
+      assignment.student?.participationStatus === "ACTIVE",
+  );
+
   useEffect(() => {
     // ป้องกัน request ซ้อน — ถ้า request ก่อนหน้ายังไม่เสร็จ ให้ข้ามรอบนี้ไป
     let isPolling = false;
@@ -395,10 +404,10 @@ export default function StudentDashboard({
       }
     };
 
-    const timer = window.setInterval(
-      poll,
-      needsFastBusPolling ? 15_000 : 60_000,
-    );
+    const timer =
+      needsFastBusPolling || needsBusPolling
+        ? window.setInterval(poll, needsFastBusPolling ? 15_000 : 120_000)
+        : null;
 
     // fetch ทันทีเมื่อ user กลับมาที่ tab (แทนที่จะรอ interval ถัดไป)
     const handleVisibilityChange = () => {
@@ -411,11 +420,11 @@ export default function StudentDashboard({
     window.addEventListener(STUDENT_BUS_SYNC_REQUESTED_EVENT, poll);
 
     return () => {
-      window.clearInterval(timer);
+      if (timer !== null) window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener(STUDENT_BUS_SYNC_REQUESTED_EVENT, poll);
     };
-  }, [needsFastBusPolling, refreshBusAssignments]);
+  }, [needsBusPolling, needsFastBusPolling, refreshBusAssignments]);
 
   const onProfileSaved = () => {
     setShowProfileModal(false);

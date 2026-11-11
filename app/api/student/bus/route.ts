@@ -3,7 +3,10 @@
 import { NextResponse } from "next/server";
 
 import { requireStudent } from "@/lib/auth";
-import { isBangkokDateBefore } from "@/lib/bangkok-date";
+import {
+  isBangkokDateBefore,
+  isBangkokDateInRange,
+} from "@/lib/bangkok-date";
 import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import {
@@ -136,6 +139,11 @@ export async function GET(request: Request) {
           campPublicId: enrollment.camp.public_id,
           campName: enrollment.camp.name,
           configured: true,
+          // ค่ายอยู่ในช่วงวันจัดจริง: client ใช้ตัดสินว่าควร poll สถานะรถหรือไม่
+          isUnderway: isBangkokDateInRange(
+            enrollment.camp.start_date,
+            enrollment.camp.end_date,
+          ),
           bus: {
             name: assignment.bus.name,
             status: assignment.bus.status,
