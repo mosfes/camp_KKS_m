@@ -16,6 +16,7 @@ import {
   LayoutTemplate,
   Plus,
   RefreshCw,
+  Sparkles,
   Trash2,
 } from "lucide-react";
 
@@ -568,6 +569,8 @@ export default function ProjectDocumentPage({
   const [templateName, setTemplateName] = useState("");
   const [loading, setLoading] = useState(!initialData);
   const [isRefreshingFromCamp, setIsRefreshingFromCamp] = useState(false);
+  const [aiProjectName, setAiProjectName] = useState<string | null>(null);
+  const [isAiDrafting, setIsAiDrafting] = useState(false);
   const [initiallyDirty, setInitiallyDirty] = useState(
     Boolean(
       initialData?.document && !initialData.document.camp_project_document_id,
@@ -921,6 +924,67 @@ export default function ProjectDocumentPage({
     );
   };
 
+  const runAiDraft = async (projectName: string) => {
+    setIsAiDrafting(true);
+    try {
+      const response = await fetch(
+        `/api/camps/${campId}/project-document/ai-draft`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            projectName,
+            location: document.location_text,
+            durationText: document.duration_text,
+            responsible: document.responsible_people,
+          }),
+        },
+      );
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result) {
+        throw new Error(result?.error || "ไม่สามารถร่างเอกสารด้วย AI ได้");
+      }
+
+      setDocument((current: any) => ({ ...current, ...result }));
+      showSuccess(
+        "AI ร่างเอกสารแล้ว",
+        "กรุณาตรวจทานเนื้อหา และเลือกมาตรฐาน กลยุทธ์ และผู้ลงนามเพิ่มเติม",
+      );
+    } catch (error: any) {
+      showError("ร่างเอกสารไม่สำเร็จ", error.message);
+    } finally {
+      setIsAiDrafting(false);
+    }
+  };
+
+  const generateWithAi = () => {
+    const projectName = (aiProjectName ?? document.project_name ?? "").trim();
+
+    if (!projectName) {
+      showError("ยังไม่ได้กรอกชื่อโครงการ", "กรุณากรอกชื่อโครงการก่อน");
+
+      return;
+    }
+
+    const hasContent =
+      Boolean(String(document.rationale || "").trim()) ||
+      (document.objectives || []).some((item: string) => item?.trim());
+
+    if (!hasContent) {
+      runAiDraft(projectName);
+
+      return;
+    }
+
+    showConfirm(
+      "แทนที่เนื้อหาเดิม",
+      "AI จะเขียนทับหลักการและเหตุผล วัตถุประสงค์ เป้าหมาย ขั้นตอน งบประมาณ และการประเมินผลที่มีอยู่ ต้องการดำเนินการต่อหรือไม่",
+      () => runAiDraft(projectName),
+      "ร่างใหม่ด้วย AI",
+    );
+  };
+
   const saveTemplate = async () => {
     if (!templateName.trim()) {
       showError("ยังไม่ได้ตั้งชื่อ", "กรุณาระบุชื่อเทมเพลต");
@@ -1066,6 +1130,51 @@ export default function ProjectDocumentPage({
               ? "กำลังดึงข้อมูลจากค่าย..."
               : "ดึงข้อมูลล่าสุดจากค่าย"}
           </button>
+        </section>
+
+        <section className="space-y-3 rounded-2xl border border-[#cad8d2] bg-white p-5">
+          <div>
+            <p className="flex items-center gap-2 font-semibold text-gray-900">
+              <Sparkles aria-hidden="true" className="text-[#6b857a]" size={18} />
+              ร่างเอกสารด้วย AI
+            </p>
+            <p className="mt-1 text-sm text-gray-600">
+              กรอกชื่อโครงการ แล้ว AI จะเขียนหลักการและเหตุผล วัตถุประสงค์
+              เป้าหมาย ขั้นตอนดำเนินงาน งบประมาณ การประเมินผล
+              และผลที่คาดว่าจะได้รับให้
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 md:flex-row">
+            <input
+              aria-label="ชื่อโครงการสำหรับให้ AI ร่างเอกสาร"
+              className={inputClass}
+              disabled={isAiDrafting}
+              maxLength={500}
+              placeholder="เช่น ค่ายพัฒนาทักษะวิทยาศาสตร์ ม.2"
+              value={aiProjectName ?? document.project_name ?? ""}
+              onChange={(event) => setAiProjectName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  generateWithAi();
+                }
+              }}
+            />
+            <button
+              aria-busy={isAiDrafting}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#5d7c6f] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#4b685c] disabled:cursor-wait disabled:opacity-70"
+              disabled={isAiDrafting}
+              type="button"
+              onClick={generateWithAi}
+            >
+              <Sparkles
+                aria-hidden="true"
+                className={isAiDrafting ? "animate-pulse" : undefined}
+                size={16}
+              />
+              {isAiDrafting ? "AI กำลังร่างเอกสาร..." : "ร่างเอกสารด้วย AI"}
+            </button>
+          </div>
         </section>
 
         <DocumentTemplatePanel

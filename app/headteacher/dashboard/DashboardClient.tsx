@@ -49,6 +49,9 @@ const SelectProjectTypeModal = dynamic(
   () => import("./SelectProjectTypeModal"),
   { ssr: false },
 );
+const QuickCreateCampModal = dynamic(() => import("./QuickCreateCampModal"), {
+  ssr: false,
+});
 const EditCampModal = dynamic(() => import("./camp/EditCampModal"), {
   ssr: false,
 });
@@ -348,6 +351,7 @@ function DashboardContent() {
   const loading = !rawCamps || !teacherInfo || !dbAcademicYears;
   const [isSelectTypeOpen, setIsSelectTypeOpen] = useState(false);
   const [isCreateCampOpen, setIsCreateCampOpen] = useState(false);
+  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [selectedProjectType, setSelectedProjectType] = useState<string | null>(
     null,
   );
@@ -544,6 +548,7 @@ function DashboardContent() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const mountSelectTypeModal = useMountedModal(isSelectTypeOpen);
   const mountCreateCampModal = useMountedModal(isCreateCampOpen);
+  const mountQuickCreateModal = useMountedModal(isQuickCreateOpen);
   const mountEnrollmentModal = useMountedModal(isEnrollmentModalOpen);
   const mountEditCampModal = useMountedModal(isEditModalOpen);
   const mountHomeroomStudentModal = useMountedModal(Boolean(selectedStudent));
@@ -1578,13 +1583,22 @@ function DashboardContent() {
                 </p>
               </div>
 
-              <Button
-                className="bg-[#6b857a] text-white rounded-full px-5"
-                startContent={<span className="text-xl">+</span>}
-                onPress={openCreateCampFlow}
-              >
-                สร้างค่ายใหม่
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  className="bg-white text-[#6b857a] border border-[#6b857a] rounded-full px-5"
+                  startContent={<Sparkles size={16} />}
+                  onPress={() => setIsQuickCreateOpen(true)}
+                >
+                  สร้างค่ายด่วนด้วย AI
+                </Button>
+                <Button
+                  className="bg-[#6b857a] text-white rounded-full px-5"
+                  startContent={<span className="text-xl">+</span>}
+                  onPress={openCreateCampFlow}
+                >
+                  สร้างค่ายใหม่
+                </Button>
+              </div>
             </div>
 
             {/* ===== FILTER ===== */}
@@ -1915,6 +1929,22 @@ function DashboardContent() {
           isOpen={isSelectTypeOpen}
           onClose={() => setIsSelectTypeOpen(false)}
           onSelect={handleProjectTypeSelect}
+        />
+      )}
+
+      {mountQuickCreateModal && (
+        <QuickCreateCampModal
+          isOpen={isQuickCreateOpen}
+          onClose={() => setIsQuickCreateOpen(false)}
+          onCreated={(campId) => {
+            setIsQuickCreateOpen(false);
+            mutateCamps();
+            showSuccess(
+              "สร้างค่ายสำเร็จ",
+              "AI ร่างค่ายและเอกสารโครงการเรียบร้อย กรุณาตรวจสอบรายละเอียด",
+            );
+            goToCampDetail(campId);
+          }}
         />
       )}
 
