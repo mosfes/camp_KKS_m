@@ -5,6 +5,7 @@ import {
   getActiveBusReminder,
   getBusReminderContent,
 } from "@/lib/camp-bus-reminder";
+import { isBangkokDateInRange } from "@/lib/bangkok-date";
 import { prisma } from "@/lib/db";
 
 const NOTIFICATION_HISTORY_MS = 30 * 24 * 60 * 60 * 1000;
@@ -40,6 +41,8 @@ export async function GET() {
                 camp_id: true,
                 public_id: true,
                 name: true,
+                start_date: true,
+                end_date: true,
               },
             },
             events: {
@@ -101,8 +104,19 @@ export async function GET() {
       )
       .slice(0, NOTIFICATION_LIMIT);
 
+    // การแจ้งเตือนมีแต่เรื่องขึ้น/ลงรถ จึงเกิดได้เฉพาะช่วงวันค่าย
+    // ให้ client หยุด poll เมื่อไม่มีค่ายที่กำลังจัดอยู่ (ประหยัด CPU)
+    const hasLiveCamp = assignments.some(
+      (assignment) =>
+        assignment.participation_status === "ACTIVE" &&
+        isBangkokDateInRange(
+          assignment.bus.camp.start_date,
+          assignment.bus.camp.end_date,
+        ),
+    );
+
     return NextResponse.json(
-      { notifications },
+      { notifications, hasLiveCamp },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {

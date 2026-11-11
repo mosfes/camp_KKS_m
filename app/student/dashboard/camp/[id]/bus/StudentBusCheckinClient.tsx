@@ -178,6 +178,7 @@ export default function StudentBusCheckinPage({
   const [alighting, setAlighting] = useState(false);
   const [pendingBoarding, setPendingBoarding] = useState(false);
   const needsFastBusPolling = Boolean(data?.student?.reminder);
+  const isCampEnded = Boolean(data?.isEnded);
 
   useEffect(() => {
     if (busRefreshCooldown <= 0) return;
@@ -308,21 +309,24 @@ export default function StudentBusCheckinPage({
         void fetchBusData(false, true);
       }
     };
-    const timer = window.setInterval(
-      refreshStatus,
-      needsFastBusPolling ? 15_000 : 60_000,
-    );
+    // ค่ายจบแล้วสถานะรถไม่เปลี่ยนอีก ไม่ต้อง poll
+    const timer = isCampEnded
+      ? null
+      : window.setInterval(
+          refreshStatus,
+          needsFastBusPolling ? 15_000 : 60_000,
+        );
 
     window.addEventListener(STUDENT_BUS_SYNC_REQUESTED_EVENT, refreshStatus);
 
     return () => {
-      window.clearInterval(timer);
+      if (timer !== null) window.clearInterval(timer);
       window.removeEventListener(
         STUDENT_BUS_SYNC_REQUESTED_EVENT,
         refreshStatus,
       );
     };
-  }, [fetchBusData, needsFastBusPolling]);
+  }, [fetchBusData, isCampEnded, needsFastBusPolling]);
 
   const boardBus = async () => {
     if (
