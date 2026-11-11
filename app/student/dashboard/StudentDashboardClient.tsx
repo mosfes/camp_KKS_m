@@ -1132,11 +1132,11 @@ function CampCard({
           </h3>
 
           <div className="space-y-1.5 pt-1 text-xs text-gray-600">
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-[#5d7c6f]/10 flex items-center justify-center shrink-0">
                 <MapPin className="text-[#5d7c6f]" size={12} />
               </div>
-              <span className="truncate font-normal">
+              <span className="min-w-0 flex-1 truncate font-normal">
                 {camp.location || "ไม่ระบุสถานที่"}
               </span>
             </div>

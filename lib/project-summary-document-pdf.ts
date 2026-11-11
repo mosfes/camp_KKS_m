@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, PDFImage, PDFPage, rgb } from "pdf-lib";
+
+import { loadPublicAsset } from "@/lib/pdf-assets";
 
 import { normalizeProjectSummaryStandards } from "@/lib/project-summary-standards";
 
@@ -67,20 +66,18 @@ export async function createProjectSummaryDocumentPdf(document: any) {
   const pdf = await PDFDocument.create();
   pdf.registerFontkit(fontkit);
   const font = await pdf.embedFont(
-    await readFile(path.join(process.cwd(), "public/fonts/THSarabunPSK.ttf")),
+    await loadPublicAsset("fonts/THSarabunPSK.ttf"),
     { subset: true },
   );
   const boldFont = await pdf.embedFont(
-    await readFile(
-      path.join(process.cwd(), "public/fonts/THSarabunPSK-Bold.ttf"),
-    ),
+    await loadPublicAsset("fonts/THSarabunPSK-Bold.ttf"),
     { subset: true },
   );
 
   let logo: PDFImage | null = null;
   try {
     logo = await pdf.embedPng(
-      await readFile(path.join(process.cwd(), "public/images/logoKKS.png")),
+      await loadPublicAsset("images/logoKKS.png"),
     );
   } catch {
     // The report remains downloadable when the optional logo is unavailable.

@@ -19,6 +19,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import toast from "react-hot-toast";
 
 export type PreviewPdf = { blob: Blob; fileName?: string };
 
@@ -160,6 +161,8 @@ export default function DocumentPreviewModal({
     setBusyKey(item.key);
     try {
       await item.onPress();
+    } catch (err: any) {
+      toast.error(err?.message || "สร้างไฟล์ไม่สำเร็จ กรุณาลองใหม่");
     } finally {
       setBusyKey(null);
     }

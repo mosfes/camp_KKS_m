@@ -14,8 +14,10 @@ import {
   Target,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import * as QRCode from "qrcode";
 
+import CertificateQrImage from "./CertificateQrImage";
+
+import { toThumbnail } from "@/lib/cloudinary-url";
 import { prisma } from "@/lib/db";
 import {
   buildCertificateVerificationUrl,
@@ -299,7 +301,7 @@ export default async function CertificateVerificationPage({
   const imageWidth = camp.img_certificate_width || 1000;
   const imageHeight = camp.img_certificate_height || 707;
   const qrSize = camp.cert_qr_size || 140;
-  let qrDataUrl: string | null = null;
+  let qrUrl: string | null = null;
 
   if (camp.cert_show_qr) {
     const requestHeaders = await headers();
@@ -309,9 +311,10 @@ export default async function CertificateVerificationPage({
       (host?.startsWith("localhost") ? "http" : "https");
 
     if (host) {
-      qrDataUrl = await QRCode.toDataURL(
-        buildCertificateVerificationUrl(`${protocol}://${host}`, rawEnrollmentId),
-        { errorCorrectionLevel: "M", margin: 1, width: Math.round(qrSize) },
+      // สร้างแค่ URL ที่มีลายเซ็นบนเซิร์ฟเวอร์ ส่วนรูป QR วาดในเบราว์เซอร์
+      qrUrl = buildCertificateVerificationUrl(
+        `${protocol}://${host}`,
+        rawEnrollmentId,
       );
     }
   }
@@ -418,12 +421,13 @@ export default async function CertificateVerificationPage({
               className="relative w-full overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-black/5"
               style={{ aspectRatio: `${imageWidth} / ${imageHeight}` }}
             >
+              {/* ย่อรูปผ่าน Cloudinary แทน Vercel Image Optimization */}
               <Image
                 fill
+                unoptimized
                 alt={`เกียรติบัตรของ ${recipientName}`}
                 className="object-cover"
-                sizes="(max-width: 672px) 100vw, 608px"
-                src={camp.img_certificate_url}
+                src={toThumbnail(camp.img_certificate_url, 1216)}
               />
               <svg
                 aria-hidden="true"
@@ -458,11 +462,10 @@ export default async function CertificateVerificationPage({
                     {certificateNumber}
                   </text>
                 )}
-                {qrDataUrl && (
-                  <image
-                    height={qrSize}
-                    href={qrDataUrl}
-                    width={qrSize}
+                {qrUrl && (
+                  <CertificateQrImage
+                    size={qrSize}
+                    url={qrUrl}
                     x={((camp.cert_qr_x ?? 90) / 100) * imageWidth - qrSize / 2}
                     y={((camp.cert_qr_y ?? 88) / 100) * imageHeight - qrSize / 2}
                   />

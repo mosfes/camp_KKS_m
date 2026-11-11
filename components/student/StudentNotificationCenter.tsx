@@ -45,7 +45,9 @@ type StudentNotification = {
 type NotificationPermissionState = NotificationPermission | "unsupported";
 type PushAvailability = "available" | "ios-install-required" | "unsupported";
 
-const FOREGROUND_POLL_INTERVAL_MS = 15_000;
+// แจ้งเตือนด่วนมาทาง web push และดึงใหม่ทันทีเมื่อกลับมาที่แอป
+// การ poll จึงเป็นแค่ตัวสำรอง ไม่ต้องถี่ (ลดภาระเซิร์ฟเวอร์ตอนคนเยอะ)
+const FOREGROUND_POLL_INTERVAL_MS = 45_000;
 const NOTIFICATION_REQUEST_TIMEOUT_MS = 8_000;
 const MAX_STORED_IDS = 100;
 

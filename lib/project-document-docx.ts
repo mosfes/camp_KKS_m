@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import {
   AlignmentType,
   BorderStyle,
@@ -31,6 +28,7 @@ import {
   table,
 } from "@/lib/project-docx";
 import { normalizeProjectEvaluationMethod } from "@/lib/project-evaluation-method";
+import { loadPublicAsset } from "@/lib/pdf-assets";
 
 const HEADER_LABEL_WIDTH = 2160;
 const HEADER_VALUE_WIDTH = CONTENT_WIDTH - HEADER_LABEL_WIDTH;
@@ -201,11 +199,9 @@ export async function createProjectDocumentDocx(document: any) {
   const children: Array<Paragraph | Table> = [];
 
   try {
-    const logo = await readFile(
-      path.join(process.cwd(), "public/images/logoKKS.png"),
-    );
+    const logo = await loadPublicAsset("images/logoKKS.png");
 
-    children.push(imageParagraph(new Uint8Array(logo), "png", 82, 82));
+    children.push(imageParagraph(logo, "png", 82, 82));
   } catch {
     // Keep Word export available without the optional logo.
   }
@@ -360,5 +356,6 @@ export async function createProjectDocumentDocx(document: any) {
     `เอกสารโครงการ ${clean(document.project_name)}`,
   );
 
-  return Packer.toBuffer(file);
+  // สร้างในเบราว์เซอร์ (Packer.toBuffer ใช้ได้เฉพาะบน Node)
+  return Packer.toBlob(file);
 }

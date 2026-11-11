@@ -10,10 +10,12 @@ function databaseUrlWithPoolLimits(rawUrl: string | undefined) {
   try {
     const url = new URL(rawUrl);
 
-    // Preview deployments can multiply quickly while sharing the same DB.
+    // Vercel Fluid compute lets one instance serve several requests at once,
+    // so a single connection makes concurrent requests queue (and time out
+    // under load). 5 keeps total connections modest across instances.
     // Keep explicit URL settings unchanged so infrastructure can override this.
     if (!url.searchParams.has("connection_limit")) {
-      url.searchParams.set("connection_limit", "1");
+      url.searchParams.set("connection_limit", "5");
     }
 
     if (!url.searchParams.has("pool_timeout")) {

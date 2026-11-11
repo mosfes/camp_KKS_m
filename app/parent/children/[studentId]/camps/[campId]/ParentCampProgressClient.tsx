@@ -26,6 +26,7 @@ import {
 
 import { ParentNavbar } from "@/components/ParentNavbar";
 import { toThumbnail } from "@/lib/cloudinary-url";
+import { LOCATION_TRACKING_ENABLED } from "@/lib/features";
 
 const CampLocationTracker = dynamic(
   () => import("@/components/camp-location/CampLocationTracker"),
@@ -214,19 +215,21 @@ export default function ParentCampProgressClient({
           >
             <ActivityPanel camp={camp} studentName={studentName} />
           </Tab>
-          <Tab
-            key="location"
-            title={
-              <span className="flex items-center gap-1.5">
-                <MapPin size={15} />
-                ตำแหน่ง
-              </span>
-            }
-          >
-            <div className="py-4">
-              <CampLocationTracker campId={camp.id} studentId={camp.studentId} viewer="parent" />
-            </div>
-          </Tab>
+          {LOCATION_TRACKING_ENABLED ? (
+            <Tab
+              key="location"
+              title={
+                <span className="flex items-center gap-1.5">
+                  <MapPin size={15} />
+                  ตำแหน่ง
+                </span>
+              }
+            >
+              <div className="py-4">
+                <CampLocationTracker campId={camp.id} studentId={camp.studentId} viewer="parent" />
+              </div>
+            </Tab>
+          ) : null}
           <Tab
             key="schedule"
             title={

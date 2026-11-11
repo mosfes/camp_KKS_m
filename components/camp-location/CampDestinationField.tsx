@@ -9,6 +9,7 @@ import { useCallback, useState } from "react";
 import CampLocationMap from "./CampLocationMap";
 
 import { searchGooglePlaces } from "@/lib/google-maps-client";
+import { LOCATION_TRACKING_ENABLED } from "@/lib/features";
 
 export interface CampDestination extends MapPoint {
   name: string;
@@ -118,6 +119,7 @@ export default function CampDestinationField({
         </button>
       </div>
 
+      {LOCATION_TRACKING_ENABLED && (
       <div className="border-t border-slate-200 px-4 py-3">
         <label className="flex cursor-pointer items-start justify-between gap-3 text-sm">
           <span>
@@ -145,6 +147,7 @@ export default function CampDestinationField({
           </span>
         </label>
       </div>
+      )}
 
       <div className="border-t border-slate-200 px-4 py-3">
         <div className="flex items-start gap-3 text-sm">

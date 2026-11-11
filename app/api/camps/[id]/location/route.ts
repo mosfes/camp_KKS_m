@@ -6,6 +6,7 @@ import {
   getCampLocationViewer,
 } from "@/lib/camp-location-auth";
 import { prisma } from "@/lib/db";
+import { LOCATION_TRACKING_ENABLED } from "@/lib/features";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 import { getBangkokDateKey, isBangkokDateBefore } from "@/lib/bangkok-date";
 import { getParentSession } from "@/lib/parent-auth";
@@ -115,10 +116,19 @@ function isUnderTen(birthday: Date | null) {
   return tenthBirthday > getBangkokDateKey();
 }
 
+function locationTrackingDisabled() {
+  return NextResponse.json(
+    { error: "ฟีเจอร์ติดตามตำแหน่งถูกปิดใช้งาน" },
+    { status: 404 },
+  );
+}
+
 export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  if (!LOCATION_TRACKING_ENABLED) return locationTrackingDisabled();
+
   const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
@@ -373,6 +383,8 @@ export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  if (!LOCATION_TRACKING_ENABLED) return locationTrackingDisabled();
+
   const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
@@ -467,6 +479,8 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  if (!LOCATION_TRACKING_ENABLED) return locationTrackingDisabled();
+
   const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
@@ -576,6 +590,8 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  if (!LOCATION_TRACKING_ENABLED) return locationTrackingDisabled();
+
   const auth = await authorize(request, context);
 
   if (auth.error) return auth.error;
