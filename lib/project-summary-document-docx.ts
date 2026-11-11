@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import { AlignmentType, Packer, Paragraph, Table } from "docx";
 
 import {
@@ -19,6 +16,7 @@ import {
   title,
 } from "@/lib/project-docx";
 import { normalizeProjectSummaryStandards } from "@/lib/project-summary-standards";
+import { loadPublicAsset } from "@/lib/pdf-assets";
 
 function statusLabel(value: unknown) {
   const labels: Record<string, string> = {
@@ -108,11 +106,9 @@ export async function createProjectSummaryDocumentDocx(document: any) {
   const children: Array<Paragraph | Table> = [];
 
   try {
-    const logo = await readFile(
-      path.join(process.cwd(), "public/images/logoKKS.png"),
-    );
+    const logo = await loadPublicAsset("images/logoKKS.png");
 
-    children.push(imageParagraph(new Uint8Array(logo), "png", 82, 82));
+    children.push(imageParagraph(logo, "png", 82, 82));
   } catch {
     // Keep Word export available without the optional logo.
   }
@@ -600,5 +596,6 @@ export async function createProjectSummaryDocumentDocx(document: any) {
     `รายงานการดำเนินโครงการ ${clean(document.project_name)}`,
   );
 
-  return Packer.toBuffer(file);
+  // สร้างในเบราว์เซอร์ (Packer.toBuffer ใช้ได้เฉพาะบน Node)
+  return Packer.toBlob(file);
 }

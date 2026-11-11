@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, PDFImage, PDFPage, rgb } from "pdf-lib";
+
+import { loadPublicAsset } from "@/lib/pdf-assets";
 
 import { normalizeProjectEvaluationMethod } from "@/lib/project-evaluation-method";
 
@@ -53,20 +52,18 @@ export async function createProjectDocumentPdf(document: any) {
 
   pdf.registerFontkit(fontkit);
   const font = await pdf.embedFont(
-    await readFile(path.join(process.cwd(), "public/fonts/THSarabunPSK.ttf")),
+    await loadPublicAsset("fonts/THSarabunPSK.ttf"),
     { subset: true },
   );
   const boldFont = await pdf.embedFont(
-    await readFile(
-      path.join(process.cwd(), "public/fonts/THSarabunPSK-Bold.ttf"),
-    ),
+    await loadPublicAsset("fonts/THSarabunPSK-Bold.ttf"),
     { subset: true },
   );
   let logo: PDFImage | null = null;
 
   try {
     logo = await pdf.embedPng(
-      await readFile(path.join(process.cwd(), "public/images/logoKKS.png")),
+      await loadPublicAsset("images/logoKKS.png"),
     );
   } catch {
     // Keep export available if a deployment omits the optional logo.

@@ -28,9 +28,8 @@ const BreakdownModal = dynamic(() => import("./BreakdownModal"), {
 });
 
 import { useStatusModal } from "@/components/StatusModalProvider";
-import DocumentPreviewModal, {
-  fetchPreviewPdf,
-} from "@/components/documents/DocumentPreviewModal";
+import DocumentPreviewModal from "@/components/documents/DocumentPreviewModal";
+import { buildCampStudentsPdf } from "@/lib/client-pdf";
 
 interface Student {
   grade_snapshot?: string | null;
@@ -749,8 +748,7 @@ export default function CampStudentsPage({
         fileName={`ข้อมูลนักเรียน_${cleanCampName}_${new Date().toISOString().slice(0, 10)}.pdf`}
         isOpen={pdfPreviewOpen}
         loadPdf={async () => ({
-          blob: (await fetchPreviewPdf(`/api/camps/${campId}/students/pdf`))
-            .blob,
+          blob: (await buildCampStudentsPdf(String(campId))).blob,
         })}
         title="ข้อมูลนักเรียน"
         onClose={() => setPdfPreviewOpen(false)}

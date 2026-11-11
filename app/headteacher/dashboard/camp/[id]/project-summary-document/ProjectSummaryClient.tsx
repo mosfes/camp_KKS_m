@@ -25,9 +25,8 @@ import { useParams } from "next/navigation";
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
-import DocumentPreviewModal, {
-  fetchPreviewPdf,
-} from "@/components/documents/DocumentPreviewModal";
+import DocumentPreviewModal from "@/components/documents/DocumentPreviewModal";
+import { buildProjectSummaryDocumentPdf, downloadProjectSummaryDocumentDocx } from "@/lib/client-pdf";
 import DeferredDateRangePicker from "@/components/documents/DeferredDateRangePicker";
 import DocumentPersonnelPicker from "@/components/documents/DocumentPersonnelPicker";
 import { useDocumentAutoSave } from "@/components/documents/useDocumentAutoSave";
@@ -2985,16 +2984,12 @@ export default function ProjectSummaryDocumentPage({
             key: "docx",
             label: "ดาวน์โหลด Word",
             icon: <FileType2 size={16} />,
-            onPress: () => {
-              window.location.href = `/api/camps/${campId}/project-summary-document/docx`;
-            },
+            onPress: () => downloadProjectSummaryDocumentDocx(campId),
           },
         ]}
         fileName="project-summary.pdf"
         isOpen={previewOpen}
-        loadPdf={() =>
-          fetchPreviewPdf(`/api/camps/${campId}/project-summary-document/pdf`)
-        }
+        loadPdf={() => buildProjectSummaryDocumentPdf(campId)}
         note="ไฟล์ Word มีเนื้อหาเดียวกับตัวอย่างนี้"
         title="เอกสารสรุปโครงการ"
         onClose={() => setPreviewOpen(false)}

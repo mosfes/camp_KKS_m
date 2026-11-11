@@ -2,14 +2,11 @@ import { NextResponse } from "next/server";
 
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import {
-  buildProjectSummaryDownloadFilename,
-  projectDownloadContentDisposition,
-} from "@/lib/project-download-filename";
-import { createProjectSummaryDocumentPdf } from "@/lib/project-summary-document-pdf";
+import { buildProjectSummaryDownloadFilename } from "@/lib/project-download-filename";
 
 export const runtime = "nodejs";
 
+/** ส่งข้อมูลเอกสารสรุปให้เบราว์เซอร์สร้าง PDF เอง (ไม่สร้าง PDF บนเซิร์ฟเวอร์) */
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
@@ -48,24 +45,21 @@ export async function GET(
     );
   }
 
-  const bytes = await createProjectSummaryDocumentPdf({
+  const document = {
     ...camp.project_summary_document,
     objectives:
       Array.isArray(camp.project_summary_document.objectives) &&
       camp.project_summary_document.objectives.length
         ? camp.project_summary_document.objectives
         : camp.project_document?.objectives || [],
-  });
+  };
   const filename = buildProjectSummaryDownloadFilename({
     projectName: camp.project_summary_document.project_name,
     extension: "pdf",
   });
 
-  return new NextResponse(Buffer.from(bytes), {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": projectDownloadContentDisposition(filename),
-      "Cache-Control": "private, no-store",
-    },
-  });
+  return NextResponse.json(
+    { document, fileName: filename },
+    { headers: { "Cache-Control": "private, no-store" } },
+  );
 }

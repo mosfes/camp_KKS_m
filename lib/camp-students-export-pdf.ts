@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, PDFPage, rgb } from "pdf-lib";
+
+import { loadPublicAsset } from "@/lib/pdf-assets";
 
 // A4 Landscape
 const PAGE_WIDTH = 841.89;
@@ -54,17 +53,13 @@ export async function createCampStudentsPdf(
 
   pdf.registerFontkit(fontkit);
 
-  const fontBytes = await readFile(
-    path.join(process.cwd(), "public/fonts/THSarabunNew.ttf"),
-  );
+  const fontBytes = await loadPublicAsset("fonts/THSarabunNew.ttf");
   const font = await pdf.embedFont(fontBytes, { subset: true });
 
   let logo: any = null;
 
   try {
-    const logoBytes = await readFile(
-      path.join(process.cwd(), "public/images/logoKKS.png"),
-    );
+    const logoBytes = await loadPublicAsset("images/logoKKS.png");
 
     logo = await pdf.embedPng(logoBytes);
   } catch {

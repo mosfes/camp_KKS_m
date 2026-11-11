@@ -23,9 +23,8 @@ import {
 import CampBreadcrumb from "../../CampBreadcrumb";
 
 import DocumentEditorHeader from "@/components/documents/DocumentEditorHeader";
-import DocumentPreviewModal, {
-  fetchPreviewPdf,
-} from "@/components/documents/DocumentPreviewModal";
+import DocumentPreviewModal from "@/components/documents/DocumentPreviewModal";
+import { buildProjectDocumentPdf, downloadProjectDocumentDocx } from "@/lib/client-pdf";
 import DeferredDateRangePicker from "@/components/documents/DeferredDateRangePicker";
 import {
   formatDocumentDuration,
@@ -2078,16 +2077,12 @@ export default function ProjectDocumentPage({
             key: "docx",
             label: "ดาวน์โหลด Word",
             icon: <FileType2 size={16} />,
-            onPress: () => {
-              window.location.href = `/api/camps/${campId}/project-document/docx`;
-            },
+            onPress: () => downloadProjectDocumentDocx(campId),
           },
         ]}
         fileName="project-document.pdf"
         isOpen={previewOpen}
-        loadPdf={() =>
-          fetchPreviewPdf(`/api/camps/${campId}/project-document/pdf`)
-        }
+        loadPdf={() => buildProjectDocumentPdf(campId)}
         note="ไฟล์ Word มีเนื้อหาเดียวกับตัวอย่างนี้"
         title="เอกสารข้อเสนอโครงการ"
         onClose={() => setPreviewOpen(false)}

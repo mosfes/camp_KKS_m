@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/db";
+import { AI_VULGAR_FILTER_ENABLED } from "@/lib/features";
 import { requireStudent } from "@/lib/auth";
 import { isBangkokDateBefore } from "@/lib/bangkok-date";
 import { activeCampStudentWhere } from "@/lib/active-camp-student";
@@ -206,7 +207,7 @@ export async function POST(request) {
         );
       }
 
-      if (process.env.GEMINI_API_KEY) {
+      if (AI_VULGAR_FILTER_ENABLED && process.env.GEMINI_API_KEY) {
         const combinedText = textAnswers.join(" | ");
         const prompt = `ประเมินว่าข้อความเหล่านี้เป็นข้อความที่เหมาะสมหรือไม่ (ตรวจสอบคำหยาบ, คำด่า, ภาษาลับ, ภาษาวิบัติที่รุนแรง, ภาษาลู เป็นต้น) 
 ทั้งภาษาไทยและอังกฤษ รวมถึงการระบุคำที่ใช้คำแสลง หรือคำที่จงใจเขียนเลี่ยง (เช่น ใช้ "I" แทน "ไอ้" หรือเขียนสลับตัวอักษร) 

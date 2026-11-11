@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 
 import { requireTeacher } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { createShirtPdf } from "@/lib/shirt-export-pdf";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 
 export const runtime = "nodejs";
+
+/** ส่งข้อมูลให้เบราว์เซอร์สร้าง PDF เอง (ไม่สร้าง PDF บนเซิร์ฟเวอร์) */
 
 export async function GET(
   _request: Request,
@@ -24,7 +25,6 @@ export async function GET(
       return NextResponse.json({ error: "Invalid camp ID" }, { status: 400 });
     }
 
-    // Verify access
     const camp = await prisma.camp.findFirst({
       where: {
         camp_id: campId,
@@ -79,11 +79,9 @@ export async function GET(
       return NextResponse.json({ error: "Camp not found" }, { status: 404 });
     }
 
-    // Fetch enrollments
     const enrollments = await prisma.student_enrollment.findMany({
       where: {
         ...activeCampEnrollmentWhere(campId),
-        enrolled_at: { not: null },
       },
       include: {
         classroom: { include: { classroom_types: true } },
@@ -100,32 +98,40 @@ export async function GET(
             },
           },
         },
+        certificate: {
+          select: { certificate_no: true },
+          take: 1,
+        },
       },
       orderBy: {
-        enrolled_at: "asc",
+        student: { firstname: "asc" },
       },
     });
-
-    let totalShirts = 0;
-    const sizeSummary: Record<string, number> = {};
-    const students = [];
 
     const campClassroomIds = adminCamp.camp_classroom.map(
       (cc) => cc.classroom_classroom_id,
     );
 
-    for (const enr of enrollments) {
-      const size = enr.shirt_size || "รอระบุไซส์";
+    let allergiesCount = 0;
+    let chronicDiseasesCount = 0;
+    let remarksCount = 0;
 
-      if (enr.shirt_size) {
-        totalShirts++;
-        sizeSummary[size] = (sizeSummary[size] || 0) + 1;
-      } else {
-        sizeSummary["รอระบุไซส์"] = (sizeSummary["รอระบุไซส์"] || 0) + 1;
-      }
+    const notSignificant = (v: string | null) => {
+      if (!v) return false;
+      const t = v.trim();
+
+      return t !== "" && t !== "-" && t !== "ไม่มี";
+    };
+
+    const students = enrollments.map((enr) => {
+      const stu = enr.student;
+
+      if (notSignificant(stu.food_allergy)) allergiesCount++;
+      if (notSignificant(stu.chronic_disease)) chronicDiseasesCount++;
+      if (notSignificant(stu.remark)) remarksCount++;
 
       let classroomStr = "-";
-      const matchedCs = enr.student.classroom_students.find((cs) =>
+      const matchedCs = stu.classroom_students?.find((cs) =>
         campClassroomIds.includes(cs.classroom_classroom_id),
       );
 
@@ -143,43 +149,46 @@ export async function GET(
         classroomStr = `ม.${gradeStr} ห้อง ${typeStr}`.trim();
       }
 
-      students.push({
-        enrollmentId: enr.student_enrollment_id,
-        studentId: enr.student.students_id,
+      return {
+        studentId: stu.students_id,
         name:
           enr.student_name_snapshot ||
-          `${enr.student.prefix_name || ""}${enr.student.firstname} ${enr.student.lastname}`,
-        nickname: enr.student.nickname,
+          `${stu.prefix_name || ""}${stu.firstname} ${stu.lastname}`.trim(),
+        nickname: stu.nickname,
         classroom: classroomStr,
-        shirtSize: enr.shirt_size || null,
-        enrolledAt: enr.enrolled_at ? enr.enrolled_at.toISOString() : undefined,
-      });
-    }
+        tel: stu.tel,
+        foodAllergy: stu.food_allergy,
+        chronicDisease: stu.chronic_disease,
+        remark: stu.remark,
+        certificateNo: enr.certificate?.[0]?.certificate_no || null,
+      };
+    });
 
-    const pdfBytes = await createShirtPdf({
+    const pdfData = {
       campName: adminCamp.name,
-      summary: sizeSummary,
-      totalShirts,
-      totalStudents: students.length,
-      students,
-    });
-
-    const sanitizedCampName = encodeURIComponent(
-      adminCamp.name.replace(/[/\\?%*:|"<>]/g, "-"),
-    );
-
-    return new NextResponse(Buffer.from(pdfBytes), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="shirts-${sanitizedCampName}-${campId}.pdf"; filename*=UTF-8''shirts-${sanitizedCampName}-${campId}.pdf`,
-        "Cache-Control": "private, no-store",
+      summary: {
+        totalStudents: students.length,
+        allergiesCount,
+        chronicDiseasesCount,
+        remarksCount,
       },
-    });
-  } catch (err) {
-    console.error("Failed to generate shirt PDF:", err);
+      students,
+    };
+
+    const sanitizedCampName = adminCamp.name.replace(/[/\\?%*:|"<>]/g, "-");
 
     return NextResponse.json(
-      { error: "Failed to generate shirt PDF" },
+      {
+        data: pdfData,
+        fileName: `students-${sanitizedCampName}-${campId}.pdf`,
+      },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
+  } catch (err) {
+    console.error("Failed to load student PDF data:", err);
+
+    return NextResponse.json(
+      { error: "Failed to load student PDF data" },
       { status: 500 },
     );
   }

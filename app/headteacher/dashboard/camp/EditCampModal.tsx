@@ -29,6 +29,7 @@ import { BANGKOK_TIME_ZONE, getBangkokDateKey } from "@/lib/bangkok-date";
 import CampDestinationField, {
   type CampDestination,
 } from "@/components/camp-location/CampDestinationField";
+import { LOCATION_TRACKING_ENABLED } from "@/lib/features";
 
 interface TimeSlot {
   startTime: string;
@@ -421,7 +422,9 @@ export default function EditCampModal({
             }
           : null,
       );
-      setLocationTrackingEnabled(Boolean(campData.location_sharing_enabled));
+      setLocationTrackingEnabled(
+        LOCATION_TRACKING_ENABLED && Boolean(campData.location_sharing_enabled),
+      );
 
       // ตั้งค่ารูปเสื้อ (จาก JSON array ถ้ามี)
       if (campData.img_shirt_url) {

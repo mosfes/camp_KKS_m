@@ -48,6 +48,7 @@ import {
   isBangkokDateBefore,
   isBangkokDateInRange,
 } from "@/lib/bangkok-date";
+import { LOCATION_TRACKING_ENABLED } from "@/lib/features";
 
 const QrScanner = dynamic(() => import("@/components/QrScanner"), {
   ssr: false,
@@ -1059,7 +1060,9 @@ export default function StudentCampDetailPage({
               </div>
             </div>
 
-            <LazyCampLocationTracker campId={camp.id} />
+            {LOCATION_TRACKING_ENABLED && (
+              <LazyCampLocationTracker campId={camp.id} />
+            )}
 
             {/* Mission Progress Section (Only if registered) */}
             {camp.isRegistered && (

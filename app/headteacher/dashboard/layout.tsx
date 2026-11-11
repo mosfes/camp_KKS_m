@@ -40,6 +40,7 @@ import {
   readActiveCampId,
   rememberActiveCampId,
 } from "@/lib/client-active-camp";
+import { LOCATION_TRACKING_ENABLED } from "@/lib/features";
 
 const teacherMenuItems = [
   { id: "homeroom", label: "นักเรียนประจำชั้น", icon: Users },
@@ -74,12 +75,16 @@ const campMenuItems: SidebarMenuItem[] = [
     icon: Users,
     group: "ผู้เข้าร่วม",
   },
-  {
-    id: "location",
-    label: "ติดตามตำแหน่ง",
-    icon: MapPin,
-    group: "ผู้เข้าร่วม",
-  },
+  ...(LOCATION_TRACKING_ENABLED
+    ? [
+        {
+          id: "location",
+          label: "ติดตามตำแหน่ง",
+          icon: MapPin,
+          group: "ผู้เข้าร่วม",
+        } satisfies SidebarMenuItem,
+      ]
+    : []),
   {
     id: "shirts",
     label: "รายการจองเสื้อ",

@@ -49,9 +49,6 @@ const SelectProjectTypeModal = dynamic(
   () => import("./SelectProjectTypeModal"),
   { ssr: false },
 );
-const QuickCreateCampModal = dynamic(() => import("./QuickCreateCampModal"), {
-  ssr: false,
-});
 const EditCampModal = dynamic(() => import("./camp/EditCampModal"), {
   ssr: false,
 });
@@ -351,7 +348,6 @@ function DashboardContent() {
   const loading = !rawCamps || !teacherInfo || !dbAcademicYears;
   const [isSelectTypeOpen, setIsSelectTypeOpen] = useState(false);
   const [isCreateCampOpen, setIsCreateCampOpen] = useState(false);
-  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [selectedProjectType, setSelectedProjectType] = useState<string | null>(
     null,
   );
@@ -548,7 +544,6 @@ function DashboardContent() {
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const mountSelectTypeModal = useMountedModal(isSelectTypeOpen);
   const mountCreateCampModal = useMountedModal(isCreateCampOpen);
-  const mountQuickCreateModal = useMountedModal(isQuickCreateOpen);
   const mountEnrollmentModal = useMountedModal(isEnrollmentModalOpen);
   const mountEditCampModal = useMountedModal(isEditModalOpen);
   const mountHomeroomStudentModal = useMountedModal(Boolean(selectedStudent));
@@ -1585,13 +1580,6 @@ function DashboardContent() {
 
               <div className="flex flex-wrap gap-2">
                 <Button
-                  className="bg-white text-[#6b857a] border border-[#6b857a] rounded-full px-5"
-                  startContent={<Sparkles size={16} />}
-                  onPress={() => setIsQuickCreateOpen(true)}
-                >
-                  สร้างค่ายด่วนด้วย AI
-                </Button>
-                <Button
                   className="bg-[#6b857a] text-white rounded-full px-5"
                   startContent={<span className="text-xl">+</span>}
                   onPress={openCreateCampFlow}
@@ -1829,24 +1817,24 @@ function DashboardContent() {
                             </p>
                           </div>
 
-                          <div className="mb-3 grid grid-rows-3 gap-1.5 text-sm text-[#718096]">
+                          <div className="mb-3 grid min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-3 gap-1.5 text-sm text-[#718096]">
                             {/* Location */}
-                            <div className="flex min-h-6 items-center gap-2">
+                            <div className="flex min-h-6 min-w-0 items-center gap-2">
                               <MapPin className="shrink-0" size={16} />
-                              <span className="truncate" title={camp.location}>
+                              <span className="min-w-0 flex-1 truncate" title={camp.location}>
                                 {camp.location}
                               </span>
                             </div>
 
                             {/* Grades */}
                             {camp.gradeDisplay ? (
-                              <div className="flex min-h-6 items-start gap-2">
+                              <div className="flex min-h-6 min-w-0 items-start gap-2">
                                 <GraduationCap
                                   className="mt-0.5 shrink-0"
                                   size={16}
                                 />
                                 <span
-                                  className="line-clamp-1"
+                                  className="min-w-0 flex-1 line-clamp-1"
                                   title={`ระดับชั้น: ${camp.gradeDisplay}`}
                                 >
                                   ระดับชั้น: {camp.gradeDisplay}
@@ -1857,9 +1845,9 @@ function DashboardContent() {
                             )}
 
                             {/* Date */}
-                            <div className="flex min-h-6 items-center gap-2">
+                            <div className="flex min-h-6 min-w-0 items-center gap-2">
                               <Calendar className="shrink-0" size={16} />
-                              <span className="truncate">
+                              <span className="min-w-0 flex-1 truncate">
                                 {camp.startDate} - {camp.endDate}
                               </span>
                             </div>
@@ -1929,22 +1917,6 @@ function DashboardContent() {
           isOpen={isSelectTypeOpen}
           onClose={() => setIsSelectTypeOpen(false)}
           onSelect={handleProjectTypeSelect}
-        />
-      )}
-
-      {mountQuickCreateModal && (
-        <QuickCreateCampModal
-          isOpen={isQuickCreateOpen}
-          onClose={() => setIsQuickCreateOpen(false)}
-          onCreated={(campId) => {
-            setIsQuickCreateOpen(false);
-            mutateCamps();
-            showSuccess(
-              "สร้างค่ายสำเร็จ",
-              "AI ร่างค่ายและเอกสารโครงการเรียบร้อย กรุณาตรวจสอบรายละเอียด",
-            );
-            goToCampDetail(campId);
-          }}
         />
       )}
 

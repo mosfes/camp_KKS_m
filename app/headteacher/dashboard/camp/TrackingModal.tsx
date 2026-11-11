@@ -46,6 +46,7 @@ import {
   getCleanTrackingStudentPath,
   rememberActiveTrackingStudentId,
 } from "@/lib/client-active-camp";
+import { LOCATION_TRACKING_ENABLED } from "@/lib/features";
 
 const CampLocationTracker = dynamic(
   () => import("@/components/camp-location/CampLocationTracker"),
@@ -535,11 +536,13 @@ export default function TrackingModal({
   onClose,
   campId,
   campName,
-  locationTrackingEnabled = false,
+  locationTrackingEnabled: locationTrackingEnabledProp = false,
   pageMode = false,
   view = "both",
   initialLocationData,
 }: TrackingModalProps) {
+  const locationTrackingEnabled =
+    LOCATION_TRACKING_ENABLED && locationTrackingEnabledProp;
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TrackingData | null>(null);
@@ -549,9 +552,9 @@ export default function TrackingModal({
   const [page, setPage] = useState(1);
   const [isSummaryOpen, setIsSummaryOpen] = useState(false);
   const defaultSection =
-    view === "location"
+    view === "location" && LOCATION_TRACKING_ENABLED
       ? "location"
-      : view === "progress"
+      : view === "progress" || view === "location"
         ? "progress"
         : locationTrackingEnabled
           ? "location"

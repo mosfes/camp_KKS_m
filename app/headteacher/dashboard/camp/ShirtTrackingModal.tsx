@@ -17,9 +17,8 @@ import { Search, Shirt, FileSpreadsheet, FileText } from "lucide-react";
 import CampBreadcrumb from "./CampBreadcrumb";
 
 import { useStatusModal } from "@/components/StatusModalProvider";
-import DocumentPreviewModal, {
-  fetchPreviewPdf,
-} from "@/components/documents/DocumentPreviewModal";
+import DocumentPreviewModal from "@/components/documents/DocumentPreviewModal";
+import { buildShirtListPdf } from "@/lib/client-pdf";
 
 interface StudentShirt {
   enrollmentId: number;
@@ -501,7 +500,7 @@ export default function ShirtTrackingModal({
         fileName={`รายการจองเสื้อ_${cleanCampName}_${new Date().toISOString().slice(0, 10)}.pdf`}
         isOpen={pdfPreviewOpen}
         loadPdf={async () => ({
-          blob: (await fetchPreviewPdf(`/api/camps/${campId}/shirts/pdf`)).blob,
+          blob: (await buildShirtListPdf(campId)).blob,
         })}
         title="รายการจองเสื้อ"
         onClose={() => setPdfPreviewOpen(false)}
