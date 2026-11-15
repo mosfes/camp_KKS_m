@@ -24,7 +24,11 @@ import {
   getShirtReservationDateError,
   isCompleteCampDate,
 } from "@/lib/camp-form-date";
-import { BANGKOK_TIME_ZONE } from "@/lib/bangkok-date";
+import { BANGKOK_TIME_ZONE, getBangkokDateKey } from "@/lib/bangkok-date";
+import { defaultRegistrationEndKey } from "@/lib/camp-registration";
+import RegistrationWindowSummary, {
+  registrationFormWarnings,
+} from "@/components/RegistrationWindowSummary";
 
 interface TimeSlot {
   startTime: string;
@@ -97,7 +101,11 @@ export default function CreateCampModal({
   templateData,
   isLoading,
 }: Props) {
-  const { showWarning } = useStatusModal();
+  const {
+    showWarning,
+    showConfirm,
+    close: closeStatusModal,
+  } = useStatusModal();
   const submitInFlightRef = useRef(false);
   const [classrooms, setClassrooms] = useState<any[]>([]);
   const [filteredClassrooms, setFilteredClassrooms] = useState<any[]>([]);
@@ -720,6 +728,26 @@ export default function CreateCampModal({
       return;
     }
 
+    const registrationWarnings = registrationFormWarnings(formData);
+
+    if (registrationWarnings.length > 0) {
+      showConfirm(
+        "ตรวจสอบช่วงรับสมัคร",
+        `${registrationWarnings.join("\n")}\n\nต้องการสร้างค่ายด้วยวันที่นี้หรือไม่?`,
+        async () => {
+          closeStatusModal();
+          await submitCamp();
+        },
+        "สร้างค่ายต่อ",
+      );
+
+      return;
+    }
+
+    await submitCamp();
+  };
+
+  const submitCamp = async () => {
     const payload = {
       ...formData,
       dailySchedule: formData.dailySchedule.map((day) => ({
@@ -1130,15 +1158,42 @@ export default function CreateCampModal({
                       startDate={formData.campStartDate}
                       endDate={formData.campEndDate}
                       onChange={(startDate, endDate) => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          campStartDate: startDate,
-                          campEndDate: endDate,
-                        }));
+                        setFormData((prev) => {
+                          // ค่าเริ่มต้น: เปิดรับสมัครวันนี้ ปิด 1 วันก่อนเริ่มค่าย
+                          const defaultEnd = startDate
+                            ? defaultRegistrationEndKey(startDate)
+                            : "";
+                          const todayKey = getBangkokDateKey();
+                          const fillRegistration =
+                            !prev.registrationStartDate &&
+                            !prev.registrationEndDate &&
+                            defaultEnd >= todayKey;
+
+                          return {
+                            ...prev,
+                            campStartDate: startDate,
+                            campEndDate: endDate,
+                            ...(fillRegistration
+                              ? {
+                                  registrationStartDate: todayKey,
+                                  registrationEndDate: defaultEnd,
+                                  shirtStartDate:
+                                    prev.shirtStartDate || todayKey,
+                                  shirtEndDate: prev.shirtEndDate || defaultEnd,
+                                }
+                              : {}),
+                          };
+                        });
                       }}
                     />
                   </div>
                 </div>
+                <RegistrationWindowSummary
+                  campEndDate={formData.campEndDate}
+                  campStartDate={formData.campStartDate}
+                  registrationEndDate={formData.registrationEndDate}
+                  registrationStartDate={formData.registrationStartDate}
+                />
               </div>
             </div>
           )}

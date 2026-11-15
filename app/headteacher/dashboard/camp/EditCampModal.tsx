@@ -18,6 +18,9 @@ import { Select, SelectItem } from "@heroui/react";
 import { today } from "@internationalized/date";
 
 import CampDateRangePicker from "@/components/CampDateRangePicker";
+import RegistrationWindowSummary, {
+  registrationFormWarnings,
+} from "@/components/RegistrationWindowSummary";
 import { parseCalendarDate } from "@/lib/calendar-date";
 import {
   getCampFormDayCount,
@@ -116,7 +119,11 @@ export default function EditCampModal({
   initialStep = 1,
   targetSection = "all",
 }: Props) {
-  const { showWarning } = useStatusModal();
+  const {
+    showWarning,
+    showConfirm,
+    close: closeStatusModal,
+  } = useStatusModal();
   const submitInFlightRef = useRef(false);
   const isSingleSection =
     targetSection === "info" ||
@@ -758,6 +765,29 @@ export default function EditCampModal({
       }
     }
 
+    const registrationWarnings =
+      formData.campEndDate && formData.campEndDate >= getBangkokDateKey()
+        ? registrationFormWarnings(formData)
+        : [];
+
+    if (registrationWarnings.length > 0) {
+      showConfirm(
+        "ตรวจสอบช่วงรับสมัคร",
+        `${registrationWarnings.join("\n")}\n\nต้องการบันทึกด้วยวันที่นี้หรือไม่?`,
+        async () => {
+          closeStatusModal();
+          await submitCampUpdate();
+        },
+        "บันทึกต่อ",
+      );
+
+      return;
+    }
+
+    await submitCampUpdate();
+  };
+
+  const submitCampUpdate = async () => {
     const payload = {
       name: formData.name,
       location: formData.location,
@@ -1202,6 +1232,12 @@ export default function EditCampModal({
                     />
                   </div>
                 </div>
+                <RegistrationWindowSummary
+                  campEndDate={formData.campEndDate}
+                  campStartDate={formData.campStartDate}
+                  registrationEndDate={formData.registrationEndDate}
+                  registrationStartDate={formData.registrationStartDate}
+                />
               </div>
             </div>
           )}

@@ -1,5 +1,6 @@
 "use client";
 
+import RegistrationStatusCard from "./RegistrationStatusCard";
 import { useState, useEffect, useMemo } from "react";
 import {
   useRouter,
@@ -1170,6 +1171,11 @@ export default function CampDetailPage({
             </div>
           )}
         </div>
+
+        <RegistrationStatusCard
+          campId={camp.camp_id}
+          onChanged={fetchCampDetail}
+        />
 
         {/* Shirt Reservations - Collapsible */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6">

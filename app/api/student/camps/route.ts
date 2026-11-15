@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireStudent } from "@/lib/auth";
 import { isBangkokDateBefore } from "@/lib/bangkok-date";
+import { getRegistrationState } from "@/lib/camp-registration";
 
 /**
  * Dashboard summary only.
@@ -49,6 +50,8 @@ export async function GET() {
         start_date: true,
         end_date: true,
         start_regis_date: true,
+        end_regis_date: true,
+        status: true,
         img_camp_url: true,
         survey: { select: { survey_id: true } },
         student_enrollment: {
@@ -83,6 +86,7 @@ export async function GET() {
           rawStartDate: camp.start_date,
           rawEndDate: camp.end_date,
           startRegisDate: camp.start_regis_date,
+          registration: getRegistrationState(camp),
           isRegistered,
           hasEnrollment: !!enrollment,
           hasSurvey: camp.survey.length > 0,

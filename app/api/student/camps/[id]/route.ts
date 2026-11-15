@@ -9,6 +9,7 @@ import { getCertificateEligibility } from "@/lib/certificate-eligibility";
 import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 import { resolveStudentCampId } from "@/lib/student-public-route";
 import { isCampScheduleDayInRange } from "@/lib/camp-schedule-range";
+import { getRegistrationState } from "@/lib/camp-registration";
 
 /**
  * Camp detail endpoint.
@@ -76,6 +77,7 @@ export async function GET(request, context) {
         end_shirt_date: true,
         start_regis_date: true,
         end_regis_date: true,
+        status: true,
         has_shirt: true,
         has_transport: true,
         img_camp_url: true,
@@ -267,6 +269,7 @@ export async function GET(request, context) {
         enrolledAt: enrollment?.enrolled_at ?? null,
         startRegisDate: camp.start_regis_date,
         endRegisDate: camp.end_regis_date,
+        registration: getRegistrationState(camp),
         totalCapacity,
         totalEnrolled,
         academicYear:

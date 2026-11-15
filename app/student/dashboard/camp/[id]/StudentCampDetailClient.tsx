@@ -765,7 +765,9 @@ export default function StudentCampDetailPage({
           setIsShirtSelectionModalOpen(true);
         }
       } else {
-        toast.error("ลงทะเบียนล้มเหลว");
+        const data = await res.json().catch(() => null);
+
+        toast.error(data?.error || data?.message || "ลงทะเบียนล้มเหลว");
       }
     } catch (error) {
       toast.error("เกิดข้อผิดพลาด");
@@ -833,6 +835,13 @@ export default function StudentCampDetailPage({
     startDate && isBangkokDateBefore(new Date(), startDate),
   );
   const menuLocked = camp.isRegistered && campNotStarted;
+  // สถานะคำนวณจาก lib/camp-registration ฝั่งเซิร์ฟเวอร์ (กติกาเดียวกับ /api/student/enroll)
+  const canRegisterNow = camp.registration?.canRegister ?? true;
+  const registrationClosedLabel =
+    camp.registration?.label ?? "หมดเขตรับสมัครแล้ว";
+  const registrationMessage = camp.registration?.message ?? "";
+  const registrationOpenHint =
+    camp.registration?.status === "open" ? camp.registration.label : "";
 
   const currentScheduleSlot = camp.camp_daily_schedule
     ?.flatMap((day: any) =>
@@ -1285,23 +1294,39 @@ export default function StudentCampDetailPage({
               </div>
 
               {!camp.isRegistered ? (
-                camp.isEnded ? (
-                  <Button
-                    fullWidth
-                    isDisabled
-                    className="bg-gray-100 text-gray-400 font-bold text-sm h-12 rounded-xl cursor-not-allowed border border-gray-200"
-                  >
-                    สิ้นสุดการรับสมัครแล้ว
-                  </Button>
+                camp.isEnded || !canRegisterNow ? (
+                  <div className="space-y-2">
+                    <Button
+                      fullWidth
+                      isDisabled
+                      className="bg-gray-100 text-gray-400 font-bold text-sm h-12 rounded-xl cursor-not-allowed border border-gray-200"
+                    >
+                      {camp.isEnded
+                        ? "สิ้นสุดการรับสมัครแล้ว"
+                        : registrationClosedLabel}
+                    </Button>
+                    {!camp.isEnded && registrationMessage && (
+                      <p className="text-xs text-gray-500 text-center leading-relaxed">
+                        {registrationMessage}
+                      </p>
+                    )}
+                  </div>
                 ) : (
-                  <Button
-                    fullWidth
-                    className="bg-[#5d7c6f] text-white font-bold text-base h-12 rounded-xl shadow-lg shadow-[#5d7c6f]/25 hover:bg-[#4d695e] active:scale-[0.98] transition-all"
-                    isLoading={registering}
-                    onPress={handleRegister}
-                  >
-                    เข้าร่วมค่าย
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      fullWidth
+                      className="bg-[#5d7c6f] text-white font-bold text-base h-12 rounded-xl shadow-lg shadow-[#5d7c6f]/25 hover:bg-[#4d695e] active:scale-[0.98] transition-all"
+                      isLoading={registering}
+                      onPress={handleRegister}
+                    >
+                      เข้าร่วมค่าย
+                    </Button>
+                    {registrationOpenHint && (
+                      <p className="text-xs text-[#5d7c6f] text-center font-semibold">
+                        {registrationOpenHint}
+                      </p>
+                    )}
+                  </div>
                 )
               ) : (
                 <div className="space-y-3">
@@ -1503,23 +1528,39 @@ export default function StudentCampDetailPage({
                 </div>
               )}
               {!camp.isRegistered ? (
-                camp.isEnded ? (
-                  <Button
-                    fullWidth
-                    isDisabled
-                    className="bg-gray-100 text-gray-400 font-black text-base h-12 rounded-xl cursor-not-allowed border border-gray-200"
-                  >
-                    สิ้นสุดการรับสมัครแล้ว
-                  </Button>
+                camp.isEnded || !canRegisterNow ? (
+                  <div className="space-y-2">
+                    <Button
+                      fullWidth
+                      isDisabled
+                      className="bg-gray-100 text-gray-400 font-black text-base h-12 rounded-xl cursor-not-allowed border border-gray-200"
+                    >
+                      {camp.isEnded
+                        ? "สิ้นสุดการรับสมัครแล้ว"
+                        : registrationClosedLabel}
+                    </Button>
+                    {!camp.isEnded && registrationMessage && (
+                      <p className="text-xs text-gray-500 text-center leading-relaxed">
+                        {registrationMessage}
+                      </p>
+                    )}
+                  </div>
                 ) : (
-                  <Button
-                    fullWidth
-                    className="bg-[#5d7c6f] text-white font-black text-base h-12 rounded-xl shadow-lg shadow-[#5d7c6f]/25 hover:scale-[1.01] active:scale-[0.98] transition-all"
-                    isLoading={registering}
-                    onPress={handleRegister}
-                  >
-                    เข้าร่วมค่าย
-                  </Button>
+                  <div className="space-y-2">
+                    <Button
+                      fullWidth
+                      className="bg-[#5d7c6f] text-white font-black text-base h-12 rounded-xl shadow-lg shadow-[#5d7c6f]/25 hover:scale-[1.01] active:scale-[0.98] transition-all"
+                      isLoading={registering}
+                      onPress={handleRegister}
+                    >
+                      เข้าร่วมค่าย
+                    </Button>
+                    {registrationOpenHint && (
+                      <p className="text-xs text-[#5d7c6f] text-center font-semibold">
+                        {registrationOpenHint}
+                      </p>
+                    )}
+                  </div>
                 )
               ) : (
                 <div className="relative">

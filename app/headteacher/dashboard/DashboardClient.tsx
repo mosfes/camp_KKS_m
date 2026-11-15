@@ -30,6 +30,7 @@ import {
   RefreshCw,
   BellRing,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -150,6 +151,7 @@ import {
   isBangkokDateBefore,
   isBangkokDateInRange,
 } from "@/lib/bangkok-date";
+import { getRegistrationState } from "@/lib/camp-registration";
 
 async function readResponseBody(response: Response) {
   const responseText = await response.text();
@@ -650,6 +652,7 @@ function DashboardContent() {
           ),
         ),
         image: camp.img_camp_url || null,
+        registration: getRegistrationState(camp),
         isOwner: camp.isOwner,
         ownerName: camp.created_by
           ? `${camp.created_by.firstname} ${camp.created_by.lastname}`.trim()
@@ -1878,6 +1881,21 @@ function DashboardContent() {
                               {camp.totalStudents > 0
                                 ? `ลงทะเบียนแล้ว ${camp.enrolled}/${camp.totalStudents} คน`
                                 : `ลงทะเบียนแล้ว ${camp.enrolled} คน`}
+                              {camp.registration?.status === "paused" &&
+                                camp.totalStudents > 0 &&
+                                camp.enrolled / camp.totalStudents < 0.5 && (
+                                  <span className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-red-600">
+                                    <AlertTriangle size={12} />
+                                    หมดเขตรับสมัคร แต่ลงไม่ถึงครึ่ง
+                                  </span>
+                                )}
+                              {camp.registration?.status === "open" &&
+                                camp.registration.daysLeft !== null &&
+                                camp.registration.daysLeft <= 1 && (
+                                  <span className="mt-0.5 block text-xs font-semibold text-amber-600">
+                                    {camp.registration.label}
+                                  </span>
+                                )}
                             </span>
                             <div className="flex items-center gap-1 text-[#5d7c6f] font-medium text-sm">
                               ดูรายละเอียด

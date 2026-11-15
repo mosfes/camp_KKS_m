@@ -5,8 +5,8 @@ import { prisma } from "@/lib/db";
 import { buildEnrollmentSnapshot } from "@/lib/student-enrollment-snapshot";
 import { requireStudent } from "@/lib/auth";
 import { isBangkokDateInRange } from "@/lib/bangkok-date";
+import { getRegistrationState } from "@/lib/camp-registration";
 import { positiveIntSchema } from "@/lib/api-validation";
-import { activeCampEnrollmentWhere } from "@/lib/active-camp-student";
 
 // POST: ลงทะเบียนเข้าร่วมค่าย
 export async function POST(req) {
@@ -52,21 +52,6 @@ export async function POST(req) {
         end_regis_date: true,
         start_date: true,
         end_date: true,
-        camp_classroom: {
-          select: {
-            classroom: {
-              select: {
-                _count: {
-                  select: {
-                    classroom_students: {
-                      where: { student: { deletedAt: null } },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
       },
     });
 
@@ -74,83 +59,44 @@ export async function POST(req) {
       return NextResponse.json({ error: "ไม่พบค่าย" }, { status: 404 });
     }
 
-    if (camp.status !== "OPEN") {
+    const registration = getRegistrationState(camp);
+
+    if (!registration.canRegister) {
       return NextResponse.json(
-        { error: "ค่ายนี้ปิดรับลงทะเบียนแล้ว" },
+        { error: registration.message, registration },
         { status: 400 },
       );
     }
 
-    const isRegistrationPeriod = isBangkokDateInRange(
-      camp.start_regis_date,
-      camp.end_regis_date,
-    );
-    const isCampPeriod = isBangkokDateInRange(camp.start_date, camp.end_date);
-
-    if (!isRegistrationPeriod && !isCampPeriod) {
-      return NextResponse.json(
-        { error: "ไม่อยู่ในช่วงเวลาลงทะเบียนค่าย" },
-        { status: 400 },
-      );
-    }
-
-    const totalCapacity = camp.camp_classroom.reduce(
-      (sum, campClassroom) =>
-        sum + campClassroom.classroom._count.classroom_students,
-      0,
-    );
-
-    // Lock the camp row while checking capacity and creating the enrollment.
-    // Without this, two students registering at the same time could both see
-    // one free seat and exceed the classroom capacity.
-    const result = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`
-        SELECT camp_id
-        FROM camp
-        WHERE camp_id = ${campId}
-        FOR UPDATE
-      `;
-
-      const existing = await tx.student_enrollment.findFirst({
+    // ไม่ต้องล็อกแถวค่าย (SELECT ... FOR UPDATE) อีกต่อไป:
+    // จำนวนที่นั่ง = จำนวนนักเรียนในห้องที่ผูกกับค่าย และนักเรียนหนึ่งคนลงทะเบียนได้
+    // ครั้งเดียว (unique student+camp) จึงไม่มีทางเกินจำนวนที่นั่ง แต่การล็อกทำให้
+    // นักเรียนทั้งห้องที่กดพร้อมกันต้องต่อคิว จนธุรกรรมเกินเวลา (P2028) และได้ 500
+    const [snapshot, existing] = await Promise.all([
+      buildEnrollmentSnapshot(prisma, campId, studentId),
+      prisma.student_enrollment.findFirst({
         where: {
           student_students_id: studentId,
           camp_camp_id: campId,
         },
-      });
+      }),
+    ]);
 
-      if (existing) {
-        if (!existing.enrolled_at) {
-          const snapshot = await buildEnrollmentSnapshot(tx, campId, studentId);
-          return {
-            enrollment: await tx.student_enrollment.update({
+    let result;
+
+    if (existing) {
+      result = existing.enrolled_at
+        ? { enrollment: existing, status: 200 }
+        : {
+            enrollment: await prisma.student_enrollment.update({
               where: { student_enrollment_id: existing.student_enrollment_id },
               data: { enrolled_at: new Date(), ...snapshot },
             }),
             status: 200,
           };
-        }
-
-        return { enrollment: existing, status: 200 };
-      }
-
-      const snapshot = await buildEnrollmentSnapshot(tx, campId, studentId);
-
-      const totalEnrolled = await tx.student_enrollment.count({
-        where: {
-          ...activeCampEnrollmentWhere(campId),
-          enrolled_at: { not: null },
-        },
-      });
-
-      if (totalCapacity > 0 && totalEnrolled >= totalCapacity) {
-        const error = new Error("CAMP_CAPACITY_REACHED");
-
-        error.code = "CAMP_CAPACITY_REACHED";
-        throw error;
-      }
-
-      return {
-        enrollment: await tx.student_enrollment.create({
+    } else {
+      result = {
+        enrollment: await prisma.student_enrollment.create({
           // Use scalar foreign keys: the snapshot carries classroom_classroom_id,
           // which Prisma rejects when mixed with relation `connect` inputs.
           data: {
@@ -163,25 +109,22 @@ export async function POST(req) {
         }),
         status: 201,
       };
-    });
+    }
 
     return NextResponse.json(result.enrollment, { status: result.status });
   } catch (error) {
-    if (error.code === "CAMP_CAPACITY_REACHED") {
-      return NextResponse.json(
-        { error: "ค่ายนี้มีผู้ลงทะเบียนเต็มจำนวนแล้ว" },
-        { status: 409 },
-      );
-    }
     if (error.code === "P2002") {
       return NextResponse.json(
         { message: "Already enrolled" },
         { status: 200 },
       );
     }
-    //     console.error("Enrollment Error:", error);
+    console.error("[student enroll] error:", error);
 
-    return NextResponse.json({ error: "Failed to enroll" }, { status: 500 });
+    return NextResponse.json(
+      { error: "ลงทะเบียนไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" },
+      { status: 500 },
+    );
   }
 }
 
