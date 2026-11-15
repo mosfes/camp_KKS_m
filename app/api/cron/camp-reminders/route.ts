@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { runCampReminderJob } from "@/lib/camp-reminders";
 import { clearEndedCampLocations } from "@/lib/ended-camp-location-cleanup";
+import { runRegistrationPushReminders } from "@/lib/camp-registration-reminders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,9 +21,23 @@ export async function GET(request: Request) {
 
   try {
     const locationCleanup = await clearEndedCampLocations();
+    // แยกจากงานอีเมล: ถ้า push ล้มเหลวต้องไม่ทำให้อีเมลไม่ถูกส่ง และกลับกัน
+    const registrationPush = await runRegistrationPushReminders().catch(
+      (error) => {
+        // eslint-disable-next-line no-console
+        console.error("REGISTRATION_PUSH_FAILED", error);
+
+        return { error: error instanceof Error ? error.message : "failed" };
+      },
+    );
     const summary = await runCampReminderJob();
 
-    return NextResponse.json({ ok: true, ...summary, locationCleanup });
+    return NextResponse.json({
+      ok: true,
+      ...summary,
+      locationCleanup,
+      registrationPush,
+    });
   } catch (error) {
     // Keep the failure visible in Vercel runtime logs for operations.
     // eslint-disable-next-line no-console

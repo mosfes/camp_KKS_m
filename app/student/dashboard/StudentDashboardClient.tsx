@@ -1125,9 +1125,17 @@ function CampCard({
             <span className="inline-flex items-center gap-1 bg-amber-700/90 backdrop-blur-md text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-sm">
               <Clock size={12} /> {countdownText}
             </span>
+          ) : camp.registration && !camp.registration.canRegister ? (
+            <span className="inline-flex items-center gap-1 bg-gray-700/85 backdrop-blur-md text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-sm">
+              {camp.registration.label}
+            </span>
           ) : (
             <span className="inline-flex items-center gap-1 bg-[#5d7c6f]/90 backdrop-blur-md text-white text-[10px] font-semibold px-2.5 py-1 rounded-full shadow-sm">
-              เปิดรับสมัคร
+              {camp.registration?.status === "open" &&
+              camp.registration.daysLeft !== null &&
+              camp.registration.daysLeft <= 1
+                ? camp.registration.label
+                : "เปิดรับสมัคร"}
             </span>
           )}
         </div>

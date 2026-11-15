@@ -168,3 +168,76 @@ export async function sendStudentBusPushNotifications(input: BusPushInput) {
 
   return { attempted: subscriptions.length, sent };
 }
+
+type StudentPushPayload = {
+  title: string;
+  body: string;
+  url: string;
+  tag: string;
+};
+
+/** ส่ง push ทั่วไปถึงนักเรียน (ใช้กับการแจ้งเตือนที่ไม่ใช่รถบัส) */
+export async function sendStudentPushNotifications(
+  studentIds: number[],
+  payload: StudentPushPayload,
+  options: { topic: string; ttlSeconds?: number },
+) {
+  const config = getWebPushConfig();
+
+  if (!config || studentIds.length === 0) return { attempted: 0, sent: 0 };
+
+  webPush.setVapidDetails(config.subject, config.publicKey, config.privateKey);
+
+  const subscriptions = await prisma.student_push_subscription.findMany({
+    where: { student_students_id: { in: Array.from(new Set(studentIds)) } },
+    select: { endpoint_hash: true, endpoint: true, p256dh: true, auth: true },
+  });
+  const body = JSON.stringify({
+    type: "KKS_STUDENT_CAMP_PUSH",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    ...payload,
+  });
+  const expiredEndpointHashes: string[] = [];
+  let sent = 0;
+
+  await Promise.all(
+    subscriptions.map(async (subscription) => {
+      try {
+        await webPush.sendNotification(
+          {
+            endpoint: subscription.endpoint,
+            keys: { p256dh: subscription.p256dh, auth: subscription.auth },
+          },
+          body,
+          {
+            TTL: options.ttlSeconds ?? 12 * 60 * 60,
+            urgency: "normal",
+            topic: options.topic,
+          },
+        );
+        sent += 1;
+      } catch (error) {
+        const statusCode =
+          typeof error === "object" && error && "statusCode" in error
+            ? Number(error.statusCode)
+            : null;
+
+        if (statusCode === 404 || statusCode === 410) {
+          expiredEndpointHashes.push(subscription.endpoint_hash);
+        } else {
+          // eslint-disable-next-line no-console
+          console.error("[student web push] delivery failed", { statusCode });
+        }
+      }
+    }),
+  );
+
+  if (expiredEndpointHashes.length > 0) {
+    await prisma.student_push_subscription.deleteMany({
+      where: { endpoint_hash: { in: expiredEndpointHashes } },
+    });
+  }
+
+  return { attempted: subscriptions.length, sent };
+}

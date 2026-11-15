@@ -103,7 +103,7 @@ export default function StatusModal({
               </h3>
             </ModalHeader>
             <ModalBody className="text-center pb-6">
-              <p className="text-[#6b857a]/80 font-normal text-lg">{message}</p>
+              <p className="text-[#6b857a]/80 font-normal text-lg whitespace-pre-line">{message}</p>
             </ModalBody>
             <ModalFooter className="justify-center gap-4 pb-8">
               {onConfirm ? (
