@@ -43,7 +43,12 @@ function teacherAccessWhere(teacher: { teachers_id: number; role: string }) {
 export async function GET(_request: Request, context: any) {
   const { teacher, error: authError } = await requireTeacher();
 
-  if (authError || !teacher) return authError;
+  if (authError || !teacher) {
+    return (
+      authError ??
+      NextResponse.json({ error: "กรุณาเข้าสู่ระบบก่อน" }, { status: 401 })
+    );
+  }
 
   const { id } = await context.params;
   const campId = Number(id);
@@ -152,7 +157,15 @@ export async function POST(request: Request, context: any) {
   const { id } = await context.params;
   const { campId, error } = await requireCampOwner(Number(id));
 
-  if (error || !campId) return error;
+  if (error || !campId) {
+    return (
+      error ??
+      NextResponse.json(
+        { error: "คุณไม่มีสิทธิ์จัดการข้อมูลของค่ายนี้" },
+        { status: 403 },
+      )
+    );
+  }
 
   const parsed = extendSchema.safeParse(await request.json().catch(() => null));
 
